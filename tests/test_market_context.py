@@ -316,5 +316,109 @@ class TestComputeAsOfReplay(unittest.TestCase):
                                snap["themes"]["主题A"]["r20d"], places=8)
 
 
+class TestStaleDetection(unittest.TestCase):
+    """P0-0（2026-09-08）：缓存陈旧不再静默通过 usable_for_oos。
+
+    背景：BK0457 无备份源（Tushare 不付费、腾讯不覆盖 BK 码），东财频控下
+    陈旧是大概率常态；旧 usable 口径（coverage/n_switch/errors）只看有没有
+    取到数，不看新不新，导致滞后样本直进 60 日 OOS。本组测试锁死修复行为。"""
+
+    def setUp(self):
+        self._orig_bk = mc._BK_CACHE
+        self._orig_stock = mc._STOCK_CACHE
+        self._orig_snap = mc.SNAP_DIR
+        self._tmp = tempfile.TemporaryDirectory()
+        mc._BK_CACHE = Path(self._tmp.name)
+        mc._STOCK_CACHE = Path(self._tmp.name)
+        mc.SNAP_DIR = Path(self._tmp.name) / "snapshots"
+        mc.SNAP_DIR.mkdir(exist_ok=True)
+        self.basket = {
+            "offensive": ["主题A", "主题B"],
+            "defensive": ["主题C"],
+            "proxies": {
+                "主题A": [{"code": "590001", "name": "A主", "gate": "original"}],
+                "主题B": [{"code": "590002", "name": "B主", "gate": "original"}],
+                "主题C": [{"code": "590003", "name": "C主", "gate": "original"}],
+            },
+        }
+        mc.BASKET_PATH = Path(self._tmp.name) / "basket.json"
+        mc.BASKET_PATH.write_text(json.dumps(self.basket, ensure_ascii=False), encoding="utf-8")
+
+    def tearDown(self):
+        mc._BK_CACHE = self._orig_bk
+        mc._STOCK_CACHE = self._orig_stock
+        mc.SNAP_DIR = self._orig_snap
+        mc.BASKET_PATH = Path(mc.BASE_DIR) / "data" / "basket_20260902.json"
+        self._tmp.cleanup()
+
+    def _write_stock(self, code, closes):
+        rows = [[d, c, c, c, c, 0] for d, c in closes]
+        (mc._STOCK_CACHE / f"{code}.json").write_text(
+            json.dumps({"code": code, "klines": rows}), encoding="utf-8")
+
+    def test_stale_theme_degrades_oos(self):
+        # 主题A 停在 E，主题B/C 到 E+3；as_of = E+4（新鲜主题末根之后一天）
+        one_day = date(2000, 1, 2) - date(2000, 1, 1)
+        e = date(2026, 3, 10)
+        a_closes = _make_klines(e - one_day * 29, 30)   # 末根 = e（滞后）
+        fresh_closes = _make_klines(e - one_day * 26, 30)  # 末根 = e+3
+        self.assertEqual(a_closes[-1][0], e.strftime("%Y-%m-%d"))
+        self.assertEqual(fresh_closes[-1][0], (e + one_day * 3).strftime("%Y-%m-%d"))
+        self._write_stock("590001", a_closes)
+        self._write_stock("590002", fresh_closes)
+        self._write_stock("590003", fresh_closes)
+        snap = mc.compute("test", save=False,
+                          as_of_date=(e + one_day * 4).strftime("%Y-%m-%d"))
+        q = snap["market_context_quality"]
+        # 主题A 滞后 3 个交易日 → stale → 降级
+        self.assertEqual(snap["themes"]["主题A"]["as_of_lag"], 3)
+        self.assertEqual(snap["themes"]["主题B"]["as_of_lag"], 0)
+        self.assertEqual(snap["themes"]["主题C"]["as_of_lag"], 0)
+        self.assertEqual(q["stale_themes"], ["主题A"])
+        self.assertEqual(q["max_lag_trading_days"], 3)
+        self.assertFalse(q["usable_for_oos"])
+        self.assertEqual(q["oos_quality"], "degraded")
+        self.assertIn("stale", q["usable_for_oos_reason"])
+        # 报告层可见
+        md = mc.render_section(snap)
+        self.assertIn("陈旧 1 主题", md)
+        self.assertIn("主题A", md)
+        self.assertIn("OOS 降级", md)
+
+    def test_fresh_all_themes_no_stale(self):
+        # 三主题末根同日、as_of 紧随其后 → 无 stale，usable 保持 True
+        one_day = date(2000, 1, 2) - date(2000, 1, 1)
+        e = date(2026, 3, 10)
+        closes = _make_klines(e - one_day * 29, 30)  # 末根 = e
+        self._write_stock("590001", closes)
+        self._write_stock("590002", closes)
+        self._write_stock("590003", closes)
+        snap = mc.compute("test", save=False,
+                          as_of_date=(e + one_day).strftime("%Y-%m-%d"))
+        q = snap["market_context_quality"]
+        self.assertIsNone(q["stale_themes"])
+        self.assertEqual(q["max_lag_trading_days"], 0)
+        self.assertTrue(q["usable_for_oos"])
+        self.assertEqual(q["oos_quality"], "ok")
+        self.assertNotIn("陈旧", mc.render_section(snap))
+
+    def test_all_themes_equally_stale_limitation(self):
+        """已知局限（留痕）：全篮子整体同陈旧 → 参考日随数据后移，
+        滞后感应不到、usable 仍 True，仅靠 calendar_gap_days 暴露供人工复核。"""
+        one_day = date(2000, 1, 2) - date(2000, 1, 1)
+        e = date(2026, 3, 10)
+        closes = _make_klines(e - one_day * 29, 30)  # 末根 = e
+        self._write_stock("590001", closes)
+        self._write_stock("590002", closes)
+        self._write_stock("590003", closes)
+        snap = mc.compute("test", save=False,
+                          as_of_date=(e + one_day * 6).strftime("%Y-%m-%d"))
+        q = snap["market_context_quality"]
+        self.assertIsNone(q["stale_themes"])
+        self.assertTrue(q["usable_for_oos"])
+        self.assertEqual(q["calendar_gap_days"], 6)
+        self.assertEqual(q["data_ref_last"], e.strftime("%Y-%m-%d"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,13 @@
 - PIT：只用 ≤ 今日已完成交易日的收盘价；缓存当日不重复拉
 - 代理失败逐项跳过并记录，绝不抛异常阻断主流程
 - gate=relaxed 与 BK 承接项按 basket 原样标记，分层留待增量实验
+
+P0-0 陈旧检测（2026-09-08 盲点修复）：usable 不再只看 coverage/switch/errors，
+另计每主题末根相对数据参考日的滞后交易日数（as_of_lag），任一 lag>=1 →
+stale_themes 非空 → usable_for_oos=False、reason 含 "stale"。属数据质量元数据，
+不改任何指标口径。已知局限：13 主题整体同陈旧时滞后感应不到，仅靠
+calendar_gap_days 暴露。字段起始日 = 本补丁上线日（2026-09-08 明早首算起），
+历史快照无 lag 字段，重演时视为"未检测"。
 """
 import json
 import time
@@ -114,6 +121,7 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
                 "as_of": as_of}
 
     themes: dict[str, dict] = {}
+    all_dates: set[str] = set()  # P0-0：全主题已完成交易日并集（数据自推交易日历）
     for side in ("offensive", "defensive"):
         for theme in basket.get(side, []):
             proxies = (basket.get("proxies") or {}).get(theme) or []
@@ -128,12 +136,14 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
             for idx, pr in enumerate(proxies):
                 code = pr.get("code", "")
                 try:
-                    m = _theme_metrics(_closes_for(code, pr.get("type") == "bk_push2his"),
-                                       as_of_date=as_of)
+                    _cl = _closes_for(code, pr.get("type") == "bk_push2his")
+                    m = _theme_metrics(_cl, as_of_date=as_of)
                 except Exception as e:
                     errors.append(f"{theme}/{code}: {type(e).__name__} {str(e)[:60]}")
                     continue
                 if m:
+                    # P0-0：只收已完成 bar（与 _theme_metrics 的 PIT 截断同口径）
+                    all_dates.update(d for d, _ in _cl if d < as_of)
                     ds = "bk_push2his" if pr.get("type") == "bk_push2his" else "tencent_etf"
                     picked = {"code": code, "name": pr.get("name", code),
                               "gate": pr.get("gate", "original"),
@@ -185,7 +195,33 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
     n_bk = sum(1 for d in themes.values() if d.get("data_source") == "bk_push2his")
     themes_expected = len(basket.get("offensive", [])) + len(basket.get("defensive", []))
     coverage = (n_themes / themes_expected) if themes_expected else None
-    usable = bool(coverage == 1.0 and n_switch == 0 and not errors)
+    # P0-0 陈旧检测（2026-09-08，盲点修复）：usable 旧口径只看"有没有取到数"，
+    # 缓存停在旧日期（东财频控/源中断）时快照仍 usable=true 且静默改写 spread/regime。
+    # 此处以全主题日期并集为交易日历，计每主题末根相对最新参考日的滞后交易日数，
+    # lag>=1 → stale → 降级。性质同 coverage/errors/proxy_switch：数据质量元数据，
+    # 不改任何指标口径。已知局限：若 13 主题整体同陈旧（所有源同时挂数日），
+    # 参考日随数据后移、滞后感应不到，仅靠 calendar_gap_days 暴露供人工复核。
+    ref_last = max(t["as_of"] for t in themes.values()) if themes else None
+    _cal = {d: i for i, d in enumerate(sorted(all_dates))}
+
+    def _lag_days(last: str) -> int:
+        if last not in _cal or ref_last not in _cal:
+            return 0
+        return max(0, _cal[ref_last] - _cal[last])
+
+    max_lag = 0
+    for t in themes.values():
+        t["as_of_lag"] = _lag_days(t["as_of"])
+        max_lag = max(max_lag, t["as_of_lag"])
+    stale_themes = sorted(t for t, d in themes.items() if d["as_of_lag"] >= 1)
+    try:
+        calendar_gap_days = ((datetime.strptime(as_of, "%Y-%m-%d")
+                              - datetime.strptime(ref_last, "%Y-%m-%d")).days
+                             if ref_last else None)
+    except (ValueError, TypeError):
+        calendar_gap_days = None
+    usable = bool(coverage == 1.0 and n_switch == 0 and not errors
+                  and not stale_themes)
     # v0.1 封版补充（2026-09-04）：降级原因机器可读，60 日实验直接按 reason 过滤，
     # 不必重新解析规则；代理切换清单进顶层，研究"失效日是否恰好是切换日"零成本。
     reasons: list[str] = []
@@ -195,6 +231,8 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
         reasons.append("proxy_switch")
     if errors:
         reasons.append("errors>0")
+    if stale_themes:
+        reasons.append("stale")
     switched_themes = sorted(t for t, d in themes.items() if d.get("proxy_switch"))
     quality = {
         "themes_total": n_themes, "themes_expected": themes_expected,
@@ -207,6 +245,12 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
         "usable_for_oos": usable,
         "usable_for_oos_reason": reasons,
         "oos_quality": "ok" if usable else "degraded",
+        # P0-0（2026-09-08）：陈旧元数据（lag 起始日 = 本补丁上线日，
+        # 此前历史快照无此字段，重演时缺失应视为"未检测"而非"新鲜"）。
+        "max_lag_trading_days": max_lag,
+        "stale_themes": stale_themes or None,
+        "data_ref_last": ref_last,
+        "calendar_gap_days": calendar_gap_days,
     }
     proxy_switch_themes = switched_themes or None
 
@@ -261,7 +305,11 @@ def compute(slot: str = "post", save: bool = True, snap_dir: Path | None = None,
                        "usable_for_oos": usable,
                        "oos_quality": "ok" if usable else "degraded",
                        "usable_for_oos_reason": reasons or None,
-                       "proxy_switch_themes": proxy_switch_themes}
+                       "proxy_switch_themes": proxy_switch_themes,
+                       # P0-0（2026-09-08）：附加列，OOS 过滤可直接按 stale 剔除
+                       "data_ref_last": ref_last,
+                       "max_lag_trading_days": max_lag,
+                       "stale_themes": stale_themes or None}
                 existing = ""
                 if hist.exists():
                     existing = hist.read_text(encoding="utf-8")
@@ -292,9 +340,16 @@ def render_section(snap: dict | None) -> str | None:
     if q.get("themes_total") is not None:
         oos_flag = "" if q.get("usable_for_oos", True) else " · ⚠️ OOS 降级"
         exp = q.get("themes_expected") or q.get("themes_total")
+        stale = q.get("stale_themes") or []
+        stale_txt = (f" · ⚠️ 陈旧 {len(stale)} 主题"
+                     if stale else "")  # P0-0：陈旧主题数（详情见下方缺失项行）
         lines.append(f"- **数据质量**：{q['themes_total']}/{exp} 主题有效"
                      f" · original {q.get('themes_original', 0)} · relaxed {q.get('themes_relaxed', 0)}"
-                     f" · fallback切换 {q.get('themes_switched', 0)} · 错误 {q.get('errors', 0)}{oos_flag}")
+                     f" · fallback切换 {q.get('themes_switched', 0)} · 错误 {q.get('errors', 0)}"
+                     f"{stale_txt}{oos_flag}")
+        if stale:
+            lines.append(f"- ⚠️ 陈旧主题（末根滞后于参考日 {q.get('data_ref_last')}）："
+                         f"{'; '.join(stale)}")
     rows = ["| 主题 | 侧 | 代理 | 1D | 5D | 20D | MA20上 |", "|---|---|---|---:|---:|---:|---|"]
     for theme, t in snap.get("themes", {}).items():
         f = lambda v: "—" if v is None else f"{v:+.2f}%"
