@@ -1,5 +1,5 @@
 {
- "_note": "篮子 ETF 代理表（2026-09-02 落盘，Summer 拍板：电力归防守）。用于板块指数基金层 / Asset Allocation Regime。口径：进攻=弹性/成长，防守=红利/低波/稳健。proxies 为腾讯源（fetch_stock_kline）实测通过的 ETF/LOF 代理。原闸门：首根 ≤ 2020-01-01。2026-09-02 14:45 更新：Summer 拍板 B（放宽闸门）——4 缺口主题承接定案：电力/煤炭/农业以 2020 后 ETF 承接（gate=relaxed），电网设备全市场无同名 ETF，以 BK0457 东财板块指数承接（首根 2015-01-05，原闸门天然通过，缓存 data/sector_klines/BK0457.json）。",
+ "_note": "篮子 ETF 代理表（2026-09-02 落盘，Summer 拍板：电力归防守）。用于板块指数基金层 / Asset Allocation Regime。口径：进攻=弹性/成长，防守=红利/低波/稳健。proxies 为腾讯源（fetch_stock_kline）实测通过的 ETF/LOF 代理。原闸门：首根 ≤ 2020-01-01。2026-09-02 14:45 更新：Summer 拍板 B（放宽闸门）——4 缺口主题承接定案：电力/煤炭/农业以 2020 后 ETF 承接（gate=relaxed），电网设备全市场无同名 ETF，以 BK0457 东财板块指数承接（首根 2015-01-05，原闸门天然通过，缓存 data/sector_klines/BK0457.json）。2026-09-08 深夜追加：电网设备补 ETF fallback 代理 159326 华夏中证电网设备主题ETF（2024-08-29 成立，首根 2024-08-29，腾讯源实测；BK0457 仍为 primary——东财板块源无备份，该 ETF 作东财长期封锁时电网设备主题不断供的兜底；gate=relaxed 只在 fallback 生效日进入 relaxed 分层，proxy_switch 机制自动记录切换；09-02 曾以「全市场无同名 ETF」排除，因当时 suggest 检索漏检 + 2020 闸门，现按 Summer 拍板保留为 fallback-only）。",
  "created": "2026-09-02",
  "regime": "Asset Allocation Regime / 板块指数基金层",
  "offensive": [
@@ -32,7 +32,7 @@
   "电力": [{"code": "159611", "name": "电力ETF广发", "first": "2022-01-07", "gate": "relaxed"}, {"code": "561560", "name": "电力ETF华泰柏瑞", "first": "2022-05-16", "gate": "relaxed"}, {"code": "562350", "name": "电力ETF银华", "first": "2022-07-12", "gate": "relaxed"}],
   "煤炭": [{"code": "515220", "name": "煤炭ETF国泰", "first": "2020-03-02", "gate": "relaxed"}],
   "农业": [{"code": "159825", "name": "农业ETF富国", "first": "2020-12-29", "gate": "relaxed"}],
-  "电网设备": [{"code": "BK0457", "name": "电网设备·东财板块指数", "first": "2015-01-05", "type": "bk_push2his", "source": "data/sector_klines/BK0457.json"}]
+  "电网设备": [{"code": "BK0457", "name": "电网设备·东财板块指数", "first": "2015-01-05", "type": "bk_push2his", "source": "data/sector_klines/BK0457.json"}, {"code": "159326", "name": "电网设备ETF华夏（fallback）", "first": "2024-08-29", "gate": "relaxed"}]
  },
  "gaps_resolved": [
   {"theme": "电力", "decision": "2026-09-02 Summer 拍板 B", "proxy": "159611 电力ETF广发（2022-01-07）", "note": "原无 2020 前 ETF（512950/159930 错配已排除），放宽后收 159611，另有 BK0428 板块缓存可作交叉校验"},

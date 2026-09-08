@@ -420,5 +420,79 @@ class TestStaleDetection(unittest.TestCase):
         self.assertEqual(q["data_ref_last"], e.strftime("%Y-%m-%d"))
 
 
+class TestRenderRobustnessAndFallback(unittest.TestCase):
+    """P1（2026-09-08）：报告健壮性 + BK→ETF fallback 切换。
+
+    - render_section 在侧别分数缺失（None）时不崩（旧代码 :+.2f 直接炸）
+    - 电网设备场景离线模拟：primary BK 缓存缺失 → 切 ETF fallback 并打 proxy_switch
+    （真实链路 09-08 晚已用生产 basket 验证：BK0457 缺失时自动切 159326）"""
+
+    def setUp(self):
+        self._orig = (mc._BK_CACHE, mc._STOCK_CACHE, mc.SNAP_DIR, mc.BASKET_PATH)
+        self._tmp = tempfile.TemporaryDirectory()
+        mc._BK_CACHE = Path(self._tmp.name) / "bk"
+        mc._STOCK_CACHE = Path(self._tmp.name) / "stk"
+        mc._BK_CACHE.mkdir(parents=True)
+        mc._STOCK_CACHE.mkdir(parents=True)
+        mc.SNAP_DIR = Path(self._tmp.name) / "snapshots"
+        mc.SNAP_DIR.mkdir()
+
+    def tearDown(self):
+        (mc._BK_CACHE, mc._STOCK_CACHE, mc.SNAP_DIR, mc.BASKET_PATH) = self._orig
+        self._tmp.cleanup()
+
+    def _write_basket(self, proxies, offensive, defensive):
+        mc.BASKET_PATH = Path(self._tmp.name) / "basket.json"
+        b = {"offensive": offensive, "defensive": defensive, "proxies": proxies}
+        mc.BASKET_PATH.write_text(json.dumps(b, ensure_ascii=False), encoding="utf-8")
+
+    def _write_stock(self, code, closes):
+        rows = [[d, c, c, c, c, 0] for d, c in closes]
+        (mc._STOCK_CACHE / f"{code}.json").write_text(
+            json.dumps({"code": code, "klines": rows}), encoding="utf-8")
+
+    def test_render_section_survives_none_side_scores(self):
+        """防守代理全缺 → def5=None，render 不崩且以 — 展示（P1 None 防御）。"""
+        one_day = date(2000, 1, 2) - date(2000, 1, 1)
+        e = date(2026, 3, 10)
+        closes = _make_klines(e - one_day * 29, 30)
+        self._write_basket(
+            {"进攻甲": [{"code": "590001", "name": "A", "gate": "original"}],
+             "防守乙": [{"code": "590009", "name": "C", "gate": "original"}]},
+            ["进攻甲"], ["防守乙"])
+        self._write_stock("590001", closes)  # 防守 590009 故意无缓存
+        snap = mc.compute("test", save=False,
+                          as_of_date=(e + one_day).strftime("%Y-%m-%d"))
+        self.assertIsNone(snap["defensive_score_5d"])
+        out = mc.render_section(snap)
+        self.assertIsNotNone(out)
+        self.assertIn("—", out)
+
+    def test_bk_primary_missing_switches_to_etf_fallback(self):
+        """电网设备场景：BK 缓存缺失（东财封锁）→ 自动切 ETF fallback。"""
+        one_day = date(2000, 1, 2) - date(2000, 1, 1)
+        e = date(2026, 3, 10)
+        closes = _make_klines(e - one_day * 29, 30)
+        self._write_basket(
+            {"电网设备": [
+                {"code": "BK0457", "name": "电网设备·东财板块", "first": "2015-01-05",
+                 "type": "bk_push2his"},
+                {"code": "159326", "name": "电网设备ETF华夏（fallback）",
+                 "first": "2024-08-29", "gate": "relaxed"},
+            ]},
+            ["电网设备"], [])
+        self._write_stock("159326", closes)  # BK0457 缓存故意缺失
+        snap = mc.compute("test", save=False,
+                          as_of_date=(e + one_day).strftime("%Y-%m-%d"))
+        t = snap["themes"]["电网设备"]
+        self.assertEqual(t["code"], "159326")
+        self.assertTrue(t["proxy_switch"])
+        self.assertEqual(t["data_source"], "tencent_etf")
+        self.assertEqual(t["proxy_primary"], "BK0457")
+        q = snap["market_context_quality"]
+        self.assertFalse(q["usable_for_oos"])
+        self.assertIn("proxy_switch", q["usable_for_oos_reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

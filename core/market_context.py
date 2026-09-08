@@ -330,9 +330,13 @@ def render_section(snap: dict | None) -> str | None:
         return None
     reg = snap.get("regime", "unknown")
     reg_cn = {"risk-on": "偏进攻", "risk-off": "偏防守", "neutral": "均衡"}.get(reg, "未知")
+    # P1（2026-09-08）：进攻/防守侧全灭时 off5/def5 为 None——旧代码直接 `:+.2f` 崩。
+    # 改为 None 安全格式化：None 显示 —，不阻断报告生成（数据缺失本身已由 quality 行暴露）。
+    def _fmt(v):
+        return "—" if v is None else f"{v:+.2f}%"
     lines = [f"- **风格判读（描述性标签）**：{reg_cn}"
-             f"（offensive 5D {snap['offensive_score_5d']:+.2f}% / defensive 5D "
-             f"{snap['defensive_score_5d']:+.2f}% / spread {snap['spread_5d']:+.2f}%）"]
+             f"（offensive 5D {_fmt(snap.get('offensive_score_5d'))} / defensive 5D "
+             f"{_fmt(snap.get('defensive_score_5d'))} / spread {_fmt(snap.get('spread_5d'))}）"]
     b_all = snap.get("breadth_all_above_ma20", snap.get("breadth_above_ma20"))
     if b_all is not None:
         lines.append(f"- **广度（全篮子 MA20）**：{b_all*100:.0f}% 代理站上 MA20")
