@@ -1,0 +1,46 @@
+{
+  "version": "3.0.0-fusion",
+  "fund_pool": ["002112", "025687", "022853", "002207"],
+  "slots": {
+    "mid": {"time": "11:30", "name": "午盘·实时参考"},
+    "post": {"time": "14:55", "name": "收盘前·最终参考"}
+  },
+  "signal": {
+    "mode": "weak_reference",
+    "factors": {
+      "macd_hist_trend": {"enabled": true, "ema_fast": 12, "ema_slow": 26, "dea": 9},
+      "pool_rank_20d": {"enabled": true, "window": 20},
+      "drawdown_from_60d_high": {"enabled": true, "window": 60, "pullback_threshold": -0.03, "near_high_threshold": -0.01}
+    },
+    "weak_signal": {
+      "bull_threshold": 1,
+      "bear_threshold": -1,
+      "min_history": 120,
+      "score_range": [-4, 4]
+    }
+  },
+  "account": {
+    "next_day_range_sigma": 1.5,
+    "abnormal_vol_sigma": 2.0,
+    "vol_window": 20
+  },
+    "lookthrough": {
+    "enabled": true,
+    "top_n": 10,
+    "history_years": [2020, 2021, 2022, 2023, 2024, 2025, 2026],
+    "dynamics": {"div_area_ratio": 0.8, "div_valid_bars": 15, "zero_pull_ratio": 0.15,
+                  "ma": [5, 20, 60], "dd_window": 60},
+    "aggregate": {"structure_bull": 0.5, "structure_bear": -0.5, "div_net_guard": 0.2}
+  },
+  "data": {
+    "pingzhongdata_url": "https://fund.eastmoney.com/pingzhongdata/{code}.js",
+    "lsjz_url": "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize=20",
+    "cache_dir": "data/klines",
+    "cache_ttl_hours": 12
+  },
+  "notify": {
+    "provider": "feishu",
+    "degrade_to_local": true
+  },
+  "risk_boundary": "只出参考建议，绝不自动下单"
+}

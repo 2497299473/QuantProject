@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""基金日频参谋 v4 · 主入口（盘中决策辅助系统）。
+
+用法：
+    python3 run.py                 # 自动按时钟判断时点（14:55 分界）
+    python3 run.py --slot mid      # 11:30 午盘·趋势状态扫描
+    python3 run.py --slot post     # 14:55 收盘前·决策窗口
+    python3 run.py --slot post --force     # 非交易日也强制执行
+    python3 run.py --slot post --no-push   # 只落盘报告，不推送飞书
+    python3 run.py --no-lookthrough        # 跳过重仓股穿透（省网络请求）
+
+v4 数据流（2026-08-25，GPT-5.6 诊断落地 + 项目回测铁律融合）：
+    基金净值 → 穿透（季报前十大）→ 实时行情 → 日内特征引擎
+        → [mid: 快照落盘] / [post: 读快照算变化量] → 决策引擎（倾向分 + 四道门槛）
+        → 报告 / 飞书
+    动作层受 config.decision.gates.history_validated 硬门禁：
+        当前 false → 只输出倾向分 + 候选动作，实际动作恒为「保持不动/观察」，
+        待 backtest_action.py 证据裁决后由人工解锁。
+"""
+import argparse
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+
+from core import data_loader, signal_engine, account as account_mod
+from core import report_generator, notify, lookthrough as lookthrough_mod, rotation as rotation_mod
+from core import real_time as realtime_mod
+from core import intraday_features as feat_mod
+from core import intraday_store as snap_mod
+from core import intraday_feature_store as feat_store
+from core import forecast_engine
+from core import decision_engine
+from core import market_context
+
+_LOG: list[str] = []
+
+
+def log(msg: str) -> None:
+    """控制台输出 + 追加到运行日志（output/logs/）。"""
+    print(msg)
+    _LOG.append(f"{datetime.now():%H:%M:%S} {msg}")
+
+
+def _write_log(now: datetime) -> None:
+    log_dir = BASE_DIR / "output" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / f"run_{now:%Y%m%d_%H%M%S}.log").write_text("\n".join(_LOG), encoding="utf-8")
+    logs = sorted(log_dir.glob("run_*.log"))
+    for old in logs[:-180]:          # 只保留最近 180 次运行
+        old.unlink(missing_ok=True)
+
+
+def load_holidays() -> set[str]:
+    """读 data/holidays.json → {"2026-01-01", ...}（仅工作日休市日，周末由代码过滤）。"""
+    data = json.loads((BASE_DIR / "data" / "holidays.json").read_text(encoding="utf-8"))
+    days: set[str] = set()
+    for year in data.get("years", {}).values():
+        for dates in year.values():
+            days.update(dates)
+    return days
+
+
+def calendar_years() -> set[str]:
+    """日历已覆盖的年份集合（防呆：未覆盖年份的节假日会被误当交易日）。"""
+    data = json.loads((BASE_DIR / "data" / "holidays.json").read_text(encoding="utf-8"))
+    return set(data.get("years", {}).keys())
+
+
+HOLIDAYS = load_holidays()
+
+
+def is_trading_day(d: datetime | None = None) -> bool:
+    """周一~五 且 非法定休市日。每年 12 月更新 holidays.json 即可，本函数零改动。"""
+    d = d or datetime.now()
+    if d.weekday() >= 5:
+        return False
+    return d.strftime("%Y-%m-%d") not in HOLIDAYS
+
+
+def auto_slot(now: datetime | None = None) -> str:
+    """按本地时钟自动选时点：14:55 前为 mid（午盘），14:55 起为 post（收盘前）。"""
+    now = now or datetime.now()
+    return "post" if (now.hour, now.minute) >= (14, 55) else "mid"
+
+
+OBSIDIAN_LOG = Path(r"D:\Obsidian\My-First-Obsidian\量化交易工具\基金日频参谋-信号流水-2026.md")
+
+
+def append_obsidian_log(slot: str, signals: dict, account: dict, now,
+                        path: Path = OBSIDIAN_LOG) -> bool:
+    """盘后把当日信号追加一行到 Obsidian 信号流水（只记盘后、只记交易日）。
+
+    设计（2026-08-23 用户确认）：盘前/盘中是过程态，盘后才是当日定论 → 一天 1 行。
+    文件不存在时自动创建并写表头；已存在则只追加，不覆盖历史。
+    """
+    if slot != "post" or not is_trading_day(now):
+        return False
+    icon = report_generator.STANCE_ICON
+    cells = []
+    for code, s in signals.items():
+        note = "（历史不足）" if s.get("insufficient_history") else ""
+        cells.append(f"{icon[s['stance']]}{s['score']:+d}{note}")
+    acct = f"浮盈 {account['total_pnl_pct']:+.2f}%" if account.get("positions") else "无持仓"
+    row = f"| {now:%m-%d} 盘后 | " + " | ".join(cells) + f" | {acct} |\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        head = ("# 基金日频参谋 · 盘后信号流水（2026）\n\n"
+                "> 只记盘后当日定论；🔴偏多 🟢偏空 ⚪中性；分数为三因子总分；不构成投资建议。\n\n"
+                "| 日期 | " + " | ".join(str(c) for c in signals) + " | 账户面 |\n"
+                "|:---" + "|---:" * (len(signals) + 1) + "|\n")
+        path.write_text(head + row, encoding="utf-8")
+    else:
+        with open(path, "a", encoding="utf-8") as fp:
+            fp.write(row)
+    return True
+
+
+def build_features(slot: str, lookthrough: dict | None, realtime: dict[str, dict],
+                   now: datetime) -> dict[str, dict]:
+    """实时行情 → 日内特征（mid 存快照；post 读同日 mid 快照算变化量）。返回 {code: feats}。"""
+    if not lookthrough or not realtime:
+        return {}
+    date_str = now.strftime("%Y-%m-%d")
+    mid_snap = snap_mod.load_snapshot(date_str, "mid") if slot == "post" else None
+    feats: dict[str, dict] = {}
+    for code, rt in realtime.items():
+        agg = lookthrough.get(code)
+        if not agg:
+            continue
+        prev_est = None
+        if mid_snap and mid_snap.get("funds", {}).get(code):
+            prev_est = mid_snap["funds"][code].get("est_return")
+        f = feat_mod.compute_features(
+            agg["rows"], rt["quotes"],
+            {"est_change_pct": rt["est_change_pct"], "covered_pct": rt["covered_pct"]},
+            agg["snapshot_date"], prev_est)
+        if f:
+            feats[code] = f
+    return feats
+
+
+def build_account_states(account: dict) -> dict[str, dict]:
+    """账户面 → 决策引擎账户约束输入（每只持仓基金）。"""
+    if not account.get("total_market_value"):
+        return {}
+    states = {}
+    for p in account["positions"]:
+        states[p["code"]] = {
+            "current_weight": p.get("position_pct")
+            or (p["market_value"] / account["total_market_value"]),
+            "max_weight": p.get("max_position_pct", 0.8),
+            "cost_nav": p.get("cost_nav"),
+            "last_nav": p.get("last_nav"),
+            "consecutive_adds": p.get("consecutive_adds", 0),
+        }
+    return states
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="基金日频参谋 v4（盘中决策辅助系统）")
+    parser.add_argument("--slot", choices=["pre", "mid", "post"], help="时点（缺省按时钟自动判断）")
+    parser.add_argument("--force", action="store_true", help="非交易日也强制执行")
+    parser.add_argument("--no-push", action="store_true", help="不推送飞书，只落盘报告")
+    parser.add_argument("--refresh", action="store_true", help="忽略净值缓存强制重新抓取")
+    parser.add_argument("--no-lookthrough", action="store_true", help="跳过重仓股穿透观察（省网络请求）")
+    args = parser.parse_args()
+
+    now = datetime.now()
+    try:
+        return _run(args, now)
+    finally:
+        _write_log(now)
+
+
+def _run(args, now: datetime) -> int:
+    # 节假日日历防呆：未覆盖当前年份时显式告警（仍继续执行，周末过滤不受影响）
+    if str(now.year) not in calendar_years():
+        log(f"[warn] ⚠️ 节假日日历未覆盖 {now.year} 年！法定休市日将被误当交易日执行。")
+        log("[warn]    每年 12 月下旬交易所公布次年休市安排后，请更新 data/holidays.json")
+
+    if not args.force and not is_trading_day(now):
+        log(f"[skip] {now:%Y-%m-%d} 非交易日（周末或法定休市日），跳过。如需强制执行加 --force")
+        return 0
+
+    slot = args.slot or auto_slot(now)
+    cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+    log(f"[run ] slot={slot} 基金池={cfg['fund_pool']} 风险边界：{cfg['risk_boundary']}")
+
+    funds = {}
+    for code in cfg["fund_pool"]:
+        try:
+            funds[code] = data_loader.load_fund(code, force_refresh=args.refresh)
+            log(f"[data] {code} {funds[code]['name']} 净值 {len(funds[code]['navs'])} 条，"
+                f"最新 {funds[code]['navs'][-1]}，申购={funds[code].get('purchase_status')}")
+        except Exception as e:
+            log(f"[warn] {code} 数据获取失败：{e}")
+
+    if not funds:
+        log("[fail] 无任何基金数据，退出")
+        return 1
+
+    lookthrough = None
+    if not args.no_lookthrough:
+        log("[look] 拉取重仓股穿透数据（季报持仓 + 个股K线）...")
+        try:
+            lookthrough = lookthrough_mod.evaluate_lookthrough(cfg["fund_pool"])
+            for code, a in lookthrough.items():
+                log(f"[look] {code} 持仓截至 {a['snapshot_date']} 覆盖 {a['coverage']*100:.0f}% "
+                    f"吻结构 {a['structure']:+.2f} 净背驰 {a['div_net']:+.2f} 综合 {a['composite']:+d}"
+                    + (" ⚠️防狼术" if a.get("fanglang_alert") else ""))
+            missing = [c for c in cfg["fund_pool"] if c not in lookthrough]
+            if missing:
+                log(f"[warn] ⚠️ 穿透缺失基金：{missing}——持仓快照拉取失败（多为网络/代理受限），"
+                    f"受影响：实时估算/日内特征/中期趋势维度；请检查网络后重跑")
+        except Exception as e:
+            log(f"[warn] 穿透数据不可用，报告将跳过该栏：{e}")
+
+    realtime: dict[str, dict] = {}
+    if lookthrough:
+        for code, a in lookthrough.items():
+            try:
+                rt = realtime_mod.fetch_realtime(a["rows"])
+                est = realtime_mod.weighted_estimate(a["rows"], rt)
+                if est["est_change_pct"] is not None:
+                    realtime[code] = {"quotes": rt, **est}
+                    log(f"[rt  ] {code} 当日估算 {est['est_change_pct']:+.2f}%"
+                        f"（前十大覆盖 {est['covered_pct']:.0f}%，持仓截至 {a['snapshot_date']}）")
+            except Exception as e:
+                log(f"[warn] {code} 实时行情不可用：{e}")
+
+    # ---- 日内特征（观察层）+ 快照持久化 ----
+    feats = build_features(slot, lookthrough, realtime, now)
+    if not feats:
+        log("[warn] ⚠️ 无日内特征（穿透或实时行情为空）——倾向分/预测/动作评分今日缺位，报告决策栏不完整")
+    if feats:
+        if slot == "mid":
+            snap_mod.save_snapshot(now.strftime("%Y-%m-%d"), "mid", feats)
+            log(f"[snap] 11:30 特征快照已存盘（{len(feats)} 只基金）→ 14:55 时计算变化量")
+        for code, f in feats.items():
+            extra = ""
+            if f.get("close_phase_change") is not None:
+                extra = f" Δ{f['close_phase_change']:+.2f}%"
+            log(f"[feat] {code} 估算 {f['est_return']:+.2f}% 同向 {f['breadth']:+.2f}"
+                f" 覆盖 {f['covered_pct']:.0f}% 可信 {f['reliability']:.2f}{extra}")
+
+    # ---- 三因子弱参考（保留原口径，作为决策引擎「中期趋势」维度）----
+    signals = signal_engine.compute_signals(funds, lookthrough)
+    for code, s in signals.items():
+        log(f"[sig ] {code} {s['name']} 总分 {s['score']:+d} → {s['stance']}")
+
+    rot = rotation_mod.evaluate_rotation(funds)
+    if rot:
+        log(f"[rot ] 池内轮动参考：{rot['ranking'][0]['code']} {rot['ranking'][0]['name']} "
+            f"居首（{rot['ranking'][0]['score']:+d}）")
+
+    account = account_mod.evaluate_account(signals)
+    log(f"[acct] 市值 {account['total_market_value']:,.2f} 元，浮盈 {account['total_pnl_pct']:+.2f}%"
+        + (f"，异常告警：{account['abnormal_alerts']}" if account["abnormal_alerts"] else ""))
+
+    # ---- Market Context 观察层 v0（2026-09-02）：进攻/防守篮子环境快照 ----
+    # 仅观察：不进 decision_engine、不进 forecast、不改任何门禁；失败不阻断主流程。
+    mc_snap = None
+    try:
+        mc_snap = market_context.compute(slot)  # 观察层 v0：只计算+落盘每日快照，不接 Forecast/Policy
+        if mc_snap.get("ok"):
+            log(f"[mc  ] 市场环境 {mc_snap['regime']}｜off5 {mc_snap['offensive_score_5d']:+.2f}% "
+                f"def5 {mc_snap['defensive_score_5d']:+.2f}%｜spread {mc_snap['spread_5d']:+.2f}% "
+                f"breadth {mc_snap['breadth_all_above_ma20']*100:.0f}%"
+                + (f"（缺失 {len(mc_snap['errors'])} 项）" if mc_snap['errors'] else ""))
+        else:
+            log(f"[warn] 市场环境层不可用：{mc_snap.get('errors')}")
+    except Exception as e:
+        log(f"[warn] 市场环境层异常（已跳过）：{type(e).__name__} {e}")
+
+    # ---- 决策倾向层（实时数据进决策；动作层受 history_validated 硬门禁）----
+    decisions: dict[str, dict] = {}
+    if feats:
+        pool_est = {code: feats[code]["est_return"] for code in feats}
+        acct_states = build_account_states(account)
+        mid_snap = snap_mod.load_snapshot(now.strftime("%Y-%m-%d"), "mid") if slot == "post" else None
+        for code in cfg["fund_pool"]:
+            f1130 = (mid_snap or {}).get("funds", {}).get(code) if slot == "post" else None
+            # v5 多周期预测特征：由实时日内特征合成（est_chg/breadth/composite/score）
+            feat_meta = None
+            if code in feats:
+                f_rt = feats[code]
+                feat_meta = {
+                    "est_chg": f_rt.get("est_return"),
+                    "est_sign": 1 if (f_rt.get("est_return") or 0) > 0
+                                else (-1 if (f_rt.get("est_return") or 0) < 0 else 0),
+                    "breadth": f_rt.get("breadth"),
+                    "concentration": f_rt.get("concentration"),
+                    "covered_pct": f_rt.get("covered_pct"),
+                    "composite": (lookthrough or {}).get(code, {}).get("composite", 0),
+                    "score": signals.get(code, {}).get("score", 0),
+                }
+            d = decision_engine.evaluate_with_forecast(decision_engine.DecisionInput(
+                code=code, name=signals.get(code, {}).get("name", code), slot=slot,
+                technical_score=signals.get(code, {}).get("score", 0),
+                feat_1130=f1130,
+                feat_1455=feats.get(code),
+                pool_est=pool_est,
+                account_state=acct_states.get(code),
+            ), feature_meta=feat_meta)
+            decisions[code] = decision_engine.decision_to_cn(d)
+            # v7 P1：预测特征日级累积存储（state→forecast 实验 / 联合回测的数据基建）
+            if feat_meta:
+                fc_ctx = d.forecast or {}
+                sr_state = (getattr(d, "state_ref", None) or {}).get("state")
+                feat_store.append_features(
+                    now.strftime("%Y-%m-%d"), slot, code, feat_meta,
+                    context={"state": sr_state,
+                             "overall_confidence": fc_ctx.get("overall_confidence"),
+                             "model_ready": fc_ctx.get("model_ready")},
+                    model_version=forecast_engine.MODEL_VERSION)
+            gate_note = f" | 门槛未过×{len(d.invalid_conditions)}" if d.invalid_conditions else ""
+            fc_note = ""
+            if d.forecast and d.forecast.get("model_ready"):
+                t1 = d.forecast.get("T1", {})
+                fc_note = f" | 预测↑{t1.get('p_up', 0)*100:.0f}%↓{t1.get('p_down', 0)*100:.0f}%"
+            log(f"[dec ] {code} 倾向 {d.score:+d}（置信 {d.confidence:.2f}）→ {decisions[code]['action']}{gate_note}{fc_note}")
+            # State Engine 只读参考日志（2026-08-27）：历史同名状态的续走统计，非模型预测
+            sr = getattr(d, "state_ref", None)
+            if sr and sr.get("horizons"):
+                p1 = (sr["horizons"].get("T1") or {}).get("p_up")
+                p1_txt = f"{p1*100:.0f}%" if isinstance(p1, (int, float)) else "—"
+                tag = "✓" if sr.get("all_horizons_stable") else "×"
+                log(f"[stat] {code} 结构态 {sr['state']}｜历史T+1↑{p1_txt}｜全周期稳定 {tag}")
+                _append_state_ref_history(now, slot, code, sr)
+
+    report = report_generator.generate_report(slot, signals, account, lookthrough, rot,
+                                              realtime, decisions, market_context=mc_snap)
+    log(f"[repo] 报告已生成 → output/report_{now:%Y%m%d}_{slot}.md")
+
+    if append_obsidian_log(slot, signals, account, now):
+        log(f"[obs ] 盘后信号已追加 → Obsidian 信号流水")
+
+    if args.no_push:
+        log("[push] --no-push 指定，跳过飞书推送")
+    else:
+        result = notify.push_feishu(slot, signals, account, realtime, decisions)
+        if result.get("ok"):
+            log("[push] 飞书推送成功")
+        else:
+            log(f"[push] 飞书推送未成功（{result.get('reason') or result.get('error') or result.get('response')}）")
+
+    # Shadow Policy 日记录（2026-09-01，P1-⑦）：post 时点跑一次，只记录不执行。
+    # shadow_policy.py 自带幂等（同日同基金跳过）与冻结模型校验，失败不阻断主流程。
+    if slot == "post":
+        _run_shadow()
+
+    return 0
+
+
+def _run_shadow() -> None:
+    """调用 shadow_policy.py 记录当日 shadow 样本（subprocess，容忍失败）。"""
+    import subprocess
+    try:
+        r = subprocess.run([sys.executable, str(BASE_DIR / "shadow_policy.py")],
+                           capture_output=True, text=True, timeout=1200)
+        out = (r.stdout or "").strip().splitlines()
+        key = next((ln for ln in out if ln.startswith("== [3]")), None)
+        if key:
+            log(f"[shadow] {key.strip('= ')}")
+        if r.returncode != 0:
+            err = ((r.stderr or "").strip().splitlines() or ["<no stderr>"])[-1]
+            log(f"[shadow] ⚠️ 退出码 {r.returncode}：{err}")
+    except Exception as e:
+        log(f"[shadow] ⚠️ 失败（不阻断主流程）：{e}")
+
+
+def _append_state_ref_history(now, slot: str, code: str, sr: dict) -> None:
+    """[stat] 行落盘 output/state_ref_history.jsonl（2026-08-27）。
+
+    积累真实运行日的「结构态 + 当时历史条件分布」，为后续把 state_ref
+    从「参考」升格为「预测输入」攒证据；失败静默不阻断主流程。
+    """
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        out = _Path(__file__).resolve().parent / "output" / "state_ref_history.jsonl"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        rec = {"ts": now.strftime("%Y-%m-%d %H:%M:%S"), "slot": slot, "fund": code,
+               "state": sr.get("state"), "all_horizons_stable": sr.get("all_horizons_stable"),
+               "horizons": sr.get("horizons")}
+        with out.open("a", encoding="utf-8") as f:
+            f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

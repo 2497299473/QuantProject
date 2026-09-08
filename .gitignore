@@ -1,0 +1,21 @@
+# secrets (never commit)
+.env
+
+# daily-refreshed, re-fetchable data caches (pull scripts can rebuild)
+data/klines/*.json
+data/stock_klines/
+data/sector_klines/
+data/intraday/
+
+# python runtime artifacts
+__pycache__/
+*.pyc
+
+# virtualenv (rebuild via requirements.txt)
+.venv/
+
+# high-churn runtime outputs; longitudinal evidence (jsonl/json) stays tracked
+output/*.log
+output/*.md
+output/logs/
+output/backups/

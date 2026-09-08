@@ -1,0 +1,12 @@
+# QuantV1 迁移环境锁定（2026-09-08 WSL→Windows 迁移）
+# 版本与 WSL 侧 Python 3.12.3 实测完全一致，避免 v0.1 冻结期内引入运行环境漂移。
+# 说明：
+#   - pandas / matplotlib / beautifulsoup4 / openpyxl 经全库 import 扫描确认活跃代码零使用，故不装
+#     （WSL 侧 apt 装的 numexpr/bottleneck 已与 numpy 2.5 冲突损坏，pandas 会自动绕开，同样不需要）
+#   - playwright 不在此列：仅 pull_sector_klines_pw.py 使用，该脚本设计为 Windows 侧运行，
+#     复用全局 Python 3.14 已装好的 playwright + Chromium，不随 venv 走
+numpy==2.5.1
+scipy==1.18.0
+scikit-learn==1.9.0
+curl-cffi==0.16.3
+requests==2.31.0

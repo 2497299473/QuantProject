@@ -1,0 +1,56 @@
+状态转移表（PIT 条件频率统计，非模型预测）
+OOS 起点 2025-04-29 · min_n=30 · flat_margin=0.003
+样本足够状态 14/21
+
+状态 | n(train/oos) | T+1 p_up | T+1 mean | T+3 p_up | T+3 mean | T+5 p_up | T+5 mean
+---|---:|---:|---:|---:|---:|---:|---:
+down|above~stale | 1535(1369/166) | +0.476 | +0.007 | +0.560 | +0.020 | +0.596 | +0.033
+na|none | 1076(828/248) | +0.508 | +0.004 | +0.504 | +0.012 | +0.541 | +0.022
+consolidation|below~stale | 682(623/59) | +0.441 | +0.004 | +0.508 | +0.011 | +0.475 | +0.019
+up|above~stale | 504(130/374) | +0.468 | +0.001 | +0.487 | +0.003 | +0.519 | +0.006
+up|below~stale | 462(462/0) | +0.411 | +0.001 | +0.483 | +0.005 | +0.511 | +0.008
+up|inside | 361(307/54) | +0.444 | +0.001 | +0.556 | +0.005 | +0.500 | +0.013
+up|below~fresh | 254(252/2) | +1.000 | +0.033 | +1.000 | +0.134 | +1.000 | +0.101
+up|above~fresh | 136(86/50) | +0.580 | +0.011 | +0.729 | +0.032 | +0.739 | +0.055
+consolidation|below~fresh | 131(62/69) | +0.406 | +0.002 | +0.463 | +0.005 | +0.439 | +0.008
+down|above~fresh | 126(126/0) | +0.389 | +0.003 | +0.508 | +0.007 | +0.587 | +0.012
+consolidation|inside | 100(54/46) | +0.304 | -0.009 | +0.239 | -0.022 | +0.200 | -0.034
+down|inside | 87(87/0) | +0.356 | +0.002 | +0.448 | +0.004 | +0.517 | +0.004
+down|below~fresh | 41(41/0) | +0.439 | +0.002 | +0.610 | +0.006 | +0.561 | +0.008
+consolidation|below~stale|3sell | 39(39/0) | +0.359 | -0.000 | +0.436 | +0.003 | +0.462 | +0.005
+down|below~stale | 8(8/0) | +0.500 | +0.015 | +0.750 | +0.114 | +1.000 | +0.222
+consolidation|above~fresh | 8(4/4) | +0.250 | -0.005 | +0.000 | -0.019 | +0.000 | -0.045
+up|above~fresh|3sell | 8(8/0) | +0.500 | -0.004 | +0.500 | +0.002 | +0.250 | -0.002
+down|above~fresh|3sell | 6(6/0) | +0.667 | +0.009 | +0.833 | +0.017 | +0.667 | +0.020
+down|inside|3sell | 5(5/0) | +0.800 | +0.013 | +1.000 | +0.036 | +1.000 | +0.062
+up|below~stale|3sell | 1(1/0) | +1.000 | +0.030 | +1.000 | +0.055 | +1.000 | +0.043
+up|below~fresh|3sell | 1(1/0) | +1.000 | +0.051 | +1.000 | +0.039 | +1.000 | +0.034
+
+状态稳定性（train vs OOS 回看：OOS n>=20 且 |Δp_up|<=0.15 且方向一致 → 稳定）
+状态 | h1 | h3 | h5 |
+---|---:|---:|---:|
+down|above~stale | ✓ d=0.12 | ✗ 方向不一致 | ✗ 方向不一致
+na|none | ✗ diff=0.35>0.15; 方向不一致 | ✗ diff=0.25>0.15; 方向不一致 | ✗ diff=0.21>0.15; 方向不一致
+consolidation|below~stale | ✗ diff=0.16>0.15 | ✗ 方向不一致 | ✓ d=0.06
+up|above~stale | ✓ d=0.03 | ✓ d=0.09 | ✗ 方向不一致
+up|below~stale | — | — | —
+up|inside | ✓ d=0.11 | ✗ diff=0.18>0.15; 方向不一致 | ✗ 方向不一致
+up|below~fresh | — | — | —
+up|above~fresh | ✗ diff=0.17>0.15; 方向不一致 | ✗ diff=0.39>0.15; 方向不一致 | ✗ diff=0.34>0.15; 方向不一致
+consolidation|below~fresh | ✗ diff=0.18>0.15 | ✓ d=0.12 | ✓ d=0.13
+down|above~fresh | — | — | —
+consolidation|inside | ✓ d=0.01 | ✓ d=0.09 | ✓ d=0.13
+down|inside | — | — | —
+down|below~fresh | — | — | —
+consolidation|below~stale|3sell | — | — | —
+down|below~stale | — | — | —
+consolidation|above~fresh | — | — | —
+up|above~fresh|3sell | — | — | —
+down|above~fresh|3sell | — | — | —
+down|inside|3sell | — | — | —
+up|below~stale|3sell | — | — | —
+up|below~fresh|3sell | — | — | —
+
+全部周期均稳定状态数: 1
+名单: consolidation|inside
+（这些状态可作为后续 Forecast 接入的候选状态集）

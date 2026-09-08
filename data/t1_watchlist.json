@@ -1,0 +1,133 @@
+{
+ "_note": "T1 板块观察池（2026-09-02 落盘）。来源：probe_t1_pool.py 26 候选闸门通过 11 个 + probe_etf_microcap.py 微盘 ETF 兜底 1 个。口径：仅观察（paper-only），不接 Forecast、不接 Policy；板块收益只用 ≤t 收盘价（PIT 纪律）；BK 数据源 push2his（东财），ETF 数据源 fetch_stock_kline 主链路（腾讯主源）。BK1158 微盘股板块 2024-02 起无 OOS 覆盖，按闸门不落盘，微盘敞口由 ETF 代理承接。",
+ "created": "2026-09-02",
+ "oos_start": "2020-01-01",
+ "gate": "首根 K 线 ≤ 2020-01-01（OOS 2020~2026 覆盖充足）",
+ "watchlist": [
+  {
+   "code": "BK0706",
+   "name": "脑机接口",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0714",
+   "name": "5G概念",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2745,
+   "first": "2015-05-21",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0579",
+   "name": "云计算",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0800",
+   "name": "人工智能",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2542,
+   "first": "2016-03-21",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0900",
+   "name": "新能源车",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2473,
+   "first": "2016-06-30",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0680",
+   "name": "智能家居",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0588",
+   "name": "光伏概念",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK0615",
+   "name": "中药概念",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02",
+   "status": "verified",
+   "note": "2026-09-02 14:26 复测通过（push2his 2836 bars 2015-01-05~2026-09-02），晨间 FAIL 系东财封锁期所致"
+  },
+  {
+   "code": "BK0490",
+   "name": "军工",
+   "type": "concept",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK1259",
+   "name": "养殖业",
+   "type": "industry",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "BK1330",
+   "name": "模拟芯片设计",
+   "type": "industry",
+   "source": "push2his",
+   "bars": 2836,
+   "first": "2015-01-05",
+   "last": "2026-09-02"
+  },
+  {
+   "code": "512100",
+   "name": "中证1000ETF南方",
+   "type": "etf_proxy",
+   "source": "tencent",
+   "market": "1",
+   "proxy_for": "微盘股/小盘敞口（BK1158 闸门未过，ETF 兜底）",
+   "bars": 2387,
+   "first": "2016-11-04",
+   "last": "2026-09-01"
+  }
+ ],
+ "rejected": [
+  {
+   "code": "BK1158",
+   "name": "微盘股",
+   "reason": "首根 2024-02-07，OOS 覆盖不足；微盘敞口改用 ETF 代理 512100"
+  }
+ ],
+ "next_review": "2026-09-26",
+ "review_items": [
+  "push2his 稳定性复核（B 组纪律：限速 ≥2s、FAIL 跳过不中断）",
+  "板块观察层首个样本积累情况检查",
+  "60+ 交易日后评估是否晋升 Sector → Policy 增量 OOS"
+ ]
+}

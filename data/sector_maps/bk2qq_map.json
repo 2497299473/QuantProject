@@ -1,0 +1,860 @@
+{
+ "generated": "2026-09-04",
+ "purpose": "东财 BK 板块 -> 腾讯 pt 板块 映射（仅用于换源对照/断供补数，不可与东财指数拼接：两者编制口径与点位不同）",
+ "tx_kline_endpoint": "https://web.ifzq.gtimg.cn/appstock/app/newfqkline/get?param={tx_code},day,{beg},{end},{count},qfq",
+ "tx_kline_notes": "fqkline 对 pt 板块只回 1 根；必须用 newfqkline；实测起点 2024-01-12（约 641 根）；beg/end 参数支持历史窗口",
+ "tx_list_source": "proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank board_type=hy(31),gn(802)",
+ "history_depth": {
+  "beg_param_works": true,
+  "sample": [
+   "2018-05-21",
+   "2020-12-31"
+  ]
+ },
+ "confirmed": [
+  {
+   "bk": "BK0437",
+   "em_name": "煤炭",
+   "em_type": "行业",
+   "tx_code": "pt01801950",
+   "tx_name": "煤炭",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0438",
+   "em_name": "食品饮料",
+   "em_type": "行业",
+   "tx_code": "pt01801120",
+   "tx_name": "食品饮料",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0478",
+   "em_name": "有色金属",
+   "em_type": "行业",
+   "tx_code": "pt01801050",
+   "tx_name": "有色金属",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0479",
+   "em_name": "钢铁",
+   "em_type": "行业",
+   "tx_code": "pt01801040",
+   "tx_name": "钢铁",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0486",
+   "em_name": "传媒",
+   "em_type": "行业",
+   "tx_code": "pt01801760",
+   "tx_name": "传媒",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0490",
+   "em_name": "军工",
+   "em_type": "概念",
+   "tx_code": "pt02003490",
+   "tx_name": "军工",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0493",
+   "em_name": "新能源",
+   "em_type": "概念",
+   "tx_code": "pt02003900",
+   "tx_name": "新能源车",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0579",
+   "em_name": "云计算",
+   "em_type": "概念",
+   "tx_code": "pt02003579",
+   "tx_name": "云计算",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0588",
+   "em_name": "光伏概念",
+   "em_type": "概念",
+   "tx_code": "pt02010005",
+   "tx_name": "光伏概念",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0592",
+   "em_name": "铁路基建",
+   "em_type": "概念",
+   "tx_code": "pt02003592",
+   "tx_name": "铁路基建",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0615",
+   "em_name": "中药概念",
+   "em_type": "概念",
+   "tx_code": "pt02251325",
+   "tx_name": "中药概念",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0669",
+   "em_name": "生态农业",
+   "em_type": "概念",
+   "tx_code": "pt02003669",
+   "tx_name": "生态农业",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0680",
+   "em_name": "智能家居",
+   "em_type": "概念",
+   "tx_code": "pt02003680",
+   "tx_name": "智能家居",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0683",
+   "em_name": "央国企改革",
+   "em_type": "概念",
+   "tx_code": "pt02003683",
+   "tx_name": "国企改革",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0706",
+   "em_name": "脑机接口",
+   "em_type": "概念",
+   "tx_code": "pt02251393",
+   "tx_name": "脑科学(脑机接口)",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0714",
+   "em_name": "5G概念",
+   "em_type": "概念",
+   "tx_code": "pt02003714",
+   "tx_name": "5G概念",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0728",
+   "em_name": "环保",
+   "em_type": "行业",
+   "tx_code": "pt01801970",
+   "tx_name": "环保",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0800",
+   "em_name": "人工智能",
+   "em_type": "概念",
+   "tx_code": "pt02003800",
+   "tx_name": "人工智能",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0877",
+   "em_name": "PCB",
+   "em_type": "概念",
+   "tx_code": "pt02101284",
+   "tx_name": "PCB概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0890",
+   "em_name": "MLCC",
+   "em_type": "概念",
+   "tx_code": "pt02GN0008",
+   "tx_name": "MLCC",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0896",
+   "em_name": "白酒",
+   "em_type": "概念",
+   "tx_code": "pt02B20001",
+   "tx_name": "白酒概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0900",
+   "em_name": "新能源车",
+   "em_type": "概念",
+   "tx_code": "pt02003900",
+   "tx_name": "新能源车",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0963",
+   "em_name": "商业航天",
+   "em_type": "概念",
+   "tx_code": "pt02GN2306",
+   "tx_name": "商业航天",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0968",
+   "em_name": "固态电池",
+   "em_type": "概念",
+   "tx_code": "pt02081407",
+   "tx_name": "固态电池",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK0989",
+   "em_name": "储能概念",
+   "em_type": "概念",
+   "tx_code": "pt02011424",
+   "tx_name": "储能概念",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1104",
+   "em_name": "信创",
+   "em_type": "概念",
+   "tx_code": "pt02GN2043",
+   "tx_name": "信创",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1106",
+   "em_name": "创新药",
+   "em_type": "概念",
+   "tx_code": "pt02131362",
+   "tx_name": "创新药",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1158",
+   "em_name": "微盘股",
+   "em_type": "概念",
+   "tx_code": "pt02GN2282",
+   "tx_name": "微盘股概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1163",
+   "em_name": "可控核聚变",
+   "em_type": "概念",
+   "tx_code": "pt02GN2286",
+   "tx_name": "可控核聚变",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1166",
+   "em_name": "低空经济",
+   "em_type": "概念",
+   "tx_code": "pt02GN2294",
+   "tx_name": "低空经济",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1173",
+   "em_name": "锂矿概念",
+   "em_type": "概念",
+   "tx_code": "pt02051434",
+   "tx_name": "锂矿",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1201",
+   "em_name": "电子",
+   "em_type": "行业",
+   "tx_code": "pt01801080",
+   "tx_name": "电子",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1202",
+   "em_name": "房地产",
+   "em_type": "行业",
+   "tx_code": "pt01801180",
+   "tx_name": "房地产",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1205",
+   "em_name": "机械设备",
+   "em_type": "行业",
+   "tx_code": "pt01801890",
+   "tx_name": "机械设备",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1207",
+   "em_name": "计算机",
+   "em_type": "行业",
+   "tx_code": "pt01801750",
+   "tx_name": "计算机",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1210",
+   "em_name": "交通运输",
+   "em_type": "行业",
+   "tx_code": "pt01801170",
+   "tx_name": "交通运输",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1211",
+   "em_name": "汽车",
+   "em_type": "行业",
+   "tx_code": "pt01801880",
+   "tx_name": "汽车",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1216",
+   "em_name": "医药生物",
+   "em_type": "行业",
+   "tx_code": "pt01801150",
+   "tx_name": "医药生物",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1217",
+   "em_name": "综合",
+   "em_type": "行业",
+   "tx_code": "pt01801230",
+   "tx_name": "综合",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1253",
+   "em_name": "医疗美容",
+   "em_type": "行业",
+   "tx_code": "pt02251323",
+   "tx_name": "医疗美容概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1283",
+   "em_name": "银行",
+   "em_type": "行业",
+   "tx_code": "pt01801780",
+   "tx_name": "银行",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1303",
+   "em_name": "锂电池",
+   "em_type": "行业",
+   "tx_code": "pt02003574",
+   "tx_name": "锂电池概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1325",
+   "em_name": "半导体材料",
+   "em_type": "行业",
+   "tx_code": "pt02GN2323",
+   "tx_name": "半导体材料概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1419",
+   "em_name": "煤化工",
+   "em_type": "行业",
+   "tx_code": "pt02003492",
+   "tx_name": "煤化工概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1617",
+   "em_name": "黄金",
+   "em_type": "行业",
+   "tx_code": "pt02003547",
+   "tx_name": "黄金概念",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1626",
+   "em_name": "稀土",
+   "em_type": "行业",
+   "tx_code": "pt02003578",
+   "tx_name": "稀土永磁",
+   "match": "fuzzy",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1629",
+   "em_name": "AI应用",
+   "em_type": "概念",
+   "tx_code": "pt02GN2343",
+   "tx_name": "AI应用",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1641",
+   "em_name": "红利股",
+   "em_type": "概念",
+   "tx_code": "pt02GN2426",
+   "tx_name": "红利股",
+   "match": "exact",
+   "status": "auto"
+  },
+  {
+   "bk": "BK1650",
+   "em_name": "通信技术",
+   "em_type": "概念",
+   "tx_code": "pt01801770",
+   "tx_name": "通信",
+   "match": "fuzzy",
+   "status": "auto"
+  }
+ ],
+ "suggest": [
+  {
+   "bk": "BK0428",
+   "em_name": "电力",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801160",
+     "tx_name": "公用事业",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02011437",
+     "tx_name": "绿色电力",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02B70001",
+     "tx_name": "电力改革",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK0457",
+   "em_name": "电网设备",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801730",
+     "tx_name": "电力设备",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02003581",
+     "tx_name": "智能电网",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02C10006",
+     "tx_name": "特高压",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK0474",
+   "em_name": "保险Ⅱ",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801790",
+     "tx_name": "非银金融",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02021387",
+     "tx_name": "保险概念",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK0476",
+   "em_name": "装修建材",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801710",
+     "tx_name": "建筑材料",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02081376",
+     "tx_name": "精装修",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK0732",
+   "em_name": "贵金属",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02003547",
+     "tx_name": "黄金概念",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02050007",
+     "tx_name": "白银概念",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt01801050",
+     "tx_name": "有色金属",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK0737",
+   "em_name": "软件开发",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801750",
+     "tx_name": "计算机",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02003696",
+     "tx_name": "国产软件",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1036",
+   "em_name": "半导体",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02GN2116",
+     "tx_name": "半导体产业",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02101396",
+     "tx_name": "第三代半导体",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1037",
+   "em_name": "消费电子",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02GN2120",
+     "tx_name": "消费电子产业",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02003666",
+     "tx_name": "苹果概念",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1128",
+   "em_name": "CPO概念",
+   "em_type": "概念",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02GN2211",
+     "tx_name": "共封装光模块(CPO）",
+     "btype": "gn",
+     "match": "contains",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2190",
+     "tx_name": "光通信",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1137",
+   "em_name": "存储芯片",
+   "em_type": "概念",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02GN2124",
+     "tx_name": "存储器",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2272",
+     "tx_name": "高带宽存储器HBM",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1244",
+   "em_name": "小家电",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt01801110",
+     "tx_name": "家用电器",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1365",
+   "em_name": "租赁",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02311031",
+     "tx_name": "房屋租赁",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2234",
+     "tx_name": "算力租赁",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1366",
+   "em_name": "证券Ⅲ",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02003711",
+     "tx_name": "券商",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt01801790",
+     "tx_name": "非银金融",
+     "btype": "hy",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1408",
+   "em_name": "机器人",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02003640",
+     "tx_name": "机器人概念",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2238",
+     "tx_name": "人形机器人",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1564",
+   "em_name": "体育Ⅲ",
+   "em_type": "行业",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02003708",
+     "tx_name": "体育产业",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  },
+  {
+   "bk": "BK1652",
+   "em_name": "新消费",
+   "em_type": "概念",
+   "status": "suggest",
+   "options": [
+    {
+     "tx_code": "pt02GN2103",
+     "tx_name": "大消费",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2351",
+     "tx_name": "消费精选",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    },
+    {
+     "tx_code": "pt02GN2395",
+     "tx_name": "服务消费",
+     "btype": "gn",
+     "match": "exact",
+     "kline_ok": true,
+     "last_bar": "2026-09-04"
+    }
+   ]
+  }
+ ],
+ "unresolved_no_candidate": []
+}

@@ -1,0 +1,893 @@
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[  2/100] BK1229 地面兵装Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[  3/100] BK1497 化妆品制造及其他 OK 2835 bars 2015-01-05~2026-09-02
+[  4/100] BK1296 视频媒体 OK 2552 bars 2015-02-06~2026-09-02
+[  5/100] BK1556 教育运营及其他 OK 2836 bars 2015-01-05~2026-09-02
+[  6/100] BK1441 其他橡胶制品 OK 2833 bars 2015-01-05~2026-09-02
+[  7/100] BK1252 化妆品 OK 2836 bars 2015-01-05~2026-09-02
+[  8/100] BK1462 玻纤制造 OK 2836 bars 2015-01-05~2026-09-02
+[  9/100] BK1562 人工景区 OK 2836 bars 2015-01-05~2026-09-02
+[ 10/100] BK1337 品牌消费电子 OK 2836 bars 2015-01-05~2026-09-02
+[ 11/100] BK1533 塑料包装 OK 2836 bars 2015-01-05~2026-09-02
+[ 12/100] BK1018 橡胶 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 13/100] BK1348 辅料 OK 2831 bars 2015-01-05~2026-09-02
+[ 14/100] BK1384 航空装备Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 15/100] BK1231 航空装备Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 16/100] BK1507 宠物食品 OK 2219 bars 2017-07-17~2026-09-02
+[ 17/100] BK1312 线缆部件及其他 OK 2836 bars 2015-01-05~2026-09-02
+[ 18/100] BK1272 旅游及景区 OK 2836 bars 2015-01-05~2026-09-02
+[ 19/100] BK1563 自然景区 OK 2836 bars 2015-01-05~2026-09-02
+[ 20/100] BK1204 国防军工 OK 2836 bars 2015-01-05~2026-09-02
+[ 21/100] BK1452 卫浴电器 OK 2836 bars 2015-01-05~2026-09-02
+[ 22/100] BK1411 非金属材料Ⅲ OK 1190 bars 2021-10-12~2026-09-02
+[ 23/100] BK1020 非金属材料Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 24/100] BK1567 其他专业服务 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 25/100] BK1035 美容护理 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 26/100] BK1561 旅游综合 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 27/100] BK1397 磨具磨料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 28/100] BK1467 耐火材料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 29/100] BK1611 国有大型银行Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 30/100] BK1592 通信线缆及配套 OK 2834 bars 2015-01-05~2026-09-02
+[ 31/100] BK1383 航海装备Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 32/100] BK1230 航海装备Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 33/100] BK0546 玻璃玻纤 OK 2836 bars 2015-01-05~2026-09-02
+[ 34/100] BK1498 品牌化妆品 OK 2836 bars 2015-01-05~2026-09-02
+[ 35/100] BK1500 医美耗材 OK 1656 bars 2019-11-07~2026-09-02
+[ 36/100] BK1311 输变电设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 37/100] BK1388 大气治理 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 38/100] BK1619 其他金属新材料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 39/100] BK1381 燃气Ⅲ OK 1347 bars 2021-02-10~2026-09-02
+[ 40/100] BK1028 燃气Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 41/100] BK1385 航天装备Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 42/100] BK1232 航天装备Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 43/100] BK1398 其他通用设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 44/100] BK1406 印刷包装机械 OK 2836 bars 2015-01-05~2026-09-02
+[ 45/100] BK1431 有机硅 OK 2832 bars 2015-01-05~2026-09-02
+[ 46/100] BK1354 鞋帽及其他 OK 2831 bars 2015-01-05~2026-09-02
+[ 47/100] BK1496 洗护用品 OK 2835 bars 2015-01-05~2026-09-02
+[ 48/100] BK1240 厨卫电器 OK 2836 bars 2015-01-05~2026-09-02
+[ 49/100] BK1470 房屋建设Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 50/100] BK1246 房屋建设Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 51/100] BK1376 核力发电 OK 2720 bars 2015-06-26~2026-09-02
+[ 52/100] BK1253 医疗美容 OK 2698 bars 2015-03-16~2026-09-02
+[ 53/100] BK1386 军工电子Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 54/100] BK1233 军工电子Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 55/100] BK1360 金融信息服务 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 56/100] BK1392 工程机械器件 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 57/100] BK1449 冰洗 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 58/100] BK0740 教育 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 59/100] BK1295 其他数字媒体 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 60/100] BK1458 个护小家电 OK 2514 bars 2016-04-29~2026-09-02
+[ 61/100] BK1396 金属制品 OK 2836 bars 2015-01-05~2026-09-02
+[ 62/100] BK1539 定制家居 OK 2835 bars 2015-01-05~2026-09-02
+[ 63/100] BK1534 印刷 OK 2836 bars 2015-01-05~2026-09-02
+[ 64/100] BK1037 消费电子 OK 1339 bars 2021-03-01~2026-09-02
+[ 65/100] BK0457 电网设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 66/100] BK1526 底盘与发动机系统 OK 2836 bars 2015-01-05~2026-09-02
+[ 67/100] BK1214 社会服务 OK 2836 bars 2015-01-05~2026-09-02
+[ 68/100] BK1380 水力发电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 69/100] BK1445 安防设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 70/100] BK1265 包装印刷 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 71/100] BK1439 膜材料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 72/100] BK1239 白色家电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 73/100] BK0545 通用设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 74/100] BK1400 制冷空调设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 75/100] BK1476 化学工程 OK 2836 bars 2015-01-05~2026-09-02
+[ 76/100] BK1535 纸包装 OK 2836 bars 2015-01-05~2026-09-02
+[ 77/100] BK1525 车身附件及饰件 OK 2836 bars 2015-01-05~2026-09-02
+[ 78/100] BK1451 厨房电器 OK 2836 bars 2015-01-05~2026-09-02
+[ 79/100] BK1403 能源及重型设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 80/100] BK1590 其他通信设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 81/100] BK1469 涂料 OK 2473 bars 2016-06-30~2026-09-02
+[ 82/100] BK1225 服装家纺 OK 2836 bars 2015-01-05~2026-09-02
+[ 83/100] BK1587 电信运营商 OK 2741 bars 2015-01-05~2026-09-02
+[ 84/100] BK1454 其他黑色家电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 85/100] BK1338 消费电子零部件及组装 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 86/100] BK1305 燃料电池 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 87/100] BK1352 非运动服装 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 88/100] BK1593 通信终端及配件 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 89/100] BK1455 家电零部件Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 90/100] BK1242 家电零部件Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 91/100] BK1547 跨境电商 OK 2836 bars 2015-01-05~2026-09-02
+[ 92/100] BK1557 培训教育 OK 2834 bars 2015-01-05~2026-09-02
+[ 93/100] BK1353 家纺 OK 2836 bars 2015-01-05~2026-09-02
+[ 94/100] BK1551 百货 OK 2836 bars 2015-01-05~2026-09-02
+[ 95/100] BK1609 城商行Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 96/100] BK1405 其他专用设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 97/100] BK1283 银行 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 98/100] BK0475 银行Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 99/100] BK1460 照明设备Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[100/100] BK1245 照明设备Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+
+== done in 386s | ok=62 skip=0 fail=38 ==
+  FAIL BK1018 橡胶: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1020 非金属材料Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1567 其他专业服务: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1035 美容护理: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1561 旅游综合: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1397 磨具磨料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1467 耐火材料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1611 国有大型银行Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1388 大气治理: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1619 其他金属新材料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1028 燃气Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1385 航天装备Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1232 航天装备Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1398 其他通用设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1386 军工电子Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1233 军工电子Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1360 金融信息服务: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1392 工程机械器件: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1449 冰洗: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0740 教育: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1295 其他数字媒体: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1380 水力发电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1445 安防设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1265 包装印刷: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1439 膜材料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1239 白色家电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0545 通用设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1454 其他黑色家电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1338 消费电子零部件及组装: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1305 燃料电池: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1352 非运动服装: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1593 通信终端及配件: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1455 家电零部件Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1242 家电零部件Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1283 银行: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0475 银行Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1460 照明设备Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1245 照明设备Ⅱ: RemoteDisconnected: Remote end closed connection without response
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1252 化妆品 SKIP(当日已有)
+[  6/100] BK1556 教育运营及其他 SKIP(当日已有)
+[  7/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  8/100] BK1462 玻纤制造 SKIP(当日已有)
+[  9/100] BK1562 人工景区 SKIP(当日已有)
+[ 10/100] BK1337 品牌消费电子 SKIP(当日已有)
+[ 11/100] BK1533 塑料包装 SKIP(当日已有)
+[ 12/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 13/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 14/100] BK1507 宠物食品 SKIP(当日已有)
+[ 15/100] BK1018 橡胶 OK 1190 bars 2021-10-12~2026-09-02
+[ 16/100] BK1348 辅料 SKIP(当日已有)
+[ 17/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 18/100] BK1204 国防军工 SKIP(当日已有)
+[ 19/100] BK1563 自然景区 SKIP(当日已有)
+[ 20/100] BK1035 美容护理 OK 1340 bars 2021-02-26~2026-09-02
+[ 21/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 22/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 23/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 24/100] BK1020 非金属材料Ⅱ OK 1190 bars 2021-10-12~2026-09-02
+[ 25/100] BK1567 其他专业服务 OK 1310 bars 2021-04-12~2026-09-02
+[ 26/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 27/100] BK1467 耐火材料 OK 2836 bars 2015-01-05~2026-09-02
+[ 28/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 29/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 30/100] BK1397 磨具磨料 OK 2836 bars 2015-01-05~2026-09-02
+[ 31/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 32/100] BK1385 航天装备Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 33/100] BK1232 航天装备Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 34/100] BK1561 旅游综合 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 35/100] BK1619 其他金属新材料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 36/100] BK1311 输变电设备 SKIP(当日已有)
+[ 37/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 38/100] BK1500 医美耗材 SKIP(当日已有)
+[ 39/100] BK1496 洗护用品 SKIP(当日已有)
+[ 40/100] BK1388 大气治理 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 41/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 42/100] BK1028 燃气Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 43/100] BK1611 国有大型银行Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 44/100] BK1431 有机硅 SKIP(当日已有)
+[ 45/100] BK1458 个护小家电 SKIP(当日已有)
+[ 46/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 47/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 48/100] BK1392 工程机械器件 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 49/100] BK1386 军工电子Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 50/100] BK1233 军工电子Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 51/100] BK1398 其他通用设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 52/100] BK1376 核力发电 SKIP(当日已有)
+[ 53/100] BK1253 医疗美容 SKIP(当日已有)
+[ 54/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 55/100] BK0457 电网设备 SKIP(当日已有)
+[ 56/100] BK1360 金融信息服务 OK 2677 bars 2015-01-06~2026-09-02
+[ 57/100] BK1295 其他数字媒体 OK 2142 bars 2017-11-07~2026-09-02
+[ 58/100] BK1396 金属制品 SKIP(当日已有)
+[ 59/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 60/100] BK1214 社会服务 SKIP(当日已有)
+[ 61/100] BK1534 印刷 SKIP(当日已有)
+[ 62/100] BK1445 安防设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 63/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 64/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 65/100] BK1037 消费电子 SKIP(当日已有)
+[ 66/100] BK1449 冰洗 OK 2836 bars 2015-01-05~2026-09-02
+[ 67/100] BK1439 膜材料 OK 2836 bars 2015-01-05~2026-09-02
+[ 68/100] BK0740 教育 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 69/100] BK1265 包装印刷 OK 2836 bars 2015-01-05~2026-09-02
+[ 70/100] BK1380 水力发电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 71/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 72/100] BK1539 定制家居 SKIP(当日已有)
+[ 73/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 74/100] BK0545 通用设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 75/100] BK1305 燃料电池 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 76/100] BK1535 纸包装 SKIP(当日已有)
+[ 77/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 78/100] BK1547 跨境电商 SKIP(当日已有)
+[ 79/100] BK1338 消费电子零部件及组装 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 80/100] BK1225 服装家纺 SKIP(当日已有)
+[ 81/100] BK1415 其他化学纤维 OK 2836 bars 2015-01-05~2026-09-02
+[ 82/100] BK1476 化学工程 SKIP(当日已有)
+[ 83/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 84/100] BK1451 厨房电器 SKIP(当日已有)
+[ 85/100] BK1239 白色家电 OK 2836 bars 2015-01-05~2026-09-02
+[ 86/100] BK1410 其他自动化设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 87/100] BK1353 家纺 SKIP(当日已有)
+[ 88/100] BK1609 城商行Ⅲ SKIP(当日已有)
+[ 89/100] BK1593 通信终端及配件 OK 2836 bars 2015-01-05~2026-09-02
+[ 90/100] BK1379 热力服务 OK 2836 bars 2015-01-05~2026-09-02
+[ 91/100] BK1352 非运动服装 OK 2836 bars 2015-01-05~2026-09-02
+[ 92/100] BK1566 检测服务 OK 2836 bars 2015-01-05~2026-09-02
+[ 93/100] BK1455 家电零部件Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 94/100] BK1242 家电零部件Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 95/100] BK1460 照明设备Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 96/100] BK1245 照明设备Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 97/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 98/100] BK1404 农用机械 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 99/100] BK1587 电信运营商 SKIP(当日已有)
+[100/100] BK1610 股份制银行Ⅲ FAIL RemoteDisconnected: Remote end closed connection without response
+
+== done in 165s | ok=25 skip=59 fail=16 ==
+  FAIL BK1561 旅游综合: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1619 其他金属新材料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1388 大气治理: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1028 燃气Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1611 国有大型银行Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1392 工程机械器件: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1386 军工电子Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0740 教育: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1380 水力发电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0545 通用设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1305 燃料电池: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1338 消费电子零部件及组装: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1460 照明设备Ⅲ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1245 照明设备Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1404 农用机械: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1610 股份制银行Ⅲ: RemoteDisconnected: Remote end closed connection without response
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1252 化妆品 SKIP(当日已有)
+[  6/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  7/100] BK1556 教育运营及其他 SKIP(当日已有)
+[  8/100] BK1462 玻纤制造 SKIP(当日已有)
+[  9/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 10/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 11/100] BK1337 品牌消费电子 SKIP(当日已有)
+[ 12/100] BK1562 人工景区 SKIP(当日已有)
+[ 13/100] BK1533 塑料包装 SKIP(当日已有)
+[ 14/100] BK1348 辅料 SKIP(当日已有)
+[ 15/100] BK1204 国防军工 SKIP(当日已有)
+[ 16/100] BK1018 橡胶 SKIP(当日已有)
+[ 17/100] BK1507 宠物食品 SKIP(当日已有)
+[ 18/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 19/100] BK1035 美容护理 SKIP(当日已有)
+[ 20/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 21/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 22/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 23/100] BK1563 自然景区 SKIP(当日已有)
+[ 24/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 25/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 26/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 27/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 28/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 29/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 30/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 31/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 32/100] BK1467 耐火材料 SKIP(当日已有)
+[ 33/100] BK1500 医美耗材 SKIP(当日已有)
+[ 34/100] BK1611 国有大型银行Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 35/100] BK1619 其他金属新材料 OK 2836 bars 2015-01-05~2026-09-02
+[ 36/100] BK1376 核力发电 SKIP(当日已有)
+[ 37/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 38/100] BK1311 输变电设备 SKIP(当日已有)
+[ 39/100] BK1392 工程机械器件 OK 2797 bars 2015-01-05~2026-09-02
+[ 40/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 41/100] BK1386 军工电子Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 42/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 43/100] BK1388 大气治理 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 44/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 45/100] BK1028 燃气Ⅱ FAIL RemoteDisconnected: Remote end closed connection without response
+[ 46/100] BK1496 洗护用品 SKIP(当日已有)
+[ 47/100] BK1253 医疗美容 SKIP(当日已有)
+[ 48/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 49/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 50/100] BK1561 旅游综合 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 51/100] BK1458 个护小家电 SKIP(当日已有)
+[ 52/100] BK1431 有机硅 SKIP(当日已有)
+[ 53/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 54/100] BK1445 安防设备 SKIP(当日已有)
+[ 55/100] BK1396 金属制品 SKIP(当日已有)
+[ 56/100] BK1380 水力发电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 57/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 58/100] BK0457 电网设备 SKIP(当日已有)
+[ 59/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 60/100] BK1037 消费电子 SKIP(当日已有)
+[ 61/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 62/100] BK1439 膜材料 SKIP(当日已有)
+[ 63/100] BK1449 冰洗 SKIP(当日已有)
+[ 64/100] BK1360 金融信息服务 SKIP(当日已有)
+[ 65/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 66/100] BK1534 印刷 SKIP(当日已有)
+[ 67/100] BK1265 包装印刷 SKIP(当日已有)
+[ 68/100] BK1539 定制家居 SKIP(当日已有)
+[ 69/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 70/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 71/100] BK0545 通用设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 72/100] BK1214 社会服务 SKIP(当日已有)
+[ 73/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 74/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 75/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 76/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 77/100] BK0740 教育 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 78/100] BK1535 纸包装 SKIP(当日已有)
+[ 79/100] BK1609 城商行Ⅲ SKIP(当日已有)
+[ 80/100] BK1338 消费电子零部件及组装 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 81/100] BK1610 股份制银行Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[ 82/100] BK1587 电信运营商 SKIP(当日已有)
+[ 83/100] BK1305 燃料电池 OK 1461 bars 2020-08-11~2026-09-02
+[ 84/100] BK1451 厨房电器 SKIP(当日已有)
+[ 85/100] BK1407 工控设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 86/100] BK1283 银行 OK 2836 bars 2015-01-05~2026-09-02
+[ 87/100] BK0475 银行Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+[ 88/100] BK1239 白色家电 SKIP(当日已有)
+[ 89/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 90/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 91/100] BK1454 其他黑色家电 OK 2833 bars 2015-01-05~2026-09-02
+[ 92/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 93/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 94/100] BK1379 热力服务 SKIP(当日已有)
+[ 95/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 96/100] BK1404 农用机械 OK 2836 bars 2015-01-05~2026-09-02
+[ 97/100] BK1225 服装家纺 SKIP(当日已有)
+[ 98/100] BK1476 化学工程 SKIP(当日已有)
+[ 99/100] BK1205 机械设备 OK 2836 bars 2015-01-05~2026-09-02
+[100/100] BK1547 跨境电商 SKIP(当日已有)
+
+== done in 71s | ok=12 skip=81 fail=7 ==
+  FAIL BK1388 大气治理: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1028 燃气Ⅱ: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1561 旅游综合: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1380 水力发电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0545 通用设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0740 教育: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1338 消费电子零部件及组装: RemoteDisconnected: Remote end closed connection without response
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  6/100] BK1252 化妆品 SKIP(当日已有)
+[  7/100] BK1462 玻纤制造 SKIP(当日已有)
+[  8/100] BK1556 教育运营及其他 SKIP(当日已有)
+[  9/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 10/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 11/100] BK1337 品牌消费电子 SKIP(当日已有)
+[ 12/100] BK1533 塑料包装 SKIP(当日已有)
+[ 13/100] BK1204 国防军工 SKIP(当日已有)
+[ 14/100] BK1018 橡胶 SKIP(当日已有)
+[ 15/100] BK1507 宠物食品 SKIP(当日已有)
+[ 16/100] BK1348 辅料 SKIP(当日已有)
+[ 17/100] BK1562 人工景区 SKIP(当日已有)
+[ 18/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 19/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 20/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 21/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 22/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 23/100] BK1035 美容护理 SKIP(当日已有)
+[ 24/100] BK1563 自然景区 SKIP(当日已有)
+[ 25/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 26/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 27/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 28/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 29/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 30/100] BK1467 耐火材料 SKIP(当日已有)
+[ 31/100] BK1311 输变电设备 SKIP(当日已有)
+[ 32/100] BK1619 其他金属新材料 SKIP(当日已有)
+[ 33/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 34/100] BK1386 军工电子Ⅲ SKIP(当日已有)
+[ 35/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 36/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 37/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 38/100] BK1392 工程机械器件 SKIP(当日已有)
+[ 39/100] BK1500 医美耗材 SKIP(当日已有)
+[ 40/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 41/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 42/100] BK1388 大气治理 OK 2836 bars 2015-01-05~2026-09-02
+[ 43/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 44/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 45/100] BK1431 有机硅 SKIP(当日已有)
+[ 46/100] BK1396 金属制品 SKIP(当日已有)
+[ 47/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 48/100] BK1028 燃气Ⅱ OK 1347 bars 2021-02-10~2026-09-02
+[ 49/100] BK1037 消费电子 SKIP(当日已有)
+[ 50/100] BK1253 医疗美容 SKIP(当日已有)
+[ 51/100] BK0457 电网设备 SKIP(当日已有)
+[ 52/100] BK1445 安防设备 SKIP(当日已有)
+[ 53/100] BK1458 个护小家电 SKIP(当日已有)
+[ 54/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 55/100] BK1439 膜材料 SKIP(当日已有)
+[ 56/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 57/100] BK1561 旅游综合 OK 2836 bars 2015-01-05~2026-09-02
+[ 58/100] BK1496 洗护用品 SKIP(当日已有)
+[ 59/100] BK1376 核力发电 SKIP(当日已有)
+[ 60/100] BK1611 国有大型银行Ⅲ SKIP(当日已有)
+[ 61/100] BK1404 农用机械 SKIP(当日已有)
+[ 62/100] BK1539 定制家居 SKIP(当日已有)
+[ 63/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 64/100] BK1338 消费电子零部件及组装 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 65/100] BK0545 通用设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 66/100] BK1534 印刷 SKIP(当日已有)
+[ 67/100] BK1566 检测服务 SKIP(当日已有)
+[ 68/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 69/100] BK1214 社会服务 SKIP(当日已有)
+[ 70/100] BK1360 金融信息服务 SKIP(当日已有)
+[ 71/100] BK1265 包装印刷 SKIP(当日已有)
+[ 72/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 73/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 74/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 75/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 76/100] BK1043 专业服务 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 77/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 78/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 79/100] BK1449 冰洗 SKIP(当日已有)
+[ 80/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 81/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 82/100] BK1407 工控设备 SKIP(当日已有)
+[ 83/100] BK1535 纸包装 SKIP(当日已有)
+[ 84/100] BK1205 机械设备 SKIP(当日已有)
+[ 85/100] BK1380 水力发电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 86/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 87/100] BK1454 其他黑色家电 SKIP(当日已有)
+[ 88/100] BK0454 塑料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 89/100] BK1451 厨房电器 SKIP(当日已有)
+[ 90/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 91/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 92/100] BK1317 光伏加工设备 OK 2832 bars 2015-01-05~2026-09-02
+[ 93/100] BK1225 服装家纺 SKIP(当日已有)
+[ 94/100] BK0910 专用设备 OK 2462 bars 2016-07-15~2026-09-02
+[ 95/100] BK1379 热力服务 SKIP(当日已有)
+[ 96/100] BK1353 家纺 SKIP(当日已有)
+[ 97/100] BK1547 跨境电商 SKIP(当日已有)
+[ 98/100] BK0481 汽车零部件 OK 2836 bars 2015-01-05~2026-09-02
+[ 99/100] BK1460 照明设备Ⅲ OK 2836 bars 2015-01-05~2026-09-02
+[100/100] BK1245 照明设备Ⅱ OK 2836 bars 2015-01-05~2026-09-02
+
+== done in 63s | ok=8 skip=87 fail=5 ==
+  FAIL BK1338 消费电子零部件及组装: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0545 通用设备: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1043 专业服务: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1380 水力发电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK0454 塑料: RemoteDisconnected: Remote end closed connection without response
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  6/100] BK1252 化妆品 SKIP(当日已有)
+[  7/100] BK1462 玻纤制造 SKIP(当日已有)
+[  8/100] BK1337 品牌消费电子 SKIP(当日已有)
+[  9/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 10/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 11/100] BK1556 教育运营及其他 SKIP(当日已有)
+[ 12/100] BK1533 塑料包装 SKIP(当日已有)
+[ 13/100] BK1507 宠物食品 SKIP(当日已有)
+[ 14/100] BK1018 橡胶 SKIP(当日已有)
+[ 15/100] BK1204 国防军工 SKIP(当日已有)
+[ 16/100] BK1562 人工景区 SKIP(当日已有)
+[ 17/100] BK1348 辅料 SKIP(当日已有)
+[ 18/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 19/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 20/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 21/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 22/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 23/100] BK1035 美容护理 SKIP(当日已有)
+[ 24/100] BK1311 输变电设备 SKIP(当日已有)
+[ 25/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 26/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 27/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 28/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 29/100] BK1467 耐火材料 SKIP(当日已有)
+[ 30/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 31/100] BK1619 其他金属新材料 SKIP(当日已有)
+[ 32/100] BK1563 自然景区 SKIP(当日已有)
+[ 33/100] BK1392 工程机械器件 SKIP(当日已有)
+[ 34/100] BK1386 军工电子Ⅲ SKIP(当日已有)
+[ 35/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 36/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 37/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 38/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 39/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 40/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 41/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 42/100] BK1500 医美耗材 SKIP(当日已有)
+[ 43/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 44/100] BK1388 大气治理 SKIP(当日已有)
+[ 45/100] BK1037 消费电子 SKIP(当日已有)
+[ 46/100] BK1396 金属制品 SKIP(当日已有)
+[ 47/100] BK1431 有机硅 SKIP(当日已有)
+[ 48/100] BK0457 电网设备 SKIP(当日已有)
+[ 49/100] BK1439 膜材料 SKIP(当日已有)
+[ 50/100] BK1445 安防设备 SKIP(当日已有)
+[ 51/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 52/100] BK1028 燃气Ⅱ SKIP(当日已有)
+[ 53/100] BK1496 洗护用品 SKIP(当日已有)
+[ 54/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 55/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 56/100] BK1253 医疗美容 SKIP(当日已有)
+[ 57/100] BK1611 国有大型银行Ⅲ SKIP(当日已有)
+[ 58/100] BK1338 消费电子零部件及组装 OK 2836 bars 2015-01-05~2026-09-02
+[ 59/100] BK1376 核力发电 SKIP(当日已有)
+[ 60/100] BK1534 印刷 SKIP(当日已有)
+[ 61/100] BK0545 通用设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 62/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 63/100] BK1404 农用机械 SKIP(当日已有)
+[ 64/100] BK1561 旅游综合 SKIP(当日已有)
+[ 65/100] BK1458 个护小家电 SKIP(当日已有)
+[ 66/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 67/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 68/100] BK1539 定制家居 SKIP(当日已有)
+[ 69/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 70/100] BK1566 检测服务 SKIP(当日已有)
+[ 71/100] BK1265 包装印刷 SKIP(当日已有)
+[ 72/100] BK1407 工控设备 SKIP(当日已有)
+[ 73/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 74/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 75/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 76/100] BK1360 金融信息服务 SKIP(当日已有)
+[ 77/100] BK1214 社会服务 SKIP(当日已有)
+[ 78/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 79/100] BK1535 纸包装 SKIP(当日已有)
+[ 80/100] BK1043 专业服务 OK 1337 bars 2021-03-03~2026-09-02
+[ 81/100] BK1460 照明设备Ⅲ SKIP(当日已有)
+[ 82/100] BK1245 照明设备Ⅱ SKIP(当日已有)
+[ 83/100] BK0454 塑料 OK 2836 bars 2015-01-05~2026-09-02
+[ 84/100] BK1205 机械设备 SKIP(当日已有)
+[ 85/100] BK1449 冰洗 SKIP(当日已有)
+[ 86/100] BK1380 水力发电 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 87/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 88/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 89/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 90/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 91/100] BK1476 化学工程 SKIP(当日已有)
+[ 92/100] BK1317 光伏加工设备 SKIP(当日已有)
+[ 93/100] BK1437 改性塑料 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 94/100] BK0910 专用设备 SKIP(当日已有)
+[ 95/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 96/100] BK1547 跨境电商 SKIP(当日已有)
+[ 97/100] BK1353 家纺 SKIP(当日已有)
+[ 98/100] BK1237 自动化设备 FAIL RemoteDisconnected: Remote end closed connection without response
+[ 99/100] BK1225 服装家纺 SKIP(当日已有)
+[100/100] BK1454 其他黑色家电 SKIP(当日已有)
+
+== done in 38s | ok=4 skip=93 fail=3 ==
+  FAIL BK1380 水力发电: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1437 改性塑料: RemoteDisconnected: Remote end closed connection without response
+  FAIL BK1237 自动化设备: RemoteDisconnected: Remote end closed connection without response
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  6/100] BK1252 化妆品 SKIP(当日已有)
+[  7/100] BK1462 玻纤制造 SKIP(当日已有)
+[  8/100] BK1337 品牌消费电子 SKIP(当日已有)
+[  9/100] BK1533 塑料包装 SKIP(当日已有)
+[ 10/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 11/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 12/100] BK1018 橡胶 SKIP(当日已有)
+[ 13/100] BK1507 宠物食品 SKIP(当日已有)
+[ 14/100] BK1348 辅料 SKIP(当日已有)
+[ 15/100] BK1204 国防军工 SKIP(当日已有)
+[ 16/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 17/100] BK1562 人工景区 SKIP(当日已有)
+[ 18/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 19/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 20/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 21/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 22/100] BK1035 美容护理 SKIP(当日已有)
+[ 23/100] BK1311 输变电设备 SKIP(当日已有)
+[ 24/100] BK1467 耐火材料 SKIP(当日已有)
+[ 25/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 26/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 27/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 28/100] BK1392 工程机械器件 SKIP(当日已有)
+[ 29/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 30/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 31/100] BK1619 其他金属新材料 SKIP(当日已有)
+[ 32/100] BK1386 军工电子Ⅲ SKIP(当日已有)
+[ 33/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 34/100] BK1563 自然景区 SKIP(当日已有)
+[ 35/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 36/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 37/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 38/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 39/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 40/100] BK1388 大气治理 SKIP(当日已有)
+[ 41/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 42/100] BK1500 医美耗材 SKIP(当日已有)
+[ 43/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 44/100] BK1431 有机硅 SKIP(当日已有)
+[ 45/100] BK0457 电网设备 SKIP(当日已有)
+[ 46/100] BK1396 金属制品 SKIP(当日已有)
+[ 47/100] BK1037 消费电子 SKIP(当日已有)
+[ 48/100] BK1556 教育运营及其他 SKIP(当日已有)
+[ 49/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 50/100] BK1445 安防设备 SKIP(当日已有)
+[ 51/100] BK1439 膜材料 SKIP(当日已有)
+[ 52/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 53/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 54/100] BK1028 燃气Ⅱ SKIP(当日已有)
+[ 55/100] BK1566 检测服务 SKIP(当日已有)
+[ 56/100] BK1496 洗护用品 SKIP(当日已有)
+[ 57/100] BK1253 医疗美容 SKIP(当日已有)
+[ 58/100] BK1458 个护小家电 SKIP(当日已有)
+[ 59/100] BK1534 印刷 SKIP(当日已有)
+[ 60/100] BK0545 通用设备 SKIP(当日已有)
+[ 61/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 62/100] BK1404 农用机械 SKIP(当日已有)
+[ 63/100] BK1338 消费电子零部件及组装 SKIP(当日已有)
+[ 64/100] BK1539 定制家居 SKIP(当日已有)
+[ 65/100] BK1611 国有大型银行Ⅲ SKIP(当日已有)
+[ 66/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 67/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 68/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 69/100] BK1265 包装印刷 SKIP(当日已有)
+[ 70/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 71/100] BK1043 专业服务 SKIP(当日已有)
+[ 72/100] BK1407 工控设备 SKIP(当日已有)
+[ 73/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 74/100] BK1460 照明设备Ⅲ SKIP(当日已有)
+[ 75/100] BK1245 照明设备Ⅱ SKIP(当日已有)
+[ 76/100] BK1449 冰洗 SKIP(当日已有)
+[ 77/100] BK1535 纸包装 SKIP(当日已有)
+[ 78/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 79/100] BK1561 旅游综合 SKIP(当日已有)
+[ 80/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 81/100] BK1376 核力发电 SKIP(当日已有)
+[ 82/100] BK1205 机械设备 SKIP(当日已有)
+[ 83/100] BK1214 社会服务 SKIP(当日已有)
+[ 84/100] BK0454 塑料 SKIP(当日已有)
+[ 85/100] BK1437 改性塑料 OK 2836 bars 2015-01-05~2026-09-02
+[ 86/100] BK0910 专用设备 SKIP(当日已有)
+[ 87/100] BK1360 金融信息服务 SKIP(当日已有)
+[ 88/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 89/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 90/100] BK1305 燃料电池 SKIP(当日已有)
+[ 91/100] BK0481 汽车零部件 SKIP(当日已有)
+[ 92/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 93/100] BK1237 自动化设备 OK 2836 bars 2015-01-05~2026-09-02
+[ 94/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 95/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 96/100] BK1317 光伏加工设备 SKIP(当日已有)
+[ 97/100] BK1476 化学工程 SKIP(当日已有)
+[ 98/100] BK1380 水力发电 OK 2836 bars 2015-01-05~2026-09-02
+[ 99/100] BK1353 家纺 SKIP(当日已有)
+[100/100] BK1454 其他黑色家电 SKIP(当日已有)
+
+== done in 17s | ok=3 skip=97 fail=0 ==
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  6/100] BK1252 化妆品 SKIP(当日已有)
+[  7/100] BK1462 玻纤制造 SKIP(当日已有)
+[  8/100] BK1337 品牌消费电子 SKIP(当日已有)
+[  9/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 10/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 11/100] BK1533 塑料包装 SKIP(当日已有)
+[ 12/100] BK1018 橡胶 SKIP(当日已有)
+[ 13/100] BK1348 辅料 SKIP(当日已有)
+[ 14/100] BK1204 国防军工 SKIP(当日已有)
+[ 15/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 16/100] BK1507 宠物食品 SKIP(当日已有)
+[ 17/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 18/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 19/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 20/100] BK1562 人工景区 SKIP(当日已有)
+[ 21/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 22/100] BK1035 美容护理 SKIP(当日已有)
+[ 23/100] BK1467 耐火材料 SKIP(当日已有)
+[ 24/100] BK1311 输变电设备 SKIP(当日已有)
+[ 25/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 26/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 27/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 28/100] BK1619 其他金属新材料 SKIP(当日已有)
+[ 29/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 30/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 31/100] BK1392 工程机械器件 SKIP(当日已有)
+[ 32/100] BK1386 军工电子Ⅲ SKIP(当日已有)
+[ 33/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 34/100] BK1556 教育运营及其他 SKIP(当日已有)
+[ 35/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 36/100] BK1563 自然景区 SKIP(当日已有)
+[ 37/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 38/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 39/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 40/100] BK1388 大气治理 SKIP(当日已有)
+[ 41/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 42/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 43/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 44/100] BK1500 医美耗材 SKIP(当日已有)
+[ 45/100] BK1037 消费电子 SKIP(当日已有)
+[ 46/100] BK1396 金属制品 SKIP(当日已有)
+[ 47/100] BK1439 膜材料 SKIP(当日已有)
+[ 48/100] BK0457 电网设备 SKIP(当日已有)
+[ 49/100] BK1431 有机硅 SKIP(当日已有)
+[ 50/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 51/100] BK1445 安防设备 SKIP(当日已有)
+[ 52/100] BK1566 检测服务 SKIP(当日已有)
+[ 53/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 54/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 55/100] BK1338 消费电子零部件及组装 SKIP(当日已有)
+[ 56/100] BK1496 洗护用品 SKIP(当日已有)
+[ 57/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 58/100] BK1028 燃气Ⅱ SKIP(当日已有)
+[ 59/100] BK0545 通用设备 SKIP(当日已有)
+[ 60/100] BK1404 农用机械 SKIP(当日已有)
+[ 61/100] BK1458 个护小家电 SKIP(当日已有)
+[ 62/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 63/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 64/100] BK1253 医疗美容 SKIP(当日已有)
+[ 65/100] BK1534 印刷 SKIP(当日已有)
+[ 66/100] BK1539 定制家居 SKIP(当日已有)
+[ 67/100] BK1407 工控设备 SKIP(当日已有)
+[ 68/100] BK1265 包装印刷 SKIP(当日已有)
+[ 69/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 70/100] BK1043 专业服务 SKIP(当日已有)
+[ 71/100] BK1376 核力发电 SKIP(当日已有)
+[ 72/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 73/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 74/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 75/100] BK1535 纸包装 SKIP(当日已有)
+[ 76/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 77/100] BK1611 国有大型银行Ⅲ SKIP(当日已有)
+[ 78/100] BK1205 机械设备 SKIP(当日已有)
+[ 79/100] BK0454 塑料 SKIP(当日已有)
+[ 80/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 81/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 82/100] BK1460 照明设备Ⅲ SKIP(当日已有)
+[ 83/100] BK1245 照明设备Ⅱ SKIP(当日已有)
+[ 84/100] BK1437 改性塑料 SKIP(当日已有)
+[ 85/100] BK1476 化学工程 SKIP(当日已有)
+[ 86/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 87/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 88/100] BK0910 专用设备 SKIP(当日已有)
+[ 89/100] BK1454 其他黑色家电 SKIP(当日已有)
+[ 90/100] BK1237 自动化设备 SKIP(当日已有)
+[ 91/100] BK1214 社会服务 SKIP(当日已有)
+[ 92/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 93/100] BK1317 光伏加工设备 SKIP(当日已有)
+[ 94/100] BK0481 汽车零部件 SKIP(当日已有)
+[ 95/100] BK1440 其他塑料制品 OK 2836 bars 2015-01-05~2026-09-02
+[ 96/100] BK1305 燃料电池 SKIP(当日已有)
+[ 97/100] BK1350 其他纺织 OK 2836 bars 2015-01-05~2026-09-02
+[ 98/100] BK1561 旅游综合 SKIP(当日已有)
+[ 99/100] BK1449 冰洗 SKIP(当日已有)
+[100/100] BK1360 金融信息服务 SKIP(当日已有)
+
+== done in 15s | ok=2 skip=98 fail=0 ==
+[2026-09-02] boards: 100
+[  1/100] BK1382 地面兵装Ⅲ SKIP(当日已有)
+[  2/100] BK1229 地面兵装Ⅱ SKIP(当日已有)
+[  3/100] BK1497 化妆品制造及其他 SKIP(当日已有)
+[  4/100] BK1296 视频媒体 SKIP(当日已有)
+[  5/100] BK1441 其他橡胶制品 SKIP(当日已有)
+[  6/100] BK1252 化妆品 SKIP(当日已有)
+[  7/100] BK1462 玻纤制造 SKIP(当日已有)
+[  8/100] BK1337 品牌消费电子 SKIP(当日已有)
+[  9/100] BK1384 航空装备Ⅲ SKIP(当日已有)
+[ 10/100] BK1231 航空装备Ⅱ SKIP(当日已有)
+[ 11/100] BK1018 橡胶 SKIP(当日已有)
+[ 12/100] BK1533 塑料包装 SKIP(当日已有)
+[ 13/100] BK1348 辅料 SKIP(当日已有)
+[ 14/100] BK1204 国防军工 SKIP(当日已有)
+[ 15/100] BK1562 人工景区 SKIP(当日已有)
+[ 16/100] BK1592 通信线缆及配套 SKIP(当日已有)
+[ 17/100] BK1507 宠物食品 SKIP(当日已有)
+[ 18/100] BK1312 线缆部件及其他 SKIP(当日已有)
+[ 19/100] BK1411 非金属材料Ⅲ SKIP(当日已有)
+[ 20/100] BK1020 非金属材料Ⅱ SKIP(当日已有)
+[ 21/100] BK1567 其他专业服务 SKIP(当日已有)
+[ 22/100] BK1035 美容护理 SKIP(当日已有)
+[ 23/100] BK1467 耐火材料 SKIP(当日已有)
+[ 24/100] BK1383 航海装备Ⅲ SKIP(当日已有)
+[ 25/100] BK1230 航海装备Ⅱ SKIP(当日已有)
+[ 26/100] BK1311 输变电设备 SKIP(当日已有)
+[ 27/100] BK1498 品牌化妆品 SKIP(当日已有)
+[ 28/100] BK1619 其他金属新材料 SKIP(当日已有)
+[ 29/100] BK1556 教育运营及其他 SKIP(当日已有)
+[ 30/100] BK1397 磨具磨料 SKIP(当日已有)
+[ 31/100] BK1385 航天装备Ⅲ SKIP(当日已有)
+[ 32/100] BK1232 航天装备Ⅱ SKIP(当日已有)
+[ 33/100] BK1392 工程机械器件 SKIP(当日已有)
+[ 34/100] BK1452 卫浴电器 SKIP(当日已有)
+[ 35/100] BK1563 自然景区 SKIP(当日已有)
+[ 36/100] BK1398 其他通用设备 SKIP(当日已有)
+[ 37/100] BK1386 军工电子Ⅲ SKIP(当日已有)
+[ 38/100] BK1233 军工电子Ⅱ SKIP(当日已有)
+[ 39/100] BK0546 玻璃玻纤 SKIP(当日已有)
+[ 40/100] BK1272 旅游及景区 SKIP(当日已有)
+[ 41/100] BK1388 大气治理 SKIP(当日已有)
+[ 42/100] BK1406 印刷包装机械 SKIP(当日已有)
+[ 43/100] BK1354 鞋帽及其他 SKIP(当日已有)
+[ 44/100] BK1396 金属制品 SKIP(当日已有)
+[ 45/100] BK1431 有机硅 SKIP(当日已有)
+[ 46/100] BK1037 消费电子 SKIP(当日已有)
+[ 47/100] BK1526 底盘与发动机系统 SKIP(当日已有)
+[ 48/100] BK1500 医美耗材 SKIP(当日已有)
+[ 49/100] BK1445 安防设备 SKIP(当日已有)
+[ 50/100] BK0457 电网设备 SKIP(当日已有)
+[ 51/100] BK1590 其他通信设备 SKIP(当日已有)
+[ 52/100] BK1496 洗护用品 SKIP(当日已有)
+[ 53/100] BK1439 膜材料 SKIP(当日已有)
+[ 54/100] BK1404 农用机械 SKIP(当日已有)
+[ 55/100] BK1376 核力发电 SKIP(当日已有)
+[ 56/100] BK1458 个护小家电 SKIP(当日已有)
+[ 57/100] BK1611 国有大型银行Ⅲ SKIP(当日已有)
+[ 58/100] BK1410 其他自动化设备 SKIP(当日已有)
+[ 59/100] BK1566 检测服务 SKIP(当日已有)
+[ 60/100] BK1381 燃气Ⅲ SKIP(当日已有)
+[ 61/100] BK1028 燃气Ⅱ SKIP(当日已有)
+[ 62/100] BK1534 印刷 SKIP(当日已有)
+[ 63/100] BK1539 定制家居 SKIP(当日已有)
+[ 64/100] BK0545 通用设备 SKIP(当日已有)
+[ 65/100] BK1338 消费电子零部件及组装 SKIP(当日已有)
+[ 66/100] BK1415 其他化学纤维 SKIP(当日已有)
+[ 67/100] BK1405 其他专用设备 SKIP(当日已有)
+[ 68/100] BK1253 医疗美容 SKIP(当日已有)
+[ 69/100] BK1240 厨卫电器 SKIP(当日已有)
+[ 70/100] BK1470 房屋建设Ⅲ SKIP(当日已有)
+[ 71/100] BK1246 房屋建设Ⅱ SKIP(当日已有)
+[ 72/100] BK1360 金融信息服务 SKIP(当日已有)
+[ 73/100] BK1460 照明设备Ⅲ SKIP(当日已有)
+[ 74/100] BK1245 照明设备Ⅱ SKIP(当日已有)
+[ 75/100] BK1525 车身附件及饰件 SKIP(当日已有)
+[ 76/100] BK1407 工控设备 SKIP(当日已有)
+[ 77/100] BK1593 通信终端及配件 SKIP(当日已有)
+[ 78/100] BK1265 包装印刷 SKIP(当日已有)
+[ 79/100] BK1043 专业服务 SKIP(当日已有)
+[ 80/100] BK1400 制冷空调设备 SKIP(当日已有)
+[ 81/100] BK1449 冰洗 SKIP(当日已有)
+[ 82/100] BK1440 其他塑料制品 SKIP(当日已有)
+[ 83/100] BK1205 机械设备 SKIP(当日已有)
+[ 84/100] BK0454 塑料 SKIP(当日已有)
+[ 85/100] BK1455 家电零部件Ⅲ SKIP(当日已有)
+[ 86/100] BK1242 家电零部件Ⅱ SKIP(当日已有)
+[ 87/100] BK1547 跨境电商 SKIP(当日已有)
+[ 88/100] BK1535 纸包装 SKIP(当日已有)
+[ 89/100] BK1403 能源及重型设备 SKIP(当日已有)
+[ 90/100] BK0910 专用设备 SKIP(当日已有)
+[ 91/100] BK1214 社会服务 SKIP(当日已有)
+[ 92/100] BK0481 汽车零部件 SKIP(当日已有)
+[ 93/100] BK1380 水力发电 SKIP(当日已有)
+[ 94/100] BK1305 燃料电池 SKIP(当日已有)
+[ 95/100] BK1350 其他纺织 SKIP(当日已有)
+[ 96/100] BK1237 自动化设备 SKIP(当日已有)
+[ 97/100] BK1437 改性塑料 SKIP(当日已有)
+[ 98/100] BK1295 其他数字媒体 SKIP(当日已有)
+[ 99/100] BK1225 服装家纺 SKIP(当日已有)
+[100/100] BK1561 旅游综合 SKIP(当日已有)
+
+== done in 11s | ok=0 skip=100 fail=0 ==

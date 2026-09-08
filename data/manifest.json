@@ -1,0 +1,952 @@
+{
+  "generated_at": "2026-08-31T09:12:53",
+  "root": "/home/summer/QuantV1/data",
+  "n_files": 189,
+  "files": {
+    "data/holidays.json": {
+      "sha256": "32f5a7b877c43b05e8f300c50ba312b2a066600f06ef36e442202273e1e2a287",
+      "size": 769,
+      "mtime": "2026-08-23T15:42:54"
+    },
+    "data/intraday/2026-08-25_mid.json": {
+      "sha256": "e9be93353933eafe0943bf3f2b179a0b978faece1cbf12007e700f720d2fac9c",
+      "size": 854,
+      "mtime": "2026-08-25T23:48:24"
+    },
+    "data/intraday/2026-08-26_mid.json": {
+      "sha256": "b7ab5cb38a53af1f19a30881b95a54f41c3bccc5552a2879bd204d95822675e5",
+      "size": 881,
+      "mtime": "2026-08-26T11:31:07"
+    },
+    "data/intraday/2026-08-27_mid.json": {
+      "sha256": "e97f747dda119ea172635ae6b01d77c76aabce95a6e691edabc1abebe397428d",
+      "size": 849,
+      "mtime": "2026-08-27T11:30:12"
+    },
+    "data/intraday/2026-08-28_mid.json": {
+      "sha256": "3334e60ba5136d4de674698581525c7a5b4983e24efb50cf5139247a3f5b8dbd",
+      "size": 870,
+      "mtime": "2026-08-28T11:31:49"
+    },
+    "data/klines/002112.json": {
+      "sha256": "fe041ddfada94328707e9fa3aad53ad6ef12b01a179598c014fcdcd19ce3bdc9",
+      "size": 65281,
+      "mtime": "2026-08-31T07:48:49"
+    },
+    "data/klines/002207.json": {
+      "sha256": "bfb786377c85399ec4bab26b3972b1c32537a5de388930dcb0df36e2266151ad",
+      "size": 62348,
+      "mtime": "2026-08-31T07:49:55"
+    },
+    "data/klines/022853.json": {
+      "sha256": "870ad8076c26c378d3fbefafc93c71f25f2f89c91fcc5c391919cf959c8a5215",
+      "size": 12165,
+      "mtime": "2026-08-31T07:49:39"
+    },
+    "data/klines/025687.json": {
+      "sha256": "ccdcbf9e84c6f86d68baee159ceb21240c7ebb7bc53c8dd81eaeb236473c6256",
+      "size": 6432,
+      "mtime": "2026-08-31T07:49:17"
+    },
+    "data/model_registry/lofo_evidence.json": {
+      "sha256": "91e809823010651cfb16b4ac9d93b2542b92b59ccc270447d383bd5b932a0b33",
+      "size": 2925,
+      "mtime": "2026-08-30T11:27:47"
+    },
+    "data/model_registry/registry.json": {
+      "sha256": "249485f607d9177fcc7452e31c759281e5761a2906eaa25ed54df3423cb898b5",
+      "size": 2731,
+      "mtime": "2026-08-31T09:10:22"
+    },
+    "data/models/forecast_v1.pkl": {
+      "sha256": "8e992f7e12e0cfb2e3cc3abac1d7d291cd43718026b62f18ef8f2988c1c34b9a",
+      "size": 408668,
+      "mtime": "2026-08-28T10:41:11"
+    },
+    "data/models/forecast_v2.pkl": {
+      "sha256": "a0c309641dfb0a5eb5d30466c9fb2f470b8645a5f3dc1d71181cebbdc1dade69",
+      "size": 901088,
+      "mtime": "2026-08-30T11:00:17"
+    },
+    "data/models/forecast_v3.pkl": {
+      "sha256": "7b66ce123dfd577af0c81d21cb2db3d4fc3d3d8d8430d812202db5da042606c5",
+      "size": 899273,
+      "mtime": "2026-08-31T08:22:23"
+    },
+    "data/stock_klines/000001.json": {
+      "sha256": "6d249656deeb6d295e2d816c23d30e0f7dfa7c65a97e97952cb930f7c98957f1",
+      "size": 145078,
+      "mtime": "2026-08-31T07:50:22"
+    },
+    "data/stock_klines/000002.json": {
+      "sha256": "386c5c91c55308d6cd7c269fac1831a74d9915308af6da33bcfa266dbe360faf",
+      "size": 144190,
+      "mtime": "2026-08-31T07:50:33"
+    },
+    "data/stock_klines/000157.json": {
+      "sha256": "f403c8bd4c8c216207d7ac7fcdc4314f55824056ff57eab46c71acb3878e97d6",
+      "size": 137569,
+      "mtime": "2026-08-31T07:50:43"
+    },
+    "data/stock_klines/000300.json": {
+      "sha256": "16950ea8313d4e9eb5022d7e602e6966c1720f5a4c7c9fe1ad658fb468549e1b",
+      "size": 164950,
+      "mtime": "2026-08-26T22:43:09"
+    },
+    "data/stock_klines/000333.json": {
+      "sha256": "73486d5e32d641306c370739a4d2226aee8963d8c14e76325f8ad61431a2edce",
+      "size": 145603,
+      "mtime": "2026-08-31T07:50:52"
+    },
+    "data/stock_klines/000403.json": {
+      "sha256": "bdab712d6d665930d1ab7ba90e32f6f41cd03f7af2a2e79635cd01c73e100f5c",
+      "size": 120178,
+      "mtime": "2026-08-31T07:51:00"
+    },
+    "data/stock_klines/000426.json": {
+      "sha256": "c0ba235c3d396d14fc8c3166ae33577b4f93f4fa4ba9d00f8a963e7912fa917a",
+      "size": 141161,
+      "mtime": "2026-08-31T07:51:09"
+    },
+    "data/stock_klines/000506.json": {
+      "sha256": "0b398ecc6ad5fbef8842ccea09776e827ec8a5027f9ff1651aea494f3116f4a9",
+      "size": 102472,
+      "mtime": "2026-08-31T07:51:17"
+    },
+    "data/stock_klines/000568.json": {
+      "sha256": "0c2fe432079bcc82e2604752989a78fb14a419b8ff3baf85b37291c208167957",
+      "size": 159263,
+      "mtime": "2026-08-31T07:51:27"
+    },
+    "data/stock_klines/000581.json": {
+      "sha256": "82d2152fc65a688bf06ed6919d129f8302bf3de8224f99f12eabbbc042ad24d9",
+      "size": 149295,
+      "mtime": "2026-08-31T07:51:38"
+    },
+    "data/stock_klines/000603.json": {
+      "sha256": "4df3d1d12e6c8c220df29496994257a75c050a8c90ef72928e344380d73512e4",
+      "size": 150217,
+      "mtime": "2026-08-31T07:51:48"
+    },
+    "data/stock_klines/000628.json": {
+      "sha256": "e5d7c775c6b52a9eff3480dc95839b9f8d004837ee156a63fcf40c88c2e2e944",
+      "size": 146302,
+      "mtime": "2026-08-31T07:51:58"
+    },
+    "data/stock_klines/000651.json": {
+      "sha256": "68c11a7cc75cff6eb2e75af7049af9c5bc430851dc4d6fe15763796075e4e9eb",
+      "size": 153951,
+      "mtime": "2026-08-31T07:52:08"
+    },
+    "data/stock_klines/000661.json": {
+      "sha256": "9141b39d0d93144eb2f23e70b748014a317866a44b9c95b81a71b81aead11426",
+      "size": 158746,
+      "mtime": "2026-08-31T07:52:18"
+    },
+    "data/stock_klines/000786.json": {
+      "sha256": "3357c52d6dfb18a7d2ae81468ab8464fe4b39a93532d2633f560c7d96bcd6912",
+      "size": 147133,
+      "mtime": "2026-08-31T07:52:28"
+    },
+    "data/stock_klines/000858.json": {
+      "sha256": "bce31727dc55027d60fd59e5a53a8488255541b3b54fff73aa3a77d58e8d1145",
+      "size": 160573,
+      "mtime": "2026-08-31T07:52:40"
+    },
+    "data/stock_klines/000951.json": {
+      "sha256": "fd024d3c25b96ea4150d76c86de4a42e6e7752b17b695c379257f1839f5e5dc5",
+      "size": 146582,
+      "mtime": "2026-08-31T07:52:52"
+    },
+    "data/stock_klines/000975.json": {
+      "sha256": "2e40aec3b46343304fd30d7dd92afba6973988a53761f36f88cb66e17f43786e",
+      "size": 142420,
+      "mtime": "2026-08-31T07:53:03"
+    },
+    "data/stock_klines/000988.json": {
+      "sha256": "fcd4dfcfcda29ba5b5cd991912866f1101bb88ca7269a92d08e5c06a55eb9aef",
+      "size": 152368,
+      "mtime": "2026-08-31T07:53:14"
+    },
+    "data/stock_klines/000999.json": {
+      "sha256": "c92abc64ee2e0c39907d45784f79871e86e2b28ade257d2cf3f1515476b44060",
+      "size": 147905,
+      "mtime": "2026-08-31T07:56:42"
+    },
+    "data/stock_klines/001337.json": {
+      "sha256": "54fd6dd540930ac4dc9534f6b5ea455ca32698d6eadae37d8e275543a9d1bc68",
+      "size": 36785,
+      "mtime": "2026-08-31T07:56:45"
+    },
+    "data/stock_klines/002027.json": {
+      "sha256": "685dba9b768343ace3901d38d9fb1051400750cbb1f697c53d02ecdbcf49f75c",
+      "size": 135689,
+      "mtime": "2026-08-31T07:56:55"
+    },
+    "data/stock_klines/002044.json": {
+      "sha256": "e95d44cdedeea96404b4469056cf1416c445d06346df7cd4331cbe2ff81310d0",
+      "size": 144323,
+      "mtime": "2026-08-31T07:57:04"
+    },
+    "data/stock_klines/002049.json": {
+      "sha256": "773b2adadffb1faf1fb05bec20d58ea1e2845c97ae8d5ae51df172e38e8ccaa2",
+      "size": 150875,
+      "mtime": "2026-08-31T07:57:16"
+    },
+    "data/stock_klines/002120.json": {
+      "sha256": "53f339cbfcaf7ec63af0e0b4ebadb05ce95e4ae614832398b70fc4bd2449ad4f",
+      "size": 145516,
+      "mtime": "2026-08-31T07:57:26"
+    },
+    "data/stock_klines/002129.json": {
+      "sha256": "32dd9c576d17998c81cd13431990577f2482b0386c9426d9a20eeaf6d8004b8d",
+      "size": 112198,
+      "mtime": "2026-08-31T07:57:34"
+    },
+    "data/stock_klines/002130.json": {
+      "sha256": "892ea07bec35238c59c083a1b0b5489756136caf353afaedaeb6c565b793de5f",
+      "size": 143281,
+      "mtime": "2026-08-31T07:57:44"
+    },
+    "data/stock_klines/002155.json": {
+      "sha256": "97ed60faf9e926c4f3f2015251f9b801afb1b3bee2824a7acb2d08ac16724847",
+      "size": 140512,
+      "mtime": "2026-08-31T07:57:56"
+    },
+    "data/stock_klines/002237.json": {
+      "sha256": "3c0a328b793d922e5ae7b06e31462a45d7026e4fefbfb58ec38100fb7dce04ee",
+      "size": 144428,
+      "mtime": "2026-08-31T07:58:06"
+    },
+    "data/stock_klines/002262.json": {
+      "sha256": "7f23800c59a74f27f5d94d19f086a9b159ace8a86f9c3bd67b9db05282e1588e",
+      "size": 140080,
+      "mtime": "2026-08-31T07:58:16"
+    },
+    "data/stock_klines/002271.json": {
+      "sha256": "36fb1362be092e6be5ce44fb5251be2f373b6421e899c36b49c8d452cf824e26",
+      "size": 145711,
+      "mtime": "2026-08-31T07:58:27"
+    },
+    "data/stock_klines/002281.json": {
+      "sha256": "ea9e4e795096c38e8066f60451436872f518cc3f4e9caea8c156c47321d4b44f",
+      "size": 141099,
+      "mtime": "2026-08-31T07:58:37"
+    },
+    "data/stock_klines/002294.json": {
+      "sha256": "a49132e5ecec6860929ec7a0e790255432f9da86c445a27808d74ee73cefdfa8",
+      "size": 150812,
+      "mtime": "2026-08-31T07:58:48"
+    },
+    "data/stock_klines/002332.json": {
+      "sha256": "3fee3bf2b90f0f307a6797ff09e833d5518403758a9157b99f2019b0131852a8",
+      "size": 136265,
+      "mtime": "2026-08-31T07:58:58"
+    },
+    "data/stock_klines/002345.json": {
+      "sha256": "d9045a41c4c3ebe6cd4b91ff3a4fe773e097fc74aaca28523c5dcc777a7b90c6",
+      "size": 136435,
+      "mtime": "2026-08-31T07:59:09"
+    },
+    "data/stock_klines/002352.json": {
+      "sha256": "602afdb1386933187fbd3459f07d2b792cd1a3f4900294ef9e4a0e671772f0b4",
+      "size": 150533,
+      "mtime": "2026-08-31T07:59:20"
+    },
+    "data/stock_klines/002364.json": {
+      "sha256": "2e72fd2ff5c011a2a6ce3f9d3e315740cf1df96879a85e79163c2d94fe61a74e",
+      "size": 145387,
+      "mtime": "2026-08-31T07:59:30"
+    },
+    "data/stock_klines/002371.json": {
+      "sha256": "1673a1087658a88e8461e7af5cfa6ff4b401d7b0bc7eed83ce9bd540e7f5dc5e",
+      "size": 158052,
+      "mtime": "2026-08-31T07:59:41"
+    },
+    "data/stock_klines/002384.json": {
+      "sha256": "40fdd3cf6e7e790a82bf8b37297a8ffe858079363216088b2336734f5cc0c71a",
+      "size": 148556,
+      "mtime": "2026-08-31T08:07:37"
+    },
+    "data/stock_klines/002422.json": {
+      "sha256": "cc4afe1b19fd40fc6a9bc29367984e0833061b249a68b39151372db927a565b9",
+      "size": 151408,
+      "mtime": "2026-08-31T08:00:08"
+    },
+    "data/stock_klines/002463.json": {
+      "sha256": "405eafba1088fd41558d5f88c92764993bc7c60e00aba7c2428956fe117304cf",
+      "size": 140375,
+      "mtime": "2026-08-31T08:00:18"
+    },
+    "data/stock_klines/002472.json": {
+      "sha256": "c930427a6279b52404e533a61f72250c9320b56c22ca99ccc7ef6e2aca9cf896",
+      "size": 144101,
+      "mtime": "2026-08-31T08:00:29"
+    },
+    "data/stock_klines/002475.json": {
+      "sha256": "f48d14602535e466c02f8d8d1bb0fe501e7db72b28305911f285afc210d4a111",
+      "size": 147242,
+      "mtime": "2026-08-31T08:00:41"
+    },
+    "data/stock_klines/002635.json": {
+      "sha256": "d7fd5c886e502286717646e7f8f5261f460f2e54bebe0c2b9df4497984f9f53e",
+      "size": 146624,
+      "mtime": "2026-08-31T08:00:50"
+    },
+    "data/stock_klines/002706.json": {
+      "sha256": "c2a2341651d17872026cc9e67a680d3094c6e28decb66ac477fa03591c103bad",
+      "size": 137118,
+      "mtime": "2026-08-31T08:01:01"
+    },
+    "data/stock_klines/002755.json": {
+      "sha256": "1ecff3dca77d5b72765ff72284fdb66ade8adb85a3aec03c5c761b1e35513c5d",
+      "size": 119406,
+      "mtime": "2026-08-31T08:01:12"
+    },
+    "data/stock_klines/002837.json": {
+      "sha256": "c7f24893a9192303a679c11f336ff68da5f4ae61d5ca6cb0c8fc0395db908e9c",
+      "size": 102762,
+      "mtime": "2026-08-31T08:01:19"
+    },
+    "data/stock_klines/002851.json": {
+      "sha256": "a2badcc5d8f087771d9c648d1e27854315ebb68ad3b1150fb19dd0b781e78fc8",
+      "size": 105044,
+      "mtime": "2026-08-31T08:01:26"
+    },
+    "data/stock_klines/002867.json": {
+      "sha256": "800621a2e37452736f34c26500a99cc4faed8ce4c452611668b098d2caceb508",
+      "size": 102813,
+      "mtime": "2026-08-31T08:01:34"
+    },
+    "data/stock_klines/002929.json": {
+      "sha256": "f667de0e9cdbbdeea0c0c5bf90b3033544d450172cc73b16f1dff21de23a1058",
+      "size": 96902,
+      "mtime": "2026-08-31T08:01:42"
+    },
+    "data/stock_klines/002940.json": {
+      "sha256": "ff9c01c4a02d6cf5375eafc41e99b8647def864b8581952fe5613243e526bc31",
+      "size": 90373,
+      "mtime": "2026-08-31T08:01:49"
+    },
+    "data/stock_klines/300122.json": {
+      "sha256": "d5b590133f68e6448b3e66fc9dd398bddba1c4daeb5310359cab0c4b690bb573",
+      "size": 142811,
+      "mtime": "2026-08-31T08:01:59"
+    },
+    "data/stock_klines/300181.json": {
+      "sha256": "3d216a9f4c2eb101537b26b11f3f0c598708482a9385b9f4ba35a11585c72929",
+      "size": 143245,
+      "mtime": "2026-08-31T08:02:10"
+    },
+    "data/stock_klines/300236.json": {
+      "sha256": "17ec6c4d2a61ad13cb7de930f1221738e018acc66ba2ac57e1626df6c739c9ff",
+      "size": 152729,
+      "mtime": "2026-08-31T08:02:21"
+    },
+    "data/stock_klines/300274.json": {
+      "sha256": "298c5e9902ef103ac573e364a8401440a65602a7db0bb86a2b9e94bd9f1f568d",
+      "size": 146799,
+      "mtime": "2026-08-31T08:02:32"
+    },
+    "data/stock_klines/300308.json": {
+      "sha256": "fdfb5e700287e1a3102cf86bae40583fc97f4b36116793aa0745130760aeb403",
+      "size": 149253,
+      "mtime": "2026-08-31T08:02:43"
+    },
+    "data/stock_klines/300394.json": {
+      "sha256": "d82af8352e2a8d2fcaaaf17486346b6e6c7b0227a318133a7d4857e3f8ad011c",
+      "size": 126175,
+      "mtime": "2026-08-31T08:02:52"
+    },
+    "data/stock_klines/300395.json": {
+      "sha256": "020b369552528be21cf284a03e4b70ea4cbf359660efdc4b28a10d65c5ba5193",
+      "size": 133805,
+      "mtime": "2026-08-31T08:03:01"
+    },
+    "data/stock_klines/300451.json": {
+      "sha256": "c4d0839c187d3e894f09dda5a17d1bff8b9597fc557dda7e9cf3ce763673bbd9",
+      "size": 112620,
+      "mtime": "2026-08-31T08:03:12"
+    },
+    "data/stock_klines/300476.json": {
+      "sha256": "8e4b3ba5b0a0ced8acebffa3c1ed913cbd1ac46ebb235ba18901c93fe455746d",
+      "size": 124172,
+      "mtime": "2026-08-31T08:03:23"
+    },
+    "data/stock_klines/300502.json": {
+      "sha256": "942326fccd02ca1bb37dd5407e30566e7b64934fb1545c5c3d1b2d96cee14616",
+      "size": 116988,
+      "mtime": "2026-08-31T08:03:30"
+    },
+    "data/stock_klines/300548.json": {
+      "sha256": "b5095f90e1836e290cda0818ed4db2e6041f877228b3825376e7a9a9a2ad96e5",
+      "size": 110514,
+      "mtime": "2026-08-31T08:03:38"
+    },
+    "data/stock_klines/300570.json": {
+      "sha256": "6e3652ddbc53fed831cf969a8ecdec5594dd9d4c2ee699ba935b7527c9e8f55a",
+      "size": 109340,
+      "mtime": "2026-08-31T08:03:46"
+    },
+    "data/stock_klines/300604.json": {
+      "sha256": "affe92add6bdca0e70eb4e3cc7913f62e2c7ec78c8b2ec6dd8edf8a2a2c16b33",
+      "size": 100722,
+      "mtime": "2026-08-31T08:03:54"
+    },
+    "data/stock_klines/300620.json": {
+      "sha256": "f3b0ea095c7b0fd974b544479555e54d6c400fff28356fb5e4b3908adc1eecb5",
+      "size": 105649,
+      "mtime": "2026-08-31T08:04:01"
+    },
+    "data/stock_klines/300657.json": {
+      "sha256": "91129da988c7e2b4a51438d73d4af9f1a3b79b1513100b0e64ac1698339f3ecf",
+      "size": 98819,
+      "mtime": "2026-08-31T08:04:11"
+    },
+    "data/stock_klines/300723.json": {
+      "sha256": "7faa62b4b78cce507cb13f1be536879e4f1500685f69d9685f6af7c4f948aa69",
+      "size": 98918,
+      "mtime": "2026-08-31T08:04:19"
+    },
+    "data/stock_klines/300757.json": {
+      "sha256": "1ca5ae06e0018d6b7cc7cb935b4bbf246ff357da7fd90052fd54585f55962d85",
+      "size": 88283,
+      "mtime": "2026-08-31T08:04:25"
+    },
+    "data/stock_klines/300782.json": {
+      "sha256": "301ebe196bd1446d2eb5f045e49de24dd1e0cd823a835c56fc78e00a32502325",
+      "size": 85889,
+      "mtime": "2026-08-31T08:04:30"
+    },
+    "data/stock_klines/300870.json": {
+      "sha256": "24422a75b683c6b6abc34edc07a3d78e3be7a6e884c6b163e91b5aea4b118d80",
+      "size": 70037,
+      "mtime": "2026-08-31T08:04:37"
+    },
+    "data/stock_klines/301018.json": {
+      "sha256": "8cc59d864a29867ac91375bfc9e56584742c74a3202c63e1834515b08e86d53e",
+      "size": 58949,
+      "mtime": "2026-08-31T08:04:41"
+    },
+    "data/stock_klines/301205.json": {
+      "sha256": "77ec2d3c4456f1873d501644a77561d37b7ec80d4ac9585b98fb1b55430c4e93",
+      "size": 43553,
+      "mtime": "2026-08-31T08:04:45"
+    },
+    "data/stock_klines/301486.json": {
+      "sha256": "0abc578e6977f63dbcf4e91d8d18f827eb6554e8d5a8de5b86b0a0b8251c2cb2",
+      "size": 35335,
+      "mtime": "2026-08-31T08:04:48"
+    },
+    "data/stock_klines/600030.json": {
+      "sha256": "5e63ed595111dd5047d9ef4c36afbad186439ea30f385ad13a2f653da8e0c0bc",
+      "size": 148824,
+      "mtime": "2026-08-31T08:04:58"
+    },
+    "data/stock_klines/600031.json": {
+      "sha256": "3f36345ecebdbddf6d29b1d6682a22fe720b289137d36544e875af6bc6bc9bf8",
+      "size": 146759,
+      "mtime": "2026-08-31T08:05:08"
+    },
+    "data/stock_klines/600036.json": {
+      "sha256": "f44ccbc9ea04cfa8033a57a2773ba41555c0faeb09aef838b6a4119662512e38",
+      "size": 151123,
+      "mtime": "2026-08-31T08:05:18"
+    },
+    "data/stock_klines/600048.json": {
+      "sha256": "0f3572ece5be05d7f78325864415e096d4bb520e76d5f6597d25feddd52504b2",
+      "size": 136803,
+      "mtime": "2026-08-31T08:07:52"
+    },
+    "data/stock_klines/600079.json": {
+      "sha256": "145c9507a127e3c70c64d766c65ee891f770a32bff4fd7d4f0ed2d452e547e2d",
+      "size": 147077,
+      "mtime": "2026-08-31T08:08:05"
+    },
+    "data/stock_klines/600085.json": {
+      "sha256": "34880850fffae47b9f36148592c5ad82e67a6ece0d79af5842c80c0a586d21c4",
+      "size": 139133,
+      "mtime": "2026-08-31T08:08:17"
+    },
+    "data/stock_klines/600129.json": {
+      "sha256": "ae62bce03b862c7b5d68c0b4920b086c91bd9501f07fd6f1392d24a0a48ba1a9",
+      "size": 136495,
+      "mtime": "2026-08-31T08:08:27"
+    },
+    "data/stock_klines/600161.json": {
+      "sha256": "27b2cb958b16ee54e220b1a15025c927d84593cebfcb3fdabbbd445c4519a97d",
+      "size": 145540,
+      "mtime": "2026-08-31T08:08:38"
+    },
+    "data/stock_klines/600166.json": {
+      "sha256": "31a33015c148c8ae36c36417d1f27ca99a7680575c6c4eae2d5f10f114800582",
+      "size": 130877,
+      "mtime": "2026-08-31T08:08:50"
+    },
+    "data/stock_klines/600183.json": {
+      "sha256": "11b45694901dcd9d7af15bb80c1f54102579bf55d687e9eeb3e317af0100f36c",
+      "size": 139611,
+      "mtime": "2026-08-31T08:09:00"
+    },
+    "data/stock_klines/600276.json": {
+      "sha256": "a8cea34d367aba6328f257289abd525c05d8f3346bb679015bbc54d8eba07c9f",
+      "size": 148433,
+      "mtime": "2026-08-31T08:09:11"
+    },
+    "data/stock_klines/600377.json": {
+      "sha256": "0d978aa03f1091d78b13840b3a071678de790220cb238915f83c500eb1030593",
+      "size": 129863,
+      "mtime": "2026-08-31T08:09:21"
+    },
+    "data/stock_klines/600378.json": {
+      "sha256": "552aec0d0ea42c654d0d1c0cb25603b1eb46de16068bf32e8848e4efaa97db7d",
+      "size": 150291,
+      "mtime": "2026-08-31T08:09:30"
+    },
+    "data/stock_klines/600399.json": {
+      "sha256": "a2f952facb9ff1e998c817c64c81ef3cbd900e77c879a488eafe692b1d033a29",
+      "size": 142543,
+      "mtime": "2026-08-31T08:09:40"
+    },
+    "data/stock_klines/600409.json": {
+      "sha256": "fdb968aa5f3914001d66a23b6b6c73117f6f2eb15903691bc1b654c2ebcc3184",
+      "size": 140220,
+      "mtime": "2026-08-31T08:09:51"
+    },
+    "data/stock_klines/600420.json": {
+      "sha256": "979702572c400c5d61f833372286e7e179f6a881a76fd4043e21e984bf1f0346",
+      "size": 133744,
+      "mtime": "2026-08-31T08:10:00"
+    },
+    "data/stock_klines/600489.json": {
+      "sha256": "48e245cdb0e954515df069e9bbf68e42f8a1f53217388c824851ace18397b5b9",
+      "size": 143716,
+      "mtime": "2026-08-31T08:10:10"
+    },
+    "data/stock_klines/600519.json": {
+      "sha256": "a78cc0e0ba7e3492c486c05659a2b8a8a753ecfad66c147f989267d3c4b7ae67",
+      "size": 172950,
+      "mtime": "2026-08-31T08:10:21"
+    },
+    "data/stock_klines/600535.json": {
+      "sha256": "71b9ed646ca41d70b268682a198351271ce96ddd969599f1612def8129bd38d6",
+      "size": 148646,
+      "mtime": "2026-08-31T08:10:30"
+    },
+    "data/stock_klines/600547.json": {
+      "sha256": "724c213255613f69c3be99c4d755914166a5c145405dcc3862b6a0673e023489",
+      "size": 150115,
+      "mtime": "2026-08-31T08:10:41"
+    },
+    "data/stock_klines/600557.json": {
+      "sha256": "8c9c29665cad5809f49705688e630c344acba3ab6e6816cd5cc413f5675d3353",
+      "size": 149556,
+      "mtime": "2026-08-31T08:10:51"
+    },
+    "data/stock_klines/600566.json": {
+      "sha256": "c722c60787e5f41f78f7f2ecb286d2984e380994c41e0d2c178b34a41d682e0b",
+      "size": 138116,
+      "mtime": "2026-08-31T08:11:01"
+    },
+    "data/stock_klines/600572.json": {
+      "sha256": "19581faeaf9c8e7dac1fee1eb4eb271cfbd3ff7757c37faf2ce5456c61d89d5f",
+      "size": 138962,
+      "mtime": "2026-08-31T08:11:11"
+    },
+    "data/stock_klines/600585.json": {
+      "sha256": "c1622798f3e96d67f95ce33ad8f770524d430ec06bef5d2fbabf34d8d9cbb4a3",
+      "size": 135836,
+      "mtime": "2026-08-31T08:11:22"
+    },
+    "data/stock_klines/600602.json": {
+      "sha256": "d20d423280a0ec9e7f18be869ae51e3ebbd1f80df774d0a14049fd4be9b9700e",
+      "size": 144436,
+      "mtime": "2026-08-31T08:11:32"
+    },
+    "data/stock_klines/600612.json": {
+      "sha256": "0868dacfa7c3b7eff5ddac06223d36a1baf9fee4154df12ce62e5353afe30750",
+      "size": 138713,
+      "mtime": "2026-08-31T08:11:42"
+    },
+    "data/stock_klines/600690.json": {
+      "sha256": "98f5525696ea5dcd0e5aa83c111c4e1e1d384d909b64c22a969ea30f5d37a65a",
+      "size": 147874,
+      "mtime": "2026-08-31T08:11:54"
+    },
+    "data/stock_klines/600750.json": {
+      "sha256": "4ffad1d672219cdd38fe9f32acdd04df59f718674df5946d05ddffb3db9fb682",
+      "size": 137657,
+      "mtime": "2026-08-31T08:12:04"
+    },
+    "data/stock_klines/600761.json": {
+      "sha256": "d1691a8c8e5d3aa4d0dfbf6fd11cb8ff4fe901deb16f6c84e24949fd97da4b40",
+      "size": 134200,
+      "mtime": "2026-08-31T08:12:14"
+    },
+    "data/stock_klines/600801.json": {
+      "sha256": "f4a53447c7b26e727d9a55d37ec788a5ad722cd85d67307f7b4f6e2beb49b0bc",
+      "size": 146589,
+      "mtime": "2026-08-31T08:12:24"
+    },
+    "data/stock_klines/600887.json": {
+      "sha256": "06d5f6de32064bc2a6ec8f70cc728a39b3dee8cb94dceb6d3a34ef5526ca6be3",
+      "size": 136855,
+      "mtime": "2026-08-31T08:12:34"
+    },
+    "data/stock_klines/600900.json": {
+      "sha256": "d82ceccea3f39a0ac3278d5fa91d7536736bb8051e9bb10150e24cfb06c7994d",
+      "size": 148550,
+      "mtime": "2026-08-31T08:12:45"
+    },
+    "data/stock_klines/600905.json": {
+      "sha256": "10253c3a5559f32614793dff2474de98e31c838dcf4a9295389c66e65ef31adb",
+      "size": 55687,
+      "mtime": "2026-08-31T08:12:48"
+    },
+    "data/stock_klines/600961.json": {
+      "sha256": "df707833cee9dff9bc2318eb1bb15d0f70de4ba7da2f5458e426f82d59430655",
+      "size": 129984,
+      "mtime": "2026-08-31T08:12:58"
+    },
+    "data/stock_klines/600988.json": {
+      "sha256": "851109069bd6957dc6ff62c5d264c00a2ba0220d27d3ecf30b7fa2b20c708b9c",
+      "size": 144366,
+      "mtime": "2026-08-31T08:13:08"
+    },
+    "data/stock_klines/601006.json": {
+      "sha256": "714cbaf7ded124f385c45b46127489da6f1ce8ffbe9c2a92231f0a1c9a994350",
+      "size": 140534,
+      "mtime": "2026-08-31T08:13:18"
+    },
+    "data/stock_klines/601012.json": {
+      "sha256": "4d959cb81106d5c7f5f0ff8708fd6fe817a400c8a1ad78f3ce942f6e0046f818",
+      "size": 142375,
+      "mtime": "2026-08-31T08:13:28"
+    },
+    "data/stock_klines/601028.json": {
+      "sha256": "52f087450901f6ec2ae11d38dabadfbb380cb9a497059acfe832f70b698e3598",
+      "size": 115722,
+      "mtime": "2026-08-31T08:13:36"
+    },
+    "data/stock_klines/601069.json": {
+      "sha256": "483ca3050a92615b66c7cb1415a70087966a0abace40d1a9479646bfd65d8d33",
+      "size": 129285,
+      "mtime": "2026-08-31T08:13:46"
+    },
+    "data/stock_klines/601088.json": {
+      "sha256": "451b857798744a4de4f3e5cfec3b0f0edcbbf76d43642aca4d727fa6ba11f9fa",
+      "size": 135037,
+      "mtime": "2026-08-31T08:13:57"
+    },
+    "data/stock_klines/601100.json": {
+      "sha256": "03f4b13b72caaa02e56135cc7df9e45b111148bcde98001eb52edfd0250bddd0",
+      "size": 143004,
+      "mtime": "2026-08-31T08:14:06"
+    },
+    "data/stock_klines/601138.json": {
+      "sha256": "49ddf749c8be9f182a6c565554f4584803f962a1bf3c7b49fef1cc8590ce932e",
+      "size": 88862,
+      "mtime": "2026-08-31T08:14:14"
+    },
+    "data/stock_klines/601166.json": {
+      "sha256": "2e414128231b2a61ee18ad6a2967a6a89437dcf54d7e1fe2d0b46bdd589b35b3",
+      "size": 148131,
+      "mtime": "2026-08-31T08:14:25"
+    },
+    "data/stock_klines/601229.json": {
+      "sha256": "24bc47d6b153eae387f46d40326bdd12eaa4e596b53ef148594f08fe231212f0",
+      "size": 96957,
+      "mtime": "2026-08-31T08:14:32"
+    },
+    "data/stock_klines/601231.json": {
+      "sha256": "21703b0b40ae9fbe7c67e69cf84e31852cabb11cd790cf4222512a91dc941438",
+      "size": 145167,
+      "mtime": "2026-08-31T08:14:42"
+    },
+    "data/stock_klines/601233.json": {
+      "sha256": "c395bbb3caa8caf6ae40e7c523f8c41c87e821d72369774fce3d5c04cd10c49f",
+      "size": 148169,
+      "mtime": "2026-08-31T08:14:52"
+    },
+    "data/stock_klines/601318.json": {
+      "sha256": "c83389919ce36f6e25252a3a3c9aa591e503dde0e434066a8cd47a7271d1d1de",
+      "size": 150243,
+      "mtime": "2026-08-31T08:15:02"
+    },
+    "data/stock_klines/601398.json": {
+      "sha256": "c40f4797df8870c4196fa62a2856f6f046e033560852f629e6544d428a1c459e",
+      "size": 139199,
+      "mtime": "2026-08-31T08:15:12"
+    },
+    "data/stock_klines/601869.json": {
+      "sha256": "1e630db114a29bd90b984970c549fbe0c2a1f9434fec62afbec8c2926f178141",
+      "size": 94150,
+      "mtime": "2026-08-31T08:16:58"
+    },
+    "data/stock_klines/601877.json": {
+      "sha256": "e559893b86bc482b09833e37338e7ddb9cf87a35c3b5f195eb263d1d75e75c8e",
+      "size": 152097,
+      "mtime": "2026-08-31T08:17:09"
+    },
+    "data/stock_klines/601899.json": {
+      "sha256": "28b15ee117c5f5f475761c4c998309a2f1c343f7fc89976fc28238581d3304ee",
+      "size": 131083,
+      "mtime": "2026-08-31T08:17:18"
+    },
+    "data/stock_klines/601939.json": {
+      "sha256": "87c98f98dbc56a2a1fe29f53cf0a422f4cd47f0043b608780a34fea90fd3ac6f",
+      "size": 140517,
+      "mtime": "2026-08-31T08:17:31"
+    },
+    "data/stock_klines/603083.json": {
+      "sha256": "b9c8048cf435cc25c622c845ca91257f555d12c9a0e1f26c95ee1391f5b0eff4",
+      "size": 101699,
+      "mtime": "2026-08-31T08:17:39"
+    },
+    "data/stock_klines/603108.json": {
+      "sha256": "0ecb1fde6ee17c7d12cf084a4d66a02f1db8f0a7375259df552c08d4aba05f57",
+      "size": 117280,
+      "mtime": "2026-08-31T08:17:49"
+    },
+    "data/stock_klines/603259.json": {
+      "sha256": "506fc30d1025ab92604aea0f92f4d54787c4c64c6d1ecd0039656e4ff844ed32",
+      "size": 97950,
+      "mtime": "2026-08-31T08:17:58"
+    },
+    "data/stock_klines/603298.json": {
+      "sha256": "3884ee2a3a2f310aa31549501054bc6acd381ae50c41348268ab5703ec4f780d",
+      "size": 104647,
+      "mtime": "2026-08-31T08:18:06"
+    },
+    "data/stock_klines/603368.json": {
+      "sha256": "3bfdb453bd356e5157bee1dd394dcb9d7c45e5910cd08a6cb4b8b4ac5d7abfab",
+      "size": 134671,
+      "mtime": "2026-08-31T08:18:16"
+    },
+    "data/stock_klines/603416.json": {
+      "sha256": "4ee8e50fd64478988db45887f07d30bb222d4488674ca0d6acefb398487e7de3",
+      "size": 112834,
+      "mtime": "2026-08-31T08:18:24"
+    },
+    "data/stock_klines/603606.json": {
+      "sha256": "8f12e36f0f754bd66e9c7ae50fcc5acb69e555ed8d7b9829a1cc5e87fc8ae5af",
+      "size": 131323,
+      "mtime": "2026-08-31T08:18:36"
+    },
+    "data/stock_klines/603629.json": {
+      "sha256": "0e4d1e6e2445ae90dfd90fd88a57450814530d7b69c55ca3b7d6d47691a5ca5a",
+      "size": 85784,
+      "mtime": "2026-08-31T08:18:42"
+    },
+    "data/stock_klines/603658.json": {
+      "sha256": "fba30ca284f9f546b0112e234cac8cd5c09912e3b53dfadd2b4e4725844fc99b",
+      "size": 113720,
+      "mtime": "2026-08-31T08:18:49"
+    },
+    "data/stock_klines/603713.json": {
+      "sha256": "8a429812b018d6d3f80cf7a7c2f1cd68ebe06cbf48dab068f5431a1c5b384ba6",
+      "size": 89595,
+      "mtime": "2026-08-31T08:18:57"
+    },
+    "data/stock_klines/603915.json": {
+      "sha256": "cdd8ac8f930042f2b48a097a8808d238e93f8d11830bd0d63d908695af757da3",
+      "size": 78129,
+      "mtime": "2026-08-31T08:19:03"
+    },
+    "data/stock_klines/603993.json": {
+      "sha256": "00e97de330b18a02b8b34d6e4dcfe0610aa1ac21589730c7e18c78f5f42e89fa",
+      "size": 140276,
+      "mtime": "2026-08-31T08:19:13"
+    },
+    "data/stock_klines/688012.json": {
+      "sha256": "c8e6d30c660b62761bec0a227665b2b3fe08c7ef87f5d209d7c3cda88d4fb54a",
+      "size": 85081,
+      "mtime": "2026-08-31T08:19:21"
+    },
+    "data/stock_klines/688016.json": {
+      "sha256": "f012b3e0eaa56b71a4fb3676a07acdd018a191dcd54984a0bdeecca1a9031a1c",
+      "size": 85798,
+      "mtime": "2026-08-31T08:19:27"
+    },
+    "data/stock_klines/688019.json": {
+      "sha256": "d0d4e8cf1f4cd0a69acbf7fcef5059885efa0ae03fb25db2cb9157be41c99a75",
+      "size": 83190,
+      "mtime": "2026-08-31T08:19:33"
+    },
+    "data/stock_klines/688037.json": {
+      "sha256": "2b005de82f0b74fde52b1f3aab4a56f4056d74e0400630d68ee3fbcdecafb172",
+      "size": 79594,
+      "mtime": "2026-08-31T08:19:39"
+    },
+    "data/stock_klines/688062.json": {
+      "sha256": "a798059f29503356633e6a7448630513c1003e83dfd5fd3dc3b85e41e3ae46e3",
+      "size": 48364,
+      "mtime": "2026-08-31T08:19:43"
+    },
+    "data/stock_klines/688068.json": {
+      "sha256": "ed6565e9ace3d65b21b9d1b0b4c47fae32902c9f509b6240dedef6f3815690e6",
+      "size": 76850,
+      "mtime": "2026-08-31T08:19:49"
+    },
+    "data/stock_klines/688072.json": {
+      "sha256": "a57b8710c849effbb5a65970c4f6093d5febf7fc7d5e04f1040c4f9d06ead9d0",
+      "size": 53712,
+      "mtime": "2026-08-31T08:19:53"
+    },
+    "data/stock_klines/688076.json": {
+      "sha256": "87ccc56b231f83bcf659ef20c8f632221241c7fdf53ccf3df257804ee4ad724e",
+      "size": 59403,
+      "mtime": "2026-08-31T08:19:59"
+    },
+    "data/stock_klines/688120.json": {
+      "sha256": "fc4445f70c30944cf81f2a2884f2befc89128b089cbf51c932545c8fb269f150",
+      "size": 49468,
+      "mtime": "2026-08-31T08:20:03"
+    },
+    "data/stock_klines/688136.json": {
+      "sha256": "51f76e11e62b83d1b4808e749d322643a5a135301bea9f66560b0c334986e9e8",
+      "size": 66297,
+      "mtime": "2026-08-31T08:20:09"
+    },
+    "data/stock_klines/688167.json": {
+      "sha256": "cfc524f6039cd6c6888367d23623a31eb19ad623b180536ccf47b1f166292f73",
+      "size": 54758,
+      "mtime": "2026-08-31T08:20:13"
+    },
+    "data/stock_klines/688176.json": {
+      "sha256": "f53ba00e94186a8bafdf161b127e13a496c70892c751763ca9a199f45f729463",
+      "size": 47374,
+      "mtime": "2026-08-31T08:20:17"
+    },
+    "data/stock_klines/688183.json": {
+      "sha256": "667a612293cd41c3ba818e07d9352daeec0f86f4a8b19048662c451b2c3cefdc",
+      "size": 62871,
+      "mtime": "2026-08-31T08:20:24"
+    },
+    "data/stock_klines/688192.json": {
+      "sha256": "cf0a904c33bd78e168263852fa0a72f8fb4fd981c2d88455e6c595910ae8b43f",
+      "size": 49248,
+      "mtime": "2026-08-31T08:20:28"
+    },
+    "data/stock_klines/688195.json": {
+      "sha256": "ce9561d7cb09ac39e9390b75ccddd13a66b9ed774b70fe79edfde7ae35c9e0e4",
+      "size": 62802,
+      "mtime": "2026-08-31T08:20:33"
+    },
+    "data/stock_klines/688197.json": {
+      "sha256": "b2a9ea722e047c4b7941e9b944b72b246c55bf1d08c5649018794b267700d5a3",
+      "size": 46461,
+      "mtime": "2026-08-31T08:20:38"
+    },
+    "data/stock_klines/688200.json": {
+      "sha256": "3093bc76d4e01b9c205e8e74f0bc47661c6b1504d0f4a0f34fd59ec87959b3e3",
+      "size": 78564,
+      "mtime": "2026-08-31T08:20:44"
+    },
+    "data/stock_klines/688205.json": {
+      "sha256": "d8f2c66aba70c0ffd7c9e9a68287cbd90d01f4b08ffeffb8fbc3257f4df87e48",
+      "size": 46179,
+      "mtime": "2026-08-31T08:20:48"
+    },
+    "data/stock_klines/688222.json": {
+      "sha256": "ac44cb2e122df4c419766dc0a0184af507ed2ddcb981c1902a705df3299adec3",
+      "size": 67637,
+      "mtime": "2026-08-31T08:20:54"
+    },
+    "data/stock_klines/688235.json": {
+      "sha256": "415c980a5072dc397e735339249f0fcad064aa2ddb015d6d273dc9e755765ab1",
+      "size": 52979,
+      "mtime": "2026-08-31T08:20:58"
+    },
+    "data/stock_klines/688256.json": {
+      "sha256": "a71aadecea53299e326590e998bd1d02ef44177ce1afdb1d346f92a1777e556c",
+      "size": 73946,
+      "mtime": "2026-08-31T08:21:04"
+    },
+    "data/stock_klines/688266.json": {
+      "sha256": "e632a4847427dd9fbcbcd5f4117bf2633696f229d8b93c1138ec0f42676aa9e6",
+      "size": 69602,
+      "mtime": "2026-08-31T08:21:10"
+    },
+    "data/stock_klines/688302.json": {
+      "sha256": "4ba64290cbf7fd33543e4b9a833fe421aa39356bb8ea20a8c6117096a1b2efab",
+      "size": 45895,
+      "mtime": "2026-08-31T08:21:14"
+    },
+    "data/stock_klines/688313.json": {
+      "sha256": "3785f2007bc39d63298aeec4947245c139f3403120947f6475675fce794087f7",
+      "size": 67953,
+      "mtime": "2026-08-31T08:21:20"
+    },
+    "data/stock_klines/688321.json": {
+      "sha256": "39970427a109abf51811c1caf11082f4b0855d8b7a9817a5275c2b2150eaa03c",
+      "size": 81796,
+      "mtime": "2026-08-31T08:21:27"
+    },
+    "data/stock_klines/688331.json": {
+      "sha256": "2b05196c371de5a7c8022ddfc99c3ec75d976de95c25403f1cc58de524dc901f",
+      "size": 46494,
+      "mtime": "2026-08-31T08:21:30"
+    },
+    "data/stock_klines/688347.json": {
+      "sha256": "fc85b911544eb155ed7581247b0991d2d9bb46bdd0dc8b1666985dbe6329913c",
+      "size": 32407,
+      "mtime": "2026-08-31T08:21:34"
+    },
+    "data/stock_klines/688361.json": {
+      "sha256": "92e9922ae8e0a094ce1d1baea7fd73e416739a852a7cfd0500b8c5fe0509e222",
+      "size": 35364,
+      "mtime": "2026-08-31T08:21:38"
+    },
+    "data/stock_klines/688382.json": {
+      "sha256": "b2316ad3f53203c90503755ae606803f4fe80ea827b0bf1d2b11a1be2316fcdf",
+      "size": 42554,
+      "mtime": "2026-08-31T08:21:43"
+    },
+    "data/stock_klines/688409.json": {
+      "sha256": "cc78ec68caba7b70d57caf6a9e62fe2618886989c70b686c5bc298d8e70cbcf2",
+      "size": 44225,
+      "mtime": "2026-08-31T08:21:47"
+    },
+    "data/stock_klines/688428.json": {
+      "sha256": "f3246e71673cbe01c4ca9aac27c67f1d745cd6b0635910bf546c0ddd87cc7acc",
+      "size": 40699,
+      "mtime": "2026-08-31T08:21:51"
+    },
+    "data/stock_klines/688443.json": {
+      "sha256": "db095d047fe521f810daa4c4afe5ae444169c1903cc5e5b1303790b904c92f70",
+      "size": 33450,
+      "mtime": "2026-08-31T08:21:54"
+    },
+    "data/stock_klines/688498.json": {
+      "sha256": "8980a2da2e4510d2b53d33dd81711536e66fc3678ec2e17eb0875d523fbeab42",
+      "size": 44638,
+      "mtime": "2026-08-31T08:21:58"
+    },
+    "data/stock_klines/688506.json": {
+      "sha256": "d3396e80924d8d045a362b3ca9eef29b8a5577292800544012738a2589938068",
+      "size": 40363,
+      "mtime": "2026-08-31T08:22:02"
+    },
+    "data/stock_klines/688513.json": {
+      "sha256": "b1d28f7cb373fc32965d5ca774f5f920f70180ce3aa5598b7c24b833f9d01004",
+      "size": 69126,
+      "mtime": "2026-08-31T08:22:07"
+    },
+    "data/stock_klines/688575.json": {
+      "sha256": "5149549978586b5630ade1bc3455141e57a5056b2e5a3dbc1dbee70b0c96e160",
+      "size": 61132,
+      "mtime": "2026-08-31T08:22:13"
+    },
+    "data/stock_klines/688652.json": {
+      "sha256": "9f7ba150504c4beba8b007bed409eb5510e2074d72f3a20f32b4e2645ff6e416",
+      "size": 31432,
+      "mtime": "2026-08-31T08:22:16"
+    },
+    "data/stock_klines/688668.json": {
+      "sha256": "67061e991a4ebc01e4f5935971ef0fc1cc3aca5549878023d4e35b7114fac2b6",
+      "size": 63417,
+      "mtime": "2026-08-31T08:22:22"
+    }
+  }
+}

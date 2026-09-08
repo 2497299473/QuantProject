@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Forecast 模型训练 + 持久化落盘（B 线闭环入口，2026-08-27）。
+
+流程：
+    load_samples()（PIT 口径）→ 冻结切分（OOS 段留证不入训，与 backtest_forecast 同口径）
+    → ForecastEngine.fit(train) → save_models（含 oos_start 元数据）→ data/models/*.pkl
+
+纪律（对齐项目铁律「有证据才上线」）：
+- 本脚本只负责产出权重文件，不改 config.forecast.model_ready；
+  能否对外输出真预测仍由 backtest_forecast.py 的 OOS 裁决 + 人工复核决定。
+- 权重文件含版本/特征键/horizon 元数据，load_models 校验失败即拒绝（防旧权重混用）。
+
+用法：python3 train_forecast_model.py [--min-samples N]
+"""
+import argparse
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+
+from backtest_spread import load_samples
+from backtest_forecast import split_date_oos
+from core import forecast_engine
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--min-samples", type=int, default=None,
+                    help="最低训练样本数（默认读 config.forecast.min_valid_samples）")
+    args = ap.parse_args()
+
+    print("== [1] 加载样本（PIT 口径）==")
+    samples = load_samples()
+    if not samples:
+        print("[fail] 无样本")
+        return 1
+
+    # 冻结纪律（2026-08-28 修，GPT P0①）：训练**只用 train 段**，OOS 永不入训。
+    train, oos, oos_start = split_date_oos(samples)
+    print(f"== [1.5] 冻结切分：train < {oos_start}（{len(train)}）‖ OOS 保留 {len(oos)}（绝不入训）==")
+    if any(s["date"] >= oos_start for s in train):
+        print("[fail] 训练集混入 OOS 段样本，拒绝训练（冻结纪律）")
+        return 1
+
+    eng = forecast_engine.ForecastEngine()
+    import json as _json
+    fc_cfg = _json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8")).get("forecast", {})
+    min_n = args.min_samples or int(fc_cfg.get("min_valid_samples", 200))
+    if len(train) < min_n:
+        print(f"[fail] 训练样本 {len(train)} < 门槛 {min_n}，拒绝训练")
+        return 1
+
+    print(f"== [2] 训练 {len(train)} 条样本（OOS {len(oos)} 段仅留证不参与）==")
+    ok = eng.fit(train)
+    if not ok:
+        print("[fail] fit 未全部成功（某周期模型未训练），不落盘")
+        return 1
+
+    eng.trained_oos_start = oos_start
+    path = eng.save_models()
+    if path is None:
+        print("[fail] save_models 返回 None（不应发生，fit 已成功）")
+        return 1
+    print(f"[ok] 权重已落盘：{path}")
+    print(f"     trained_at = {eng.loaded_at} · horizons={eng.horizons}")
+    print("提醒：model_ready 门禁不变——真预测输出仍需 backtest_forecast OOS 通过+人工确认。")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

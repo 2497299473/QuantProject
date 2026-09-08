@@ -1,0 +1,183 @@
+{
+  "models": {
+    "forecast_v2.pkl": {
+      "path": "/home/summer/QuantV1/data/models/forecast_v2.pkl",
+      "sha256": "a0c309641dfb0a5eb5d30466c9fb2f470b8645a5f3dc1d71181cebbdc1dade69",
+      "size_bytes": 901088,
+      "registered_at": "2026-08-30T11:00:17",
+      "meta": {
+        "model_version": 2,
+        "feature_keys": [
+          "est_chg",
+          "est_sign",
+          "breadth",
+          "concentration",
+          "covered_pct",
+          "composite",
+          "score"
+        ],
+        "horizons": [
+          1,
+          3,
+          5
+        ],
+        "flat_margin": 0.003,
+        "trained_at": "2026-08-30T11:00:17",
+        "oos_start": "2025-04-30",
+        "n_train": 2424
+      },
+      "validation": {
+        "report_file": "output/backtest_forecast_v8_quantile_20260830.log",
+        "report_sha256": "b41e4527ee39567b092ea17080a1e96c209875e5a4bd549acf728db22983a5aa",
+        "decision": "rejected",
+        "bound_at": "2026-08-31T07:47:32",
+        "metrics": {
+          "1": {
+            "rank_ic": 0.005,
+            "ric_ci": [
+              -0.066,
+              0.07
+            ],
+            "oos_brier": 0.605,
+            "n_oos": 905,
+            "decision": "rejected"
+          },
+          "3": {
+            "rank_ic": 0.002,
+            "ric_ci": [
+              -0.061,
+              0.066
+            ],
+            "oos_brier": 0.566,
+            "n_oos": 905,
+            "decision": "rejected"
+          },
+          "5": {
+            "rank_ic": 0.08,
+            "ric_ci": [
+              0.017,
+              0.142
+            ],
+            "oos_brier": 0.537,
+            "n_oos": 905,
+            "decision": "approved"
+          }
+        }
+      },
+      "promotion": {
+        "status": "blocked",
+        "reason": "验证未全过（需三周期全过）：T+1 未通过（CI [-0.066,+0.070]（跨零））；T+3 未通过（CI [-0.061,+0.066]（跨零））；T+5 通过（CI [+0.017,+0.142]）——model_ready 维持 false",
+        "rule_version": 1,
+        "derived_by": "derive_promotion",
+        "updated_at": "2026-09-01T09:50:43"
+      },
+      "feature_protocol": {
+        "protocol_version": 1,
+        "feature_keys": [
+          "est_chg",
+          "est_sign",
+          "breadth",
+          "concentration",
+          "covered_pct",
+          "composite",
+          "score"
+        ],
+        "n_features": 7,
+        "feature_dim": 7,
+        "masking": null
+      }
+    },
+    "forecast_v3.pkl": {
+      "path": "/home/summer/QuantV1/data/models/forecast_v3.pkl",
+      "sha256": "7b66ce123dfd577af0c81d21cb2db3d4fc3d3d8d8430d812202db5da042606c5",
+      "size_bytes": 899273,
+      "registered_at": "2026-08-31T08:22:23",
+      "meta": {
+        "model_version": 3,
+        "feature_keys": [
+          "est_chg",
+          "est_sign",
+          "breadth",
+          "concentration",
+          "covered_pct",
+          "composite",
+          "score"
+        ],
+        "horizons": [
+          1,
+          3,
+          5
+        ],
+        "flat_margin": 0.003,
+        "trained_at": "2026-08-31T08:22:23",
+        "oos_start": "2025-04-30",
+        "n_train": 2424
+      },
+      "validation": {
+        "report_file": "output/backtest_forecast_v3_b1mask_20260831.log",
+        "report_sha256": "eb8685e13736654c518f5f282522d5e903a963949d150c3c63ea8693fd144f2c",
+        "decision": "rejected",
+        "bound_at": "2026-08-31T09:25:09",
+        "metrics": {
+          "1": {
+            "rank_ic": 0.005,
+            "ric_ci": [
+              -0.066,
+              0.07
+            ],
+            "oos_brier": 0.605,
+            "n_oos": 905,
+            "decision": "rejected"
+          },
+          "3": {
+            "rank_ic": 0.002,
+            "ric_ci": [
+              -0.061,
+              0.066
+            ],
+            "oos_brier": 0.566,
+            "n_oos": 905,
+            "decision": "rejected"
+          },
+          "5": {
+            "rank_ic": 0.08,
+            "ric_ci": [
+              0.017,
+              0.142
+            ],
+            "oos_brier": 0.537,
+            "n_oos": 905,
+            "decision": "approved"
+          }
+        }
+      },
+      "promotion": {
+        "status": "blocked",
+        "reason": "验证未全过（需三周期全过）：T+1 未通过（CI [-0.066,+0.070]（跨零））；T+3 未通过（CI [-0.061,+0.066]（跨零））；T+5 通过（CI [+0.017,+0.142]）——model_ready 维持 false",
+        "rule_version": 1,
+        "derived_by": "derive_promotion",
+        "updated_at": "2026-09-01T09:50:43"
+      },
+      "feature_protocol": {
+        "protocol_version": 1,
+        "feature_keys": [
+          "est_chg",
+          "est_sign",
+          "breadth",
+          "concentration",
+          "covered_pct",
+          "composite",
+          "score"
+        ],
+        "n_features": 7,
+        "feature_dim": 14,
+        "masking": {
+          "enabled": true,
+          "layout": "value_then_mask",
+          "missing_value": 0.0,
+          "mask_value": 1.0
+        }
+      }
+    }
+  }
+}
