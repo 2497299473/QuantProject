@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-09-08T15:40:26",
+  "ctx": 512,
+  "horizon": 5,
+  "model": "timesfm-3.0-pytorch",
+  "funds": {
+    "002112": {
+      "1": {
+        "n": 2121,
+        "rank_ic": -0.0182,
+        "rank_ic_ci95": [
+          -0.0657,
+          0.0291
+        ],
+        "dir_hit": 0.5012,
+        "coverage_q10_q90": 0.7694,
+        "coverage_ci95": [
+          0.7478,
+          0.7888
+        ],
+        "mean_band_width": 0.03367,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      },
+      "3": {
+        "n": 2121,
+        "rank_ic": -0.0835,
+        "rank_ic_ci95": [
+          -0.1466,
+          -0.01
+        ],
+        "dir_hit": 0.4795,
+        "coverage_q10_q90": 0.7723,
+        "coverage_ci95": [
+          0.7482,
+          0.793
+        ],
+        "mean_band_width": 0.0586,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      },
+      "5": {
+        "n": 2121,
+        "rank_ic": -0.0994,
+        "rank_ic_ci95": [
+          -0.1755,
+          -0.0149
+        ],
+        "dir_hit": 0.4795,
+        "coverage_q10_q90": 0.7426,
+        "coverage_ci95": [
+          0.7133,
+          0.7699
+        ],
+        "mean_band_width": 0.07571,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      }
+    },
+    "002207": {
+      "1": {
+        "n": 2109,
+        "rank_ic": 0.0216,
+        "rank_ic_ci95": [
+          -0.0177,
+          0.0687
+        ],
+        "dir_hit": 0.4988,
+        "coverage_q10_q90": 0.8042,
+        "coverage_ci95": [
+          0.7871,
+          0.8213
+        ],
+        "mean_band_width": 0.04702,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      },
+      "3": {
+        "n": 2109,
+        "rank_ic": 0.0439,
+        "rank_ic_ci95": [
+          -0.0147,
+          0.1168
+        ],
+        "dir_hit": 0.5126,
+        "coverage_q10_q90": 0.8037,
+        "coverage_ci95": [
+          0.7781,
+          0.8274
+        ],
+        "mean_band_width": 0.08205,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      },
+      "5": {
+        "n": 2109,
+        "rank_ic": 0.0463,
+        "rank_ic_ci95": [
+          -0.0284,
+          0.1242
+        ],
+        "dir_hit": 0.5107,
+        "coverage_q10_q90": 0.7918,
+        "coverage_ci95": [
+          0.7629,
+          0.8213
+        ],
+        "mean_band_width": 0.10547,
+        "ic_note": "standalone block bootstrap；正式判读以 backtest_forecast 口径复算为准"
+      }
+    }
+  }
+}

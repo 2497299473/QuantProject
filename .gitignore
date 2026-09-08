@@ -19,3 +19,5 @@ output/*.log
 output/*.md
 output/logs/
 output/backups/
+output/timesfm/*.tsv
+output/sina_nav/
