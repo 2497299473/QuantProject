@@ -164,7 +164,19 @@ def _selftest() -> int:
     o2 = from_backtest_row({"p_up": 0.51}, expert="existing_v7", fund="002112",
                            asof="2026-09-09", horizon=5)
     check("回测行适配 q=None", o2.q10 is None and o2.q50 is None and o2.q90 is None)
-    check("to_dict 往返", ExpertOutput(**o2.to_dict()) == o2)
+    # to_dict 往返不能用 dataclass `==`：confidence=NaN 在场时，py3.12 的元组比较走
+    # 同对象身份短路（nan==nan 判真），py3.14 改为逐字段严格 ==（nan!=nan 判假）。
+    # 2026-09-09 实测两 venv（3.12.13 / 3.14.6）该检查结论随解释器版本翻转——测试
+    # 语义不得依赖解释器版本，故改 NaN 容差逐字段比较（schema 冻结不受影响，仅动自检）。
+    from dataclasses import fields as _fields
+    o3 = ExpertOutput(**o2.to_dict())
+
+    def _nan_eq(a, b):
+        return a == b or (isinstance(a, float) and isinstance(b, float)
+                          and math.isnan(a) and math.isnan(b))
+    check("to_dict 往返", o3.__class__ is o2.__class__
+          and all(_nan_eq(getattr(o2, f.name), getattr(o3, f.name))
+                  for f in _fields(ExpertOutput)))
 
     print(f"[expert_protocol SELFTEST] {ok} passed, {fail} failed")
     return 0 if fail == 0 else 1

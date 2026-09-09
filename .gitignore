@@ -24,3 +24,5 @@ output/sina_nav/
 
 # Forecast Lab 冻结产物（样本版本证据，体积可控、需跨机对比故不入库）
 forecast_outputs/
+
+.venv-lab/
