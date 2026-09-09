@@ -31,8 +31,47 @@ def _cfg() -> dict:
 
 # ---------------------------------------------------------------- 持仓数据
 
+# 静默缺年修复（2026-09-09，Summer 拍板；由 experiments/forecast_lab/holdings_hardened.py
+# 验证后合入生产）。同日两次只读冻结实测：002112/2020 从 4 期静默变 0 期**且无任何告警**——
+# HTTP 200 的降级页被解析成 [] → holdings_history 视为成功、不计入 failed_years
+# → 样本少一整年 → RankIC 漂移 ±0.03~0.05（08-29 记录的现象，今日现行复现）。
+# 留档目录在 forecast_outputs/（已 gitignore）。
+_RAW_DIR = BASE_DIR / "forecast_outputs" / "f10_raw"
+
+# 东财 F10 正常空态标记。**宁可判窄**：命中才认定「真无披露」，未命中一律按可疑降级处理。
+# 漏判代价只是多两次重试；误判代价是又一轮静默缺年。
+_EMPTY_MARKERS = ("暂无数据", "没有相关数据", 'content:""', "no data")
+
+
+class DegradedResponse(RuntimeError):
+    """HTTP 200 但响应形态可疑（降级页/反爬/改版），不得当作「该年无持仓披露」。"""
+
+    def __init__(self, msg: str, *, kind: str, raw_path: str | None = None,
+                 text_len: int = 0):
+        super().__init__(msg)
+        self.kind = kind          # SUSPECT_DEGRADED | PARSE_MISMATCH
+        self.raw_path = raw_path
+        self.text_len = text_len
+
+
+def _dump_raw(fund_code: str, year: int, text: str) -> str | None:
+    """降级响应留档供根因回溯（08-29 那次无留档，查不下去）。写档失败绝不影响主流程。"""
+    try:
+        _RAW_DIR.mkdir(parents=True, exist_ok=True)
+        p = _RAW_DIR / f"{fund_code}_{year}_{time.strftime('%Y%m%d_%H%M%S')}.html"
+        p.write_text(text, encoding="utf-8", errors="replace")
+        return str(p)
+    except Exception:
+        return None
+
+
 def fetch_holdings_year(fund_code: str, year: int) -> list[dict]:
-    """东财 F10 历史持仓（季频，前十大）。返回 [{date, holdings:[{market,code,name,pct}]}] 按日期升序。"""
+    """东财 F10 历史持仓（季频，前十大）。返回 [{date, holdings:[{market,code,name,pct}]}] 按日期升序。
+
+    零快照时走三态判定：EMPTY_CONFIRMED（确证无披露 → 返 []）/ SUSPECT_DEGRADED /
+    PARSE_MISMATCH（两者抛 DegradedResponse，由 holdings_history 的既有重试+缺年告警接住）。
+    本函数内**不再重试**：避免与外层 3 次重试嵌套放大请求数（东财为 IP 级频控）。
+    """
     url = (f"https://fundf10.eastmoney.com/FundArchivesDatas.aspx"
            f"?type=jjcc&code={fund_code}&topline=10&year={year}")
     # 2026-09-02: 走 netutil（IPv4 优先 + 无视环境死代理 + 瞬断重试）。
@@ -55,6 +94,18 @@ def fetch_holdings_year(fund_code: str, year: int) -> list[dict]:
                                  "name": nm.group(1), "pct": float(pm.group(1))})
         if holdings:
             snapshots.append({"date": date, "holdings": holdings[:_cfg()["top_n"]]})
+    if not snapshots:
+        n_box = len(re.findall(r"<div class='boxitem", text))
+        hits = [m for m in _EMPTY_MARKERS if m in text]
+        if n_box == 0 and hits:
+            return []                        # EMPTY_CONFIRMED：真无披露（新基金常见）
+        kind = "PARSE_MISMATCH" if n_box else "SUSPECT_DEGRADED"
+        path = _dump_raw(fund_code, year, text)
+        raise DegradedResponse(
+            f"F10 {fund_code}/{year} 返回 0 期但非确证空态（{kind}，n_boxitem={n_box}，"
+            f"markers={hits}，len={len(text)}，留档={path or '写档失败'}）"
+            "——按拉取失败处理，勿当缺年",
+            kind=kind, raw_path=path, text_len=len(text))
     snapshots.sort(key=lambda s: s["date"])
     return snapshots
 
@@ -78,6 +129,10 @@ def holdings_history(fund_code: str) -> list[dict]:
     v7 复现性加固（2026-08-29）：失败年份重试 2 次（退避 2s/5s）。背景：同日两次重跑
     中代理抖动曾致 002112 静默少拉 1 年（22 vs 26 期），特征向量漂移 → RankIC 漂移
     ±0.03~0.05。重试把「一次性抖动」与「真不可达」分开，减少静默缺年。
+
+    三态判定合入（2026-09-09）：降级页抛 DegradedResponse → 走上面的重试与缺年告警通道，
+    因此**告警覆盖面变大**（以前只有抛异常的失败才算缺年，现在 0 期非确证空态也算）；
+    数据与模型一行未动，代价仅最坏情况多 2 次重试（只在真发生降级时付出）。
     """
     import time as _time
     import warnings
@@ -100,10 +155,13 @@ def holdings_history(fund_code: str) -> list[dict]:
             continue
         snaps += got
     if failed_years:
+        # 降级页与断网的**原因和解法不同**（代理开没开 vs 服务端改版），告警必须分得开。
+        hint = ("东财返回降级页/改版（非网络问题，原始响应已留档 forecast_outputs/f10_raw/）"
+                if isinstance(last_err, DegradedResponse)
+                else "多为网络受限/代理失效，请检查网络或系统代理设置")
         msg = (f"holdings_history({fund_code}): {len(failed_years)}/{len(years)} 年持仓拉取失败"
                f"（含 2 次重试；失败年份: {failed_years}；"
-               f"最后错误: {type(last_err).__name__}: {last_err}）——多为网络受限/代理失效，"
-               "请检查网络或系统代理设置")
+               f"最后错误: {type(last_err).__name__}: {last_err}）——{hint}")
         if not snaps:
             warnings.warn(msg)
         else:
