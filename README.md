@@ -9,6 +9,8 @@
 
 ## Project State（2026-09-08 · 迁移 Windows 原生 · Market Context v0.1 封版）
 
+- 代际命名（V3 · 2026-09-08 拍板，P0-4）：**V3 = Windows Native Generation / 数据架构重构代**。本行为该代际名的**唯一权威落点**；`config.json` 的 `version` 字段被代码引用，**不改**（改它不属于 bug 修复，违反 v0.1 冻结纪律）。历史上 `4.0.0-decision` / `v5.0.0-forecast` 等号属于「模型/引擎版本」轴，与本「工程代际」轴并存，互不覆盖。
+
 - 运行环境: **Windows 原生**（2026-09-08 自 WSL Ubuntu 迁至 `D:\PythonProject\QuantV1`；项目自带 `.venv` Python 3.12.13，依赖版本与 WSL 侧锁死一致（见 `requirements.txt`）；全量单测两边均 221/221（3 skip），forecast_v3.pkl 已实测 `load_models()=True`）
 - Forecast model version: **3**（B1 双列 14 维，MODEL_VERSION 闸）
 - Production status: **BLOCKED**（model_ready=false，动作层 history_validated=false 锁死）
