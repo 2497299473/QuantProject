@@ -83,14 +83,20 @@ _CL_EVENT = {"1buy": "一买", "2buy": "二买", "3buy": "三买",
              "1sell": "一卖", "2sell": "二卖", "3sell": "三卖"}
 
 
-def _lookthrough_section(lookthrough: dict | None) -> str:
-    """重仓股结构观察（穿透）。口径诚实命名：吻体系/MACD动力学背驰近似/缠论形态学事件。"""
-    if not lookthrough:
+def _lookthrough_section(lookthrough: dict | None, missing: list | None = None) -> str:
+    """重仓股结构观察（穿透）。口径诚实命名：吻体系/MACD动力学背驰近似/缠论形态学事件。
+
+    missing（2026-09-09 P0 挂账，Summer 拍板 11:18）：fund_pool 里未出现在
+    lookthrough 结果的基金——`evaluate_lookthrough` 对全失败基金会 `continue`，
+    基金会从表里**静默消失**（告警只发 log，报告看不出）。探针行把它显式化。
+    """
+    missing = list(missing or [])
+    if not lookthrough and not missing:
         return "_（穿透数据不可用，本栏跳过）_"
     lines = ["| 基金 | 持仓截至 | 覆盖 | 吻结构 | MACD背驰(底/顶/净) | 距60日高 | 缠论事件(30日) | 综合 |",
              "|---|---|---:|---:|---|---:|---|---|"]
     alerts = []
-    for code, a in lookthrough.items():
+    for code, a in (lookthrough or {}).items():
         rows = a["rows"]
         bull_div = sum(1 for r in rows if r.get("div") == 1)
         bear_div = sum(1 for r in rows if r.get("div") == -1)
@@ -113,6 +119,10 @@ def _lookthrough_section(lookthrough: dict | None) -> str:
     lines += ["", "> ⚠️ **常驻警示（证据已裁决）**：本栏穿透/事件信号存在**时段依赖**——2020-04~2023-11 区间"
               "+1 超额为 -1.53%（无证据），仅 2023-11 后有效（+3.40%）。据此已退出打分引擎，"
               "此处仅供结构观察，**勿单独作为操作依据**。"]
+    if missing:
+        lines += ["", f"🚨 **穿透缺失探针**：{'、'.join(missing)} 未出现在上表——持仓快照全部年份拉取失败"
+                  "（静默缺年防御见 core/lookthrough 三态判定，降级页留档 `forecast_outputs/f10_raw/`），"
+                  "**≠该基金无持仓**，勿按空表解读；检查网络/代理后重跑。"]
     return "\n".join(lines)
 
 
@@ -241,7 +251,8 @@ def _forecast_section(decisions: dict | None) -> str:
 def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict | None = None,
                     rotation: dict | None = None, realtime: dict | None = None,
                     decisions: dict | None = None,
-                    market_context: dict | None = None) -> str:
+                    market_context: dict | None = None,
+                    lt_missing: list | None = None) -> str:
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d")
     header = {"mid": "⏰ 午盘 · 实时参考", "post": "🌙 收盘前 · 最终参考"}.get(
@@ -264,7 +275,7 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
     notice = _data_source_notice(signals)
     if notice:
         parts += [notice, ""]
-    parts += ["## 🔎 重仓股结构观察（穿透）", "", _lookthrough_section(lookthrough), ""]
+    parts += ["## 🔎 重仓股结构观察（穿透）", "", _lookthrough_section(lookthrough, lt_missing), ""]
     parts += ["## 🔁 池内轮动参考（横截面）", "", _rotation_section(rotation), ""]
     mc_sec = _market_context_section(market_context)
     if mc_sec:

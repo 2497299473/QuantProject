@@ -204,6 +204,7 @@ def _run(args, now: datetime) -> int:
         return 1
 
     lookthrough = None
+    lt_missing: list[str] = []          # P0 探针：穿透静默缺失基金（进报告显式化）
     if not args.no_lookthrough:
         log("[look] 拉取重仓股穿透数据（季报持仓 + 个股K线）...")
         try:
@@ -212,9 +213,9 @@ def _run(args, now: datetime) -> int:
                 log(f"[look] {code} 持仓截至 {a['snapshot_date']} 覆盖 {a['coverage']*100:.0f}% "
                     f"吻结构 {a['structure']:+.2f} 净背驰 {a['div_net']:+.2f} 综合 {a['composite']:+d}"
                     + (" ⚠️防狼术" if a.get("fanglang_alert") else ""))
-            missing = [c for c in cfg["fund_pool"] if c not in lookthrough]
-            if missing:
-                log(f"[warn] ⚠️ 穿透缺失基金：{missing}——持仓快照拉取失败（多为网络/代理受限），"
+            lt_missing = [c for c in cfg["fund_pool"] if c not in lookthrough]
+            if lt_missing:
+                log(f"[warn] ⚠️ 穿透缺失基金：{lt_missing}——持仓快照拉取失败（多为网络/代理受限），"
                     f"受影响：实时估算/日内特征/中期趋势维度；请检查网络后重跑")
         except Exception as e:
             log(f"[warn] 穿透数据不可用，报告将跳过该栏：{e}")
@@ -333,7 +334,8 @@ def _run(args, now: datetime) -> int:
                 _append_state_ref_history(now, slot, code, sr)
 
     report = report_generator.generate_report(slot, signals, account, lookthrough, rot,
-                                              realtime, decisions, market_context=mc_snap)
+                                              realtime, decisions, market_context=mc_snap,
+                                              lt_missing=lt_missing)
     log(f"[repo] 报告已生成 → output/report_{now:%Y%m%d}_{slot}.md")
 
     if append_obsidian_log(slot, signals, account, now):
