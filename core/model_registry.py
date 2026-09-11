@@ -83,24 +83,81 @@ def register_model(pkl_path: Path, meta: dict) -> str | None:
     return digest if _save_registry(reg) else None
 
 
-def verify_model(pkl_path: Path) -> tuple[bool, str]:
-    """校验 pkl 与注册表一致性。返回 (ok, reason)。
+def read_verified_model_bytes(pkl_path: Path) -> tuple[bytes | None, str]:
+    """先读取并校验模型原始字节，成功后才允许调用方反序列化。
 
-    ok=False 的 reason ∈ {"no_registry", "no_entry", "hash_mismatch",
-    "file_missing", "io_error"}。
+    这是 pickle 的安全边界：hash 校验必须发生在 pickle.loads 之前，否则恶意
+    ``__reduce__`` 可在“发现 hash 不匹配”之前执行任意代码。
     """
     if not pkl_path.exists():
-        return False, "file_missing"
-    reg = load_registry()
-    entry = reg["models"].get(pkl_path.name)
+        return None, "file_missing"
+    entry = load_registry()["models"].get(pkl_path.name)
+    if entry is None:
+        return None, "no_entry"
+    try:
+        raw = pkl_path.read_bytes()
+    except OSError:
+        return None, "io_error"
+    if hashlib.sha256(raw).hexdigest() != entry.get("sha256"):
+        return None, "hash_mismatch"
+    return raw, "ok"
+
+
+def verify_model(pkl_path: Path) -> tuple[bool, str]:
+    """校验 pkl 与注册表一致性。返回 (ok, reason)。"""
+    raw, reason = read_verified_model_bytes(pkl_path)
+    return raw is not None, reason
+
+
+def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
+    """验证 approved 裁决及其报告文件哈希，防止注册表与报告脱钩。"""
+    entry = get_model_entry(pkl_name)
     if entry is None:
         return False, "no_entry"
+    validation = entry.get("validation")
+    if not isinstance(validation, dict):
+        return False, "no_validation"
+    if validation.get("decision") != "approved":
+        return False, "validation_not_approved"
+    report_file = validation.get("report_file")
+    expected_sha = validation.get("report_sha256")
+    if not report_file or not expected_sha:
+        return False, "validation_report_unbound"
+    report_path = Path(report_file)
+    if not report_path.is_absolute():
+        report_path = BASE_DIR / report_path
+    if not report_path.exists():
+        return False, "validation_report_missing"
     try:
-        digest = _file_sha256(pkl_path)
+        actual_sha = _file_sha256(report_path)
     except OSError:
-        return False, "io_error"
-    if digest != entry.get("sha256"):
-        return False, "hash_mismatch"
+        return False, "validation_report_io_error"
+    if actual_sha != expected_sha:
+        return False, "validation_report_hash_mismatch"
+    return True, "ok"
+
+
+def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]:
+    """验证模型是否具备对外展示资格（不包含 config 人工开关）。
+
+    artifact hash、特征协议、validation 报告与 promotion 必须同时通过；调用方
+    再与 ``config.forecast.model_ready`` 取 AND，形成最终原子授权。
+    """
+    ok, reason = verify_model(pkl_path)
+    if not ok:
+        return False, f"model:{reason}"
+    ok, reason = verify_feature_protocol(pkl_path.name, expected_protocol)
+    if not ok:
+        return False, f"feature_protocol:{reason}"
+    ok, reason = verify_validation_report(pkl_path.name)
+    if not ok:
+        return False, reason
+    entry = get_model_entry(pkl_path.name) or {}
+    promotion = entry.get("promotion") or {}
+    if promotion.get("status") != "approved":
+        return False, "promotion_not_approved"
+    if derive_promotion(entry.get("validation")).get("status") != "approved":
+        return False, "promotion_evidence_inconsistent"
     return True, "ok"
 
 

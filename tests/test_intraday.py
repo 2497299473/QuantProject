@@ -106,6 +106,18 @@ class TestDecisionEngine(unittest.TestCase):
         d = evaluate(inp)
         self.assertEqual(d.raw["est_1455"], None)
 
+    def test_post_features_override_mid_with_fallback(self):
+        mid = self._feat(est=1.0, breadth=-0.8, cov=55.0, age=30)
+        post = {"est_return": 2.0, "breadth": 0.7, "covered_pct": 88.0}
+        inp = DecisionInput(code="002112", name="测试基金", slot="post",
+                            technical_score=1, feat_1130=mid, feat_1455=post)
+        d = evaluate(inp)
+        merged = d.raw["features"]
+        self.assertEqual(merged["est_return"], 2.0)
+        self.assertEqual(merged["breadth"], 0.7)
+        self.assertEqual(merged["covered_pct"], 88.0)
+        self.assertEqual(merged["holdings_age_days"], 30)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

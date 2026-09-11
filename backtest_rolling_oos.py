@@ -130,9 +130,7 @@ def main() -> int:
             p_up = po[:, 2]
             ric = rank_ic(p_up.tolist(), yreto.tolist())
             brier = brier_multiclass(yo, po)
-            aligned = [s["date"] for s in oos_w
-                       if s.get(f"fwd{h}") is not None
-                       and all(s.get(k) is not None for k in forecast_engine.FEATURE_KEYS)]
+            aligned = XYo.dates
             if h == 5:
                 ric_ci = cluster_bootstrap_ci(
                     lambda sub: rank_ic(sub["x"].tolist(), sub["y"].tolist()),

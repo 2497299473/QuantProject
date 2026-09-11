@@ -44,6 +44,7 @@ class TestConfidenceEatsEvidence(unittest.TestCase):
     def _eng(self, ready: bool) -> fe.ForecastEngine:
         eng = fe.ForecastEngine(cfg={"forecast": {"model_ready": ready}})
         eng._fit_ok = True
+        eng.model_approved = ready  # 单测显式模拟完整 registry 批准契约
         eng._fund_evidence = {"002112": {"stability": 0.85, "verdict": "x", "horizons": {}}}
         return eng
 

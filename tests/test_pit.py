@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
@@ -103,6 +104,32 @@ class TestModelPersistence(unittest.TestCase):
                 self.assertFalse(eng.load_models())
             finally:
                 fe.MODELS_DIR = old_dir
+
+    def test_hash_failure_prevents_pickle_deserialization(self):
+        with tempfile.TemporaryDirectory() as td:
+            from core import model_registry as mr
+            old_dir = fe.MODELS_DIR
+            old_mr_dir = mr.MODELS_DIR
+            old_reg_path = mr.REGISTRY_PATH
+            fe.MODELS_DIR = Path(td)
+            mr.MODELS_DIR = Path(td)
+            mr.REGISTRY_PATH = Path(td) / "registry.json"
+            try:
+                path = Path(td) / f"forecast_v{fe.MODEL_VERSION}.pkl"
+                path.write_bytes(b"registered")
+                mr.register_model(path, meta={})
+                mr.bind_feature_protocol(path.name, mr.make_feature_protocol(
+                    fe.FEATURE_KEYS, masking=fe.MASKING_PROTOCOL))
+                path.write_bytes(b"tampered-not-a-pickle")
+                eng = fe.ForecastEngine()
+                with mock.patch.object(fe.pickle, "loads") as loads:
+                    self.assertFalse(eng.load_models())
+                    loads.assert_not_called()
+                self.assertEqual(eng.load_error, "hash_mismatch")
+            finally:
+                fe.MODELS_DIR = old_dir
+                mr.MODELS_DIR = old_mr_dir
+                mr.REGISTRY_PATH = old_reg_path
 
 
 if __name__ == "__main__":

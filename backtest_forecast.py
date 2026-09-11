@@ -25,6 +25,7 @@ import math
 import random
 import sys
 from bisect import bisect_right
+from dataclasses import dataclass
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -169,9 +170,26 @@ def cluster_bootstrap_ci(metric, arrays: dict[str, np.ndarray], dates: list[str]
     return float(np.percentile(stats, 2.5)), float(np.percentile(stats, 97.5))
 
 
+@dataclass
+class XYBatch:
+    """同一筛选循环生成的矩阵、标签与行身份，禁止下游自行重建对齐。"""
+    X: np.ndarray
+    y: np.ndarray
+    yret: np.ndarray
+    dates: list[str]
+    funds: list[str]
+
+    def __iter__(self):
+        # 向后兼容 ``X, y, yret = build_xy(...)``。
+        return iter((self.X, self.y, self.yret))
+
+    def __getitem__(self, index):
+        return (self.X, self.y, self.yret)[index]
+
+
 def build_xy(samples: list[dict], horizon: int, flat_margin: float):
-    """样本 → 特征矩阵 X、三分类 y、连续收益 target。"""
-    X, y, yret = [], [], []
+    """样本 → 特征、标签及严格同序的 date/fund 行身份。"""
+    X, y, yret, dates, funds = [], [], [], [], []
     for s in samples:
         fwd = s.get(f"fwd{horizon}")
         if fwd is None:
@@ -184,6 +202,8 @@ def build_xy(samples: list[dict], horizon: int, flat_margin: float):
             row.append(1.0 if v is None else 0.0)
         X.append(row)
         yret.append(float(fwd))
+        dates.append(s["date"])
+        funds.append(s.get("fund", ""))
         if fwd > flat_margin:
             y.append(2)
         elif fwd < -flat_margin:
@@ -192,7 +212,8 @@ def build_xy(samples: list[dict], horizon: int, flat_margin: float):
             y.append(1)
     if not X:
         return None
-    return np.array(X, dtype=float), np.array(y, dtype=int), np.array(yret, dtype=float)
+    return XYBatch(np.array(X, dtype=float), np.array(y, dtype=int),
+                   np.array(yret, dtype=float), dates, funds)
 
 
 def main() -> int:
@@ -252,15 +273,9 @@ def main() -> int:
         # embargo=h 个交易日的样本（T+h 标签与验证段重叠 → purge），杜绝同日跨折。
         clf = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
                                              max_depth=3, early_stopping=True, random_state=42)
-        # build_xy 行序 = train_all 遍历序 → 同口径重建对齐的日期序列
-        aligned_dates = []
-        for s in train_all:
-            fwd = s.get(f"fwd{h}")
-            if fwd is None:
-                continue
-            aligned_dates.append(s["date"])
+        # 日期身份由 build_xy 与 X/y 在同一循环生成，严禁下游重建筛选口径。
         cv_results = []
-        for fm in date_group_cv_masks(aligned_dates, n_splits=5, embargo=h):
+        for fm in date_group_cv_masks(XY.dates, n_splits=5, embargo=h):
             if fm["n_train"] < 50 or fm["n_va"] == 0:
                 print(f"  fold@{fm['fold']}: 样本不足(tr={fm['n_train']},va={fm['n_va']}) → 跳过")
                 continue
@@ -292,15 +307,7 @@ def main() -> int:
         print(f"  OOS Rank IC(up倾向 vs fwd{h}) = {ric:+.3f}")
 
         # v7 P1：cluster bootstrap 95% CI（按日块重抽样，同日样本不独立）
-        aligned_oos_dates = []
-        for s in oos:
-            fwd = s.get(f"fwd{h}")
-            if fwd is None:
-                continue
-            vec = [s.get(k) for k in forecast_engine.FEATURE_KEYS]
-            if any(v is None for v in vec):
-                continue
-            aligned_oos_dates.append(s["date"])
+        aligned_oos_dates = XYo.dates
         ric_ci = cluster_bootstrap_ci(
             lambda sub: rank_ic(sub["x"].tolist(), sub["y"].tolist()),
             {"x": score_up, "y": yreto}, aligned_oos_dates)

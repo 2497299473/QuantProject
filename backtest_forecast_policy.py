@@ -126,9 +126,7 @@ def main() -> int:
     proba = clf.predict_proba(Xo)
     p_up, p_down = proba[:, 2], proba[:, 0]
     fwd1 = yreto
-    dates = [s["date"] for s in oos
-             if s.get("fwd1") is not None
-             and all(s.get(k) is not None for k in fe.FEATURE_KEYS)]
+    dates = XYo.dates
 
     act_ml = policy_actions(p_up, p_down)
     act_base = policy_actions((Xo[:, fe.FEATURE_KEYS.index("est_chg")] > 0).astype(float),

@@ -269,8 +269,9 @@ class ForecastEngine:
         self.horizons = fc.get("horizons", [1, 3, 5])
         self.flat_margin = fc.get("prob_flat_margin", 0.003)
         self.model_ready = bool(fc.get("model_ready", False))
-        self.model_loaded = False               # 权重是否已加载（shadow/calibration 可用真推理）
-        self.model_approved = self.model_ready  # 是否允许对外展示（config 门禁；与 model_loaded 分离，2026-08-31）
+        self.model_loaded = False               # 权重是否已安全加载（离线研究可用真推理）
+        self.model_approved = False              # config + registry validation/promotion 原子授权
+        self.approval_error: str | None = None
         self.dirmodels = {h: DirectionModel(h, self.flat_margin) for h in self.horizons}
         self.quantmodels = {h: ReturnQuantileModel(h) for h in self.horizons}
         self._fit_ok = False
@@ -341,29 +342,30 @@ class ForecastEngine:
         path = MODELS_DIR / f"forecast_v{MODEL_VERSION}.pkl"
         if not path.exists():
             return False
+        from core import model_registry
+        expected_protocol = model_registry.make_feature_protocol(
+            FEATURE_KEYS, masking=MASKING_PROTOCOL)
+        # 安全边界：必须先验证原始 bytes 的 registry hash，再反序列化 pickle。
+        raw, reason = model_registry.read_verified_model_bytes(path)
+        if raw is None:
+            self.load_error = reason
+            return False
+        ok2, reason2 = model_registry.verify_feature_protocol(path.name, expected_protocol)
+        if not ok2:
+            self.load_error = f"feature_protocol:{reason2}"
+            return False
+        approval_ok, approval_reason = model_registry.verify_approval(path, expected_protocol)
+        self.approval_error = None if approval_ok else approval_reason
         try:
-            with open(path, "rb") as fh:
-                payload = pickle.load(fh)
+            payload = pickle.loads(raw)
         except Exception:
+            self.load_error = "deserialize_error"
             return False                    # 损坏文件不阻断主流程，保持未训练占位
         if (payload.get("model_version") != MODEL_VERSION
                 or payload.get("feature_keys") != list(FEATURE_KEYS)
                 or list(payload.get("horizons", [])) != list(self.horizons)
                 or abs(float(payload.get("flat_margin", -1.0)) - self.flat_margin) > 1e-9):
-            return False
-        # v7（P1 registry+hash）：sha256 完整性校验，不匹配/未登记 → 拒绝加载
-        from core import model_registry
-        ok, reason = model_registry.verify_model(path)
-        if not ok:
-            self.load_error = reason
-            return False
-        # v3（2026-09-01，GPT 五审）：校验登记特征协议与当前引擎一致，
-        # 防「registry 记 7 维、实际消费 14 维」类协议漂移。
-        ok2, reason2 = model_registry.verify_feature_protocol(
-            path.name, model_registry.make_feature_protocol(
-                FEATURE_KEYS, masking=MASKING_PROTOCOL))
-        if not ok2:
-            self.load_error = f"feature_protocol:{reason2}"
+            self.load_error = "payload_contract_mismatch"
             return False
         for h, clf in payload.get("dirmodels", {}).items():
             dm = self.dirmodels.get(h)
@@ -379,7 +381,10 @@ class ForecastEngine:
                 qm.resid_std = qm_payload.get("resid_std")
                 qm._trained = True
         self._fit_ok = True
-        self.model_loaded = True                # 2026-08-31：权重加载成功（与 model_approved 分离）
+        self.model_loaded = True                # 权重安全加载成功（与对外批准分离）
+        self.model_approved = bool(self.model_ready and approval_ok)
+        if self.model_ready and not approval_ok:
+            self.load_error = f"approval:{approval_reason}"
         self.loaded_at = payload.get("trained_at")
         self.trained_oos_start = payload.get("oos_start")
         return True
@@ -476,7 +481,7 @@ class ForecastEngine:
             stability = float(self._fund_evidence[fund_code].get("stability", 0.5))
         else:
             stability = 0.5                      # 无 LOFO 证据 → 诚实中性
-        if not (self.model_ready and self._fit_ok):
+        if not (self.model_approved and self._fit_ok):
             stability = min(stability, 0.2)
         freshness_f = _clamp(freshness, 0, 1)
         cov = (data_quality or {}).get("coverage")

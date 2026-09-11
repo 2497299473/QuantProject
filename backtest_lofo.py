@@ -144,7 +144,7 @@ def main() -> int:
             calib = calibration_curve(y_up, p_up)
             ric = rank_ic(p_up.tolist(), yreto.tolist())
             oo_brier = brier_multiclass(yo, po)
-            aligned_dates = [s["date"] for s in oos_F if s.get(f"fwd{h}") is not None]
+            aligned_dates = XYo.dates
             ric_ci = cluster_bootstrap_ci(
                 lambda sub: rank_ic(sub["x"].tolist(), sub["y"].tolist()),
                 {"x": p_up, "y": yreto}, aligned_dates)

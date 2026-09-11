@@ -126,8 +126,7 @@ def _eval(clf, test: list[dict], h: int, flat_margin: float):
     p_up = po[:, 2]
     ric = rank_ic(p_up.tolist(), yret.tolist())
     brier = brier_multiclass(y, po)
-    dts = [s["date"] for s in test if s.get(f"fwd{h}") is not None]
-    return p_up, yret, dts, ric, brier
+    return p_up, yret, XY.dates, ric, brier
 
 
 def _path_eval_for_fold(f: dict) -> dict | None:

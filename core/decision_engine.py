@@ -82,7 +82,7 @@ def _est_of(feat: dict | None) -> float | None:
 def _merged(feat_1130: dict | None, feat_1455: dict | None) -> dict:
     """合并两个时点特征：14:55 优先，缺失字段回退 11:30。"""
     out: dict = {}
-    for f in (feat_1455, feat_1130):
+    for f in (feat_1130, feat_1455):
         if f:
             out.update(f)
     return out

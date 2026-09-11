@@ -11,8 +11,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from shadow_policy import (append_records, load_existing_keys, policy_action,  # noqa: E402
-                           POLICY_THR)
+from shadow_policy import (append_records, load_existing_keys, load_post_inputs,  # noqa: E402
+                           policy_action, POLICY_THR)
+from core import intraday_feature_store as feature_store  # noqa: E402
 
 
 class TestPolicyAction(unittest.TestCase):
@@ -32,6 +33,45 @@ class TestPolicyAction(unittest.TestCase):
     def test_add_priority_over_reduce(self):
         # 双超阈值（罕见）→ ADD 优先（与 policy_actions 向量化赋值顺序一致）
         self.assertEqual(policy_action(0.7, 0.9), "ADD")
+
+
+class TestPostInputs(unittest.TestCase):
+    def test_latest_post_only_and_no_future_labels(self):
+        with tempfile.TemporaryDirectory() as td:
+            old_path = feature_store.STORE_PATH
+            feature_store.STORE_PATH = Path(td) / "intraday_features.jsonl"
+            try:
+                base = {"est_chg": 0.1, "est_sign": 1, "breadth": 0.2,
+                        "concentration": 0.3, "covered_pct": 70.0,
+                        "composite": 1, "score": 1, "fwd1": 9.9}
+                feature_store.append_features("2026-09-10", "post", "A", base,
+                                              model_version=3)
+                feature_store.append_features("2026-09-11", "mid", "A", base,
+                                              model_version=3)
+                latest = dict(base)
+                latest["est_chg"] = 0.8
+                feature_store.append_features("2026-09-11", "post", "A", latest,
+                                              model_version=3)
+                d, rows = load_post_inputs()
+                self.assertEqual(d, "2026-09-11")
+                self.assertEqual(rows["A"]["slot"], "post")
+                self.assertEqual(rows["A"]["features"]["est_chg"], 0.8)
+                self.assertNotIn("fwd1", rows["A"]["features"])
+            finally:
+                feature_store.STORE_PATH = old_path
+
+    def test_model_version_mismatch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            old_path = feature_store.STORE_PATH
+            feature_store.STORE_PATH = Path(td) / "intraday_features.jsonl"
+            try:
+                feature_store.append_features("2026-09-11", "post", "A",
+                                              {"est_chg": 0.1}, model_version=999)
+                d, rows = load_post_inputs("2026-09-11")
+                self.assertEqual(d, "2026-09-11")
+                self.assertEqual(rows, {})
+            finally:
+                feature_store.STORE_PATH = old_path
 
 
 class TestJsonlRoundtrip(unittest.TestCase):

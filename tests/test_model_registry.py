@@ -25,10 +25,12 @@ class TestModelRegistry(unittest.TestCase):
             encoding="utf-8") if model_registry.REGISTRY_PATH.exists() else None
         # 用独立测试文件名，避免污染真实 forecast_v*.pkl 条目
         self.test_pkl = self.tmp / "_test_registry_model.pkl"
+        self.test_report = self.tmp / "_test_validation_report.log"
         self._cleanup()
 
     def _cleanup(self):
         self.test_pkl.unlink(missing_ok=True)
+        self.test_report.unlink(missing_ok=True)
         reg = model_registry.load_registry()
         reg["models"].pop(self.test_pkl.name, None)
         model_registry._save_registry(reg)
@@ -102,6 +104,44 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_get_model_entry_missing_returns_none(self):
         self.assertIsNone(model_registry.get_model_entry("_ghost.pkl"))
+
+    def test_validation_report_hash_is_enforced(self):
+        self.test_pkl.write_bytes(b"approved-model")
+        model_registry.register_model(self.test_pkl, meta={})
+        self.test_report.write_text("approved evidence", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+        metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
+                   for h in (1, 3, 5)}
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        ok, reason = model_registry.verify_validation_report(self.test_pkl.name)
+        self.assertTrue(ok)
+        self.assertEqual(reason, "ok")
+        self.test_report.write_text("tampered evidence", encoding="utf-8")
+        ok, reason = model_registry.verify_validation_report(self.test_pkl.name)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "validation_report_hash_mismatch")
+
+    def test_approval_requires_model_protocol_validation_and_promotion(self):
+        self.test_pkl.write_bytes(b"approved-model")
+        model_registry.register_model(self.test_pkl, meta={})
+        proto = model_registry.make_feature_protocol(
+            ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
+        self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
+        self.test_report.write_text("approved evidence", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+        metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
+                   for h in (1, 3, 5)}
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
+        self.assertTrue(ok)
+        self.assertEqual(reason, "ok")
+        self.assertTrue(model_registry.update_promotion(
+            self.test_pkl.name, "blocked", "manual block"))
+        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "promotion_not_approved")
 
     # ---------- v3（2026-09-01，GPT 五审）：feature_protocol ----------
     def test_feature_protocol_make_and_bind_roundtrip(self):

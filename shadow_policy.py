@@ -8,11 +8,10 @@
 
 纪律（与项目铁律对齐）：
 - **不接下单、不动 config.decision 门禁**：只读 + jsonl 落盘，status 恒为 "shadow"；
-- **只加载冻结已验证模型**（data/models/forecast_v3.pkl，经 registry sha256
-  + 特征协议三重校验，load_models 内置）——不重训。Shadow 必须与「当时部署的
-  权重」完全一致，否则样本污染；
-- **PIT**：决策日 D 的路径 σ 窗口只用 date < D 的样本（D 日 fwd1 在 D+1 才
-  实现，不得进入窗口）；
+- **只加载冻结且完整批准的模型**（模型 hash + 特征协议 + validation 报告 hash
+  + promotion=approved + config.model_ready=true）——不重训；
+- **当前特征来自真实 post 累积存储**，生成时不含任何 fwd/mdd/mfe 未来标签；
+- **PIT**：决策日 D 的路径 σ 窗口只用 date < D 的历史样本（D 日未来标签不得进入）；
 - **政策动作口径 = T+1**（与 backtest_forecast_policy 唯一现有政策证据同口径，
   θ=0.6 固定不后验调参）；T+5 概率/分位/路径并行记录作参照；
 - **Evidence Contract**（GPT 十五：Evidence DAG 入口）：每条记录内嵌模型
@@ -20,7 +19,7 @@
   sha256 / RECENT_WINDOW / θ——一眼可查「这条 shadow 由哪个模型、哪份数据算出」。
 
 用法：python3 shadow_policy.py [--date YYYY-MM-DD] [--out shadow_actions.jsonl]
-  --date 缺省 = 数据中最新样本日（当前可决策的最近一天）。
+  --date 缺省 = intraday_features.jsonl 中最新 post 特征日。
   幂等：(date, fund) 已记录的不重复写，同日重跑安全。
 输出：output/shadow_actions.jsonl（每行 = 一基金一决策日）+ stdout 摘要。
 """
@@ -36,6 +35,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from backtest_spread import load_samples          # noqa: E402
 from core import forecast_engine as fe            # noqa: E402
+from core import intraday_feature_store as feature_store  # noqa: E402
 from core import path_forecast as pf              # noqa: E402
 from core import model_registry as mr             # noqa: E402
 
@@ -86,6 +86,37 @@ def append_records(path: Path, records: list[dict]) -> int:
     return len(records)
 
 
+def load_post_inputs(date: str | None = None) -> tuple[str | None, dict[str, dict]]:
+    """读取真实运行时冻结的 post 特征，不接触任何未来标签。
+
+    返回 ``(decision_date, {fund: record})``。同日同基金的重复运行由
+    intraday_feature_store 统一 last-write-wins；只接受当前模型协议版本。
+    """
+    records = feature_store.load_history(slot="post")
+    if not records:
+        return None, {}
+    decision_date = date or max(r.get("date", "") for r in records)
+    selected: dict[str, dict] = {}
+    for rec in records:
+        if rec.get("date") != decision_date:
+            continue
+        mv = rec.get("model_version")
+        if mv is not None and int(mv) != fe.MODEL_VERSION:
+            continue
+        raw_features = rec.get("features") or {}
+        selected[rec.get("fund", "")] = {
+            "date": decision_date,
+            "fund": rec.get("fund"),
+            "timestamp": rec.get("timestamp"),
+            "slot": "post",
+            "model_version": mv,
+            "features": {k: raw_features.get(k) for k in fe.FEATURE_KEYS},
+            "context": rec.get("context") or {},
+        }
+    selected.pop("", None)
+    return decision_date, selected
+
+
 def model_contract() -> dict:
     """Evidence Contract：模型指纹 + 特征协议 + 数据 manifest，内嵌每条记录。"""
     entry = mr.load_registry().get("models", {}).get(
@@ -105,6 +136,8 @@ def model_contract() -> dict:
         "recent_window": pf.RECENT_WINDOW,      # v1.3 起冻结
         "policy_theta": POLICY_THR,
         "policy_basis": "T+1",                  # 动作口径（T+5 仅参照）
+        "validation_decision": (entry.get("validation") or {}).get("decision"),
+        "promotion_status": (entry.get("promotion") or {}).get("status"),
     }
 
 
@@ -124,28 +157,27 @@ def main() -> int:
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     funds = cfg["fund_pool"]
 
-    # 冻结模型（registry sha256 + 特征协议校验；失败拒绝启动）
+    # 冻结模型：安全加载不等于对外批准；Shadow 只接受完整批准契约。
     engine = fe.ForecastEngine(cfg)
     if not engine.load_models():
-        print(f"[fail] 冻结模型加载失败（load_error={engine.load_error}）→ 拒绝启动。"
-              "Shadow 必须运行在已验证冻结权重上；如需换模型，先走 "
-              "train_forecast_model.py 重训 + 重新登记验证。")
+        print(f"[fail] 冻结模型加载失败（load_error={engine.load_error}）→ 拒绝启动。")
+        return 1
+    if not engine.model_approved:
+        print(f"[fail] 模型未获完整批准（config_ready={engine.model_ready}, "
+              f"approval_error={engine.approval_error}）→ Shadow 不记录，避免失败模型污染前瞻证据。")
         return 1
     contract = model_contract()
     print(f"== [0] 冻结模型 v{fe.MODEL_VERSION} sha256={str(contract['model_sha256'])[:12]}… "
           f"trained={contract['trained_at']} oos_start={contract['oos_start']} "
-          f"（load_models 三重校验通过）==")
+          f"promotion={contract['promotion_status']}（完整批准契约通过）==")
 
-    print("== [1] 加载样本（PIT 口径）==")
+    print("== [1] 加载当日 post 特征（无未来标签）==")
+    d, post_inputs = load_post_inputs(args.date)
+    if not d or not post_inputs:
+        print(f"[fail] {'指定日期 '+args.date if args.date else '最新日期'} 无 post 特征")
+        return 1
+    # 历史样本仅用于 date < d 的路径波动参数；绝不用于选择决策日或当前特征。
     samples = load_samples()
-    if not samples:
-        print("[fail] 无样本")
-        return 1
-    dates = sorted({s["date"] for s in samples})
-    d = args.date or dates[-1]
-    if d not in dates:
-        print(f"[fail] {d} 不在样本日期内（最新 {dates[-1]}）")
-        return 1
 
     out_path = BASE_DIR / "output" / (args.out or "shadow_actions.jsonl")
     known = load_existing_keys(out_path)
@@ -164,12 +196,11 @@ def main() -> int:
     records = []
     print(f"== [2] shadow 记录（决策日 {d} · 动作口径 T+1 · θ={POLICY_THR} · 只记录不执行）==")
     for code in funds:
-        rows = [s for s in samples if s["fund"] == code and s["date"] == d]
-        if not rows:
-            print(f"  {code}: 当日无特征行（持仓快照/净值缺失）→ 跳过")
+        source_rec = post_inputs.get(code)
+        if not source_rec:
+            print(f"  {code}: 当日无真实 post 特征 → 跳过")
             continue
-        s = rows[0]
-        feat = {k: s.get(k) for k in fe.FEATURE_KEYS}
+        feat = source_rec["features"]
         fc = engine.predict(feat, fund_code=code)
         t1, t5 = fc.t1, fc.t5
         act = policy_action(t1.p_up, t1.p_down)
@@ -193,6 +224,10 @@ def main() -> int:
             "date": d,
             "fund": code,
             "contract": contract,
+            "source": {"store": "data/intraday_features.jsonl", "slot": "post",
+                       "observed_at": source_rec.get("timestamp"),
+                       "source_model_version": source_rec.get("model_version"),
+                       "contains_future_labels": False},
             "features": {k: (round(v, 6) if isinstance(v, (int, float)) else v)
                          for k, v in feat.items()},
             "t1": {"p_up": round(t1.p_up, 6), "p_flat": round(t1.p_flat, 6),

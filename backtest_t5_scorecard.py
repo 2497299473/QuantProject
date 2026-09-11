@@ -193,7 +193,7 @@ def main() -> int:
     XYo = build_xy(oos, 5, flat_margin)
     Xoo, yoo, yret_oo = XYo
     p_up = clf.predict_proba(Xoo)[:, 2]
-    dates_oo = [s["date"] for s in oos]
+    dates_oo = XYo.dates
     print(f"  OOS n={len(yoo)} / {len(set(dates_oo))} 日")
 
     # ① 方向排序 pooled RankIC + cluster CI

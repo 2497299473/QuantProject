@@ -12,12 +12,30 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from backtest_forecast import date_group_cv_masks, split_date_oos  # noqa: E402
+from backtest_forecast import build_xy, date_group_cv_masks, split_date_oos  # noqa: E402
 from core import report_generator  # noqa: E402
 
 
 def _samples(dates: list[str]) -> list[dict]:
     return [{"fund": "T", "date": d, "fwd1": 0.01 * i} for i, d in enumerate(dates)]
+
+
+class TestBuildXyAlignment(unittest.TestCase):
+    def test_missing_features_are_retained_with_identity_alignment(self):
+        rows = [
+            {"date": "2026-01-01", "fund": "A", "fwd1": 0.01,
+             "est_chg": None},
+            {"date": "2026-01-02", "fund": "B", "fwd1": None,
+             "est_chg": 0.2},
+            {"date": "2026-01-03", "fund": "C", "fwd1": -0.01,
+             "est_chg": 0.3},
+        ]
+        batch = build_xy(rows, 1, 0.003)
+        self.assertEqual(len(batch.X), 2)
+        self.assertEqual(batch.dates, ["2026-01-01", "2026-01-03"])
+        self.assertEqual(batch.funds, ["A", "C"])
+        self.assertEqual(len(batch.y), len(batch.yret))
+        self.assertEqual(batch.X[0][1], 1.0)  # est_chg missing mask
 
 
 class TestSplitDateOos(unittest.TestCase):
