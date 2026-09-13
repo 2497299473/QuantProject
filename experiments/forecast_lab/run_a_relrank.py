@@ -38,6 +38,11 @@ JSONL = BASE / "forecast_outputs" / "samples_frozen_20260910.jsonl"
 META = BASE / "forecast_outputs" / "samples_frozen_20260910.meta.json"
 OUT = BASE / "forecast_outputs" / f"cand_a_relrank_{STAMP}.json"
 
+# D1-c（Summer 09-13 16:59 拍板）G2-⑤′ 用途锁定条款（预注册文本，不得由实现侧放宽）
+G2_USAGE_LOCK = ("relative_pool_only_no_abs_display："
+                 "G2 通过者仅可作 decision_engine.relative_pool（权重 0.15）的候选输入；"
+                 "不得进入绝对收益展示或下单链路；接入须另行预注册。")
+
 # v2 §三.3 实测映射表（IC 序列 ρ → MDE 档位），仅作「功效够不够」的参照
 MDE_BANDS = [(1.00, 0.000), (0.988, 0.014), (0.943, 0.030), (0.834, 0.051),
              (0.664, 0.074), (0.454, 0.096), (0.242, 0.114), (0.038, 0.128)]
@@ -186,13 +191,21 @@ def main() -> int:
     print("-- secondary 端点：对相对标签（all arms 共用 rel_mean 尺子，诊断用）--")
     rows_rel = [summarise(n, a, "y_rel", "ic_rel", pb_rel, base_ic_rel, base["per_fold"])
                 for n, a in arms]
-    print("-- robustness：对 rel_med 尺子（点估计）--")
-    rel_med_rows = [{"arm": n, "base_ic": round(base_ic_relm, 4),
-                     "ic": round(rank_ic(list(a["preds"]), list(a["y_rel_med"])), 4)}
-                    for n, a in arms]
+    print("-- robustness / G2-④′：对 rel_med 尺子（跨尺子稳健，需配对 CI）--")
+    pb_relm = m0.PairedBoot(base["preds"], base["y_rel_med"], groups,
+                            m0.N_BOOT, m0.SEED)
+    rel_med_rows = []
+    for n, a in arms:
+        ic_m = rank_ic(list(a["preds"]), list(a["y_rel_med"]))
+        dm = pb_relm.diffs(a["preds"])
+        rel_med_rows.append({
+            "arm": n, "base_ic": round(float(base_ic_relm), 4),
+            "ic": round(float(ic_m), 4),
+            "delta": round(float(ic_m - base_ic_relm), 4),
+            "pct2_5_D": round(float(np.percentile(dm, 2.5)), 4)})
     for r in rel_med_rows:
         print(f"  [rel_med] {r['arm']:8s} IC={r['ic']:+.4f} (base {r['base_ic']:+.4f}, "
-              f"Δ={r['ic'] - r['base_ic']:+.4f})")
+              f"Δ={r['delta']:+.4f})  pct2.5(D)={r['pct2_5_D']:+.4f}")
 
     print("== [4] 结论（判据读数一律并列，不替 Summer 预选）==")
 
@@ -215,6 +228,48 @@ def main() -> int:
     line("primary/绝对 fwd5", rows_abs)
     line("secondary/相对标签", rows_rel)
 
+    # ---------- D1-c（Summer 09-13 16:59 拍板）：双端点双门槛正式判读 ----------
+    # 预注册：output/forecast_lab_prereg_rules_20260913.md §一 R1（本文之前落盘）。
+    print("== [5] D1-c 双门槛裁决（G1 绝对资格 / G2 相对资格）==")
+    relm_by_arm = {r["arm"]: r for r in rel_med_rows}
+    gates = []
+    for r in rows_rel:
+        rm = relm_by_arm[r["arm"]]
+        g2 = {
+            "arm": r["arm"],
+            "c1_paired_ci_lower_gt0": bool(r["pct2_5_D"] > 0),
+            "c2_folds_not_worse_4of4": bool(r["n_folds_not_worse"] == 4),
+            "c3_cross_ruler_same_sign_and_ci_gt0": bool(
+                rm["delta"] > 0 and rm["pct2_5_D"] > 0),
+            "c4_usage_lock": "relative_pool_only_no_abs_display",
+        }
+        g2["G2_pass"] = bool(g2["c1_paired_ci_lower_gt0"]
+                             and g2["c2_folds_not_worse_4of4"]
+                             and g2["c3_cross_ruler_same_sign_and_ci_gt0"])
+        gates.append(g2)
+        print(f"  [G2/secondary] {r['arm']:8s} ②′CI>0={g2['c1_paired_ci_lower_gt0']}  "
+              f"③′逐折4/4={g2['c2_folds_not_worse_4of4']}  "
+              f"④′跨尺子稳健={g2['c3_cross_ruler_same_sign_and_ci_gt0']}"
+              f"（rel_med Δ={rm['delta']:+.4f} CI下界={rm['pct2_5_D']:+.4f}）  "
+              f"→ G2 {'✅通过' if g2['G2_pass'] else '❌未过'}")
+    abs_pass = {}
+    for r in rows_abs:
+        g1_pass = bool(r["gate2_current"])
+        abs_pass[r["arm"]] = g1_pass
+        if g1_pass:
+            v1 = "✅通过"
+        elif abs(r["delta"]) < r["mde_band"]:
+            v1 = f"❌未过（Δ={r['delta']:+.4f} 落在盲区 {r['mde_band']} 内 → 记「证据不充分」）"
+        else:
+            v1 = f"❌未过（Δ={r['delta']:+.4f} 已超盲区 {r['mde_band']} → 可视为无效果）"
+        print(f"  [G1/primary]   {r['arm']:8s} Δ={r['delta']:+.4f}  "
+              f"pct2.5(D)={r['pct2_5_D']:+.4f}  逐折不劣 {r['n_folds_not_worse']}/4"
+              f"  → G1 {v1}")
+    for gg in gates:
+        gg["G1_pass"] = abs_pass.get(gg["arm"], False)
+    print("  用途锁定（G2-⑤′）：G2 通过者**不得**进入绝对收益展示/下单链路，")
+    print("      仅可作 decision_engine.relative_pool（权重 0.15）的候选输入，接入另行预注册。")
+
     out = {"kind": "forecast_lab_cand_a_relrank",
            "prereg": "output/forecast_lab_prereg_A_relrank_20260913.md",
            "created_at": t0.isoformat(timespec="seconds"),
@@ -226,6 +281,20 @@ def main() -> int:
                     "per_fold": base["per_fold"], "reproduced_m0": bool(same)},
            "endpoint_abs": rows_abs, "endpoint_rel": rows_rel,
            "endpoint_rel_med_robust": rel_med_rows,
+           "d1c_gates": {
+               "rule_doc": "output/forecast_lab_prereg_rules_20260913.md §一 R1",
+               "decided_by": "Summer 2026-09-13 16:59（D1=c 双端点双门槛）",
+               "G1_primary": [{"arm": r["arm"], "pass": bool(r["gate2_current"]),
+                               "delta": r["delta"], "pct2_5_D": r["pct2_5_D"],
+                               "mde_band": r["mde_band"],
+                               "verdict": ("判出" if r["gate2_current"] else
+                                           ("证据不充分（Δ 落在盲区）"
+                                            if abs(r["delta"]) < r["mde_band"]
+                                            else "可视为无效果"))}
+                              for r in rows_abs],
+               "G2_secondary": gates,
+               "usage_lock": G2_USAGE_LOCK,
+           },
            "note": "首跑 secondary 端点实现有 bug（base 臂 y_rel 误用绝对标签），已修正；"
                    "primary 端点与判据不受影响。",
            "elapsed_sec": round((datetime.now() - t0).total_seconds(), 1)}
