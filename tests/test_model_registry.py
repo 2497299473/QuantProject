@@ -7,7 +7,10 @@
 - 文件缺失 → 拒绝
 - 注册表损坏 → load_registry 返回空结构（不抛异常）
 """
+import json
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -286,6 +289,169 @@ class TestModelRegistry(unittest.TestCase):
         entry = model_registry.get_model_entry(self.test_pkl.name)
         self.assertEqual(entry["promotion"]["status"], "blocked")   # 历史手填未被动
         self.assertNotIn("derived_by", entry["promotion"])            # 仍是手填产物
+
+class TestPreregDegradation(unittest.TestCase):
+    """2026-09-13 D2：Shadow 预注册降级授权（prereg_shadow_v1）。
+
+    覆盖：正例 / 未登记 / 无文件 / 停用 / sha 不符 / T+5 不显著 / T+1 负 IC /
+    过期 / rule_version 不符；并验证降级**不影响** verify_approval 主授权门。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig_registry = (model_registry.REGISTRY_PATH.read_text(
+            encoding="utf-8") if model_registry.REGISTRY_PATH.exists() else None)
+        self._orig_models_dir = model_registry.MODELS_DIR
+        model_registry.MODELS_DIR = self.tmp
+        model_registry.REGISTRY_PATH = self.tmp / "registry.json"
+        self.pkl = self.tmp / "forecast_v3.pkl"
+        self.report = self.tmp / "validation.log"
+        self.prereg = self.tmp / "promotion_prereg.json"
+
+    def tearDown(self):
+        model_registry.MODELS_DIR = self._orig_models_dir
+        if self._orig_registry is not None:
+            model_registry.REGISTRY_PATH.write_text(self._orig_registry,
+                                                    encoding="utf-8")
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    PROTO = None   # 由 _seed 填充（与 verify_approval 用同一份协议）
+
+    def _seed(self, metrics=None, decision="rejected", model_bytes=b"v3-bytes"):
+        self.pkl.write_bytes(model_bytes)
+        model_registry.register_model(self.pkl, meta={"n_train": 10})
+        # 绑特征协议，让 verify_approval 能推进到 validation 那一步（否则先被
+        # feature_protocol:no_protocol 拦下，测不到「降级不松动展示门」的真正含义）
+        TestPreregDegradation.PROTO = model_registry.make_feature_protocol(
+            ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
+        model_registry.bind_feature_protocol(self.pkl.name, self.PROTO)
+        self.report.write_text("validation evidence", encoding="utf-8")
+        digest = model_registry._file_sha256(self.report)
+        m = metrics if metrics is not None else {
+            "1": {"rank_ic": 0.005, "ric_ci": [-0.066, 0.07], "decision": "rejected"},
+            "3": {"rank_ic": 0.002, "ric_ci": [-0.061, 0.066], "decision": "rejected"},
+            "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142], "decision": "approved"},
+        }
+        model_registry.bind_validation(self.pkl.name, str(self.report), digest,
+                                       decision, metrics=m)
+        return digest
+
+    def _prereg(self, report_sha, expiry="2099-01-01", enabled=True,
+                rule_version="prereg_shadow_v1", model_sha=None):
+        reg = model_registry.load_registry()
+        sha = model_sha or reg["models"][self.pkl.name]["sha256"]
+        self.prereg.write_text(json.dumps({
+            "rule_version": rule_version, "enabled": enabled,
+            "grants": {self.pkl.name: {
+                "model_sha256": sha, "report_sha256": report_sha,
+                "expiry": expiry}}}, ensure_ascii=False), encoding="utf-8")
+
+    def test_happy_path_and_scope_isolation(self):
+        digest = self._seed()
+        self._prereg(digest)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertTrue(ok, reason)
+        self.assertEqual(reason, "prereg_degraded")
+        # 隔离性：降级授权不得松动对外展示门（validation/prompt 未过 → 仍拒）
+        va, vreason = model_registry.verify_approval(self.pkl, self.PROTO)
+        self.assertFalse(va)
+        self.assertIn("validation", vreason)
+
+    def test_no_grant_for_model(self):
+        digest = self._seed()
+        self._prereg(digest)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            "_other.pkl", prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "prereg_no_grant_for_model")
+
+    def test_missing_file_and_disabled(self):
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.tmp / "nope.json")
+        self.assertFalse(ok)
+        self.assertEqual(reason, "prereg_file_missing_or_unreadable")
+        digest = self._seed()
+        self._prereg(digest, enabled=False)
+        ok2, r2 = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok2)
+        self.assertEqual(r2, "prereg_not_enabled")
+
+    def test_model_sha_mismatch(self):
+        digest = self._seed()
+        # 预注册登记了错误的 model_sha256（授权与当前 registry 条目脱钩）。
+        # 注：真实文件篡改由 verify_model / load_models 拦（另有测例），
+        # 本函数职责是「registry 记录值 vs 预注册登记值」的一致性。
+        self._prereg(digest, model_sha="0" * 64)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "model_sha_mismatch_vs_prereg")
+
+    def test_report_sha_mismatch(self):
+        digest = self._seed()
+        self._prereg("f" * 64)   # 预注册绑了一份不是当前 validation 的报告 hash
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "report_sha_mismatch_vs_prereg")
+        self.assertNotEqual(digest, "f" * 64)
+
+    def test_t5_ci_lower_bound_must_be_positive(self):
+        m = {"1": {"rank_ic": 0.005, "decision": "approved"},
+             "3": {"rank_ic": 0.002, "decision": "approved"},
+             "5": {"rank_ic": 0.05, "ric_ci": [-0.01, 0.11],
+                   "decision": "approved"}}
+        digest = self._seed(metrics=m)
+        self._prereg(digest)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "t5_ci_lower_bound_not_positive")
+
+    def test_t5_not_approved(self):
+        m = {"1": {"rank_ic": 0.01}, "3": {"rank_ic": 0.01},
+             "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142],
+                   "decision": "rejected"}}
+        digest = self._seed(metrics=m)
+        self._prereg(digest)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "t5_not_approved")
+
+    def test_t1_negative_ic_rejected(self):
+        m = {"1": {"rank_ic": -0.01, "decision": "rejected"},
+             "3": {"rank_ic": 0.002, "decision": "rejected"},
+             "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142],
+                   "decision": "approved"}}
+        digest = self._seed(metrics=m)
+        self._prereg(digest)
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "t1_rank_ic_negative")
+
+    def test_expiry_boundary(self):
+        digest = self._seed()
+        self._prereg(digest, expiry="2026-10-12")
+        ok, _ = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg, today="2026-10-12")
+        self.assertTrue(ok)                        # 到期当日仍有效
+        ok2, r2 = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg, today="2026-10-13")
+        self.assertFalse(ok2)
+        self.assertEqual(r2, "prereg_expired")     # 次日自动阻断，无静默续期
+
+    def test_rule_version_mismatch(self):
+        digest = self._seed()
+        self._prereg(digest, rule_version="prereg_shadow_v0")
+        ok, reason = model_registry.evaluate_prereg_degradation(
+            self.pkl.name, prereg_path=self.prereg)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "prereg_rule_version_mismatch_file")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,8 +8,14 @@
 
 纪律（与项目铁律对齐）：
 - **不接下单、不动 config.decision 门禁**：只读 + jsonl 落盘，status 恒为 "shadow"；
-- **只加载冻结且完整批准的模型**（模型 hash + 特征协议 + validation 报告 hash
-  + promotion=approved + config.model_ready=true）——不重训；
+- **模型闸门 = 双通道**（2026-09-13 D2 拍板）：① 完整批准（模型 hash + 特征协议
+  + validation 报告 hash + promotion=approved + config.model_ready=true）→
+  promotion_mode=approved_full；② 预注册降级授权（data/promotion_prereg.json，
+  判据 prereg_shadow_v1，有 expiry）→ promotion_mode=prereg_degraded，
+  **仅纸面记录**，对外展示门（verify_approval）不受影响，两类证据永不混池
+  （逐条打标可筛）。两通道都不过 → 拒记并非零退出；
+- **不重训**；**零网络硬纪律**：当前特征读 post 槽，路径 σ 只读冻结样本 JSONL
+  （缺失即失败，不回退 load_samples——避免 TTL 到期触发前复权 K 线重取漂移）；
 - **当前特征来自真实 post 累积存储**，生成时不含任何 fwd/mdd/mfe 未来标签；
 - **PIT**：决策日 D 的路径 σ 窗口只用 date < D 的历史样本（D 日未来标签不得进入）；
 - **政策动作口径 = T+1**（与 backtest_forecast_policy 唯一现有政策证据同口径，
@@ -33,7 +39,33 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-from backtest_spread import load_samples          # noqa: E402
+
+def load_frozen_samples() -> tuple[list[dict] | None, str]:
+    """零网络样本源：只读最新冻结样本 JSONL（path σ 参数用，不回退）。
+
+    降级授权打开后 shadow 每日必跑，不能让路径块触发 K 线/净值重取
+    （既耗东财频控预算，又会让前复权序列追溯改写→尺子漂移，09-10 已实证）。
+    冻结样本里的 fwd/mdd/mfe 列只喂 date < D 的历史 σ 拟合，不进当前特征；
+    当前特征一律来自 post 槽（contains_future_labels=False 不变）。
+    不联网、不回退：冻结缺失时返回 (None, reason)，调用方必须显式处理，
+    不得静默降级到可能联网的 load_samples。σ 鲜度 gap 写进记录的
+    source.samples_source，下次重冻结（候选 D）自然消除。
+    """
+    import json as _json
+    cands = sorted((BASE_DIR / "forecast_outputs").glob("samples_frozen_*.jsonl"))
+    if not cands:
+        return None, "no_frozen_samples"
+    src = cands[-1]
+    rows = []
+    for ln in src.read_text(encoding="utf-8").splitlines():
+        ln = ln.strip()
+        if ln:
+            rows.append(_json.loads(ln))
+    if not rows:
+        return None, "frozen_samples_empty"
+    return rows, f"forecast_outputs/{src.name}"
+
+
 from core import forecast_engine as fe            # noqa: E402
 from core import intraday_feature_store as feature_store  # noqa: E402
 from core import path_forecast as pf              # noqa: E402
@@ -141,6 +173,22 @@ def model_contract() -> dict:
     }
 
 
+def resolve_promotion_mode(engine) -> tuple[str | None, str]:
+    """Shadow 双通道闸门（2026-09-13 D2 拍板）。
+
+    返回 ``(promotion_mode, note)``；promotion_mode=None 表示两条通道都不过。
+    - approved_full：完整批准（config.model_ready + registry 原子授权）。
+    - prereg_degraded：预注册降级授权（data/promotion_prereg.json，仅纸面记录）。
+      作用域硬边界：不影响 verify_approval（对外展示门）。
+    """
+    if engine.model_approved:
+        return "approved_full", "完整批准契约通过"
+    ok, reason = mr.evaluate_prereg_degradation(f"forecast_v{fe.MODEL_VERSION}.pkl")
+    if ok:
+        return "prereg_degraded", "预注册降级授权（仅纸面记录，对外展示门不受影响）"
+    return None, reason
+
+
 def _fmt(v) -> str:
     return f"{v:+.4f}" if isinstance(v, (int, float)) else "  —  "
 
@@ -157,19 +205,24 @@ def main() -> int:
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     funds = cfg["fund_pool"]
 
-    # 冻结模型：安全加载不等于对外批准；Shadow 只接受完整批准契约。
+    # 冻结模型：安全加载不等于对外批准。完整批准之外另有一条预注册降级通道
+    # （仅纸面记录；判据与有效期登记在 data/promotion_prereg.json，
+    # 规则见 output/forecast_lab_prereg_rules_20260913.md §二 R2）。
     engine = fe.ForecastEngine(cfg)
     if not engine.load_models():
         print(f"[fail] 冻结模型加载失败（load_error={engine.load_error}）→ 拒绝启动。")
         return 1
-    if not engine.model_approved:
+    promotion_mode, gate_note = resolve_promotion_mode(engine)
+    if promotion_mode is None:
         print(f"[fail] 模型未获完整批准（config_ready={engine.model_ready}, "
-              f"approval_error={engine.approval_error}）→ Shadow 不记录，避免失败模型污染前瞻证据。")
+              f"approval_error={engine.approval_error}），且降级授权不通过"
+              f"（{gate_note}）→ Shadow 不记录，避免失败模型污染前瞻证据。")
         return 1
     contract = model_contract()
+    contract["promotion_mode"] = promotion_mode
     print(f"== [0] 冻结模型 v{fe.MODEL_VERSION} sha256={str(contract['model_sha256'])[:12]}… "
           f"trained={contract['trained_at']} oos_start={contract['oos_start']} "
-          f"promotion={contract['promotion_status']}（完整批准契约通过）==")
+          f"promotion={contract['promotion_status']} mode={promotion_mode}（{gate_note}）==")
 
     print("== [1] 加载当日 post 特征（无未来标签）==")
     d, post_inputs = load_post_inputs(args.date)
@@ -177,7 +230,12 @@ def main() -> int:
         print(f"[fail] {'指定日期 '+args.date if args.date else '最新日期'} 无 post 特征")
         return 1
     # 历史样本仅用于 date < d 的路径波动参数；绝不用于选择决策日或当前特征。
-    samples = load_samples()
+    # 零网络硬纪律：只读冻结 JSONL，缺失即失败（不回退 load_samples，避免 TTL
+    # 到期触发前复权 K 线重取→尺子漂移）。
+    samples, samples_source = load_frozen_samples()
+    if samples is None:
+        print(f"[fail] 路径 σ 样本不可用（{samples_source}）→ 拒绝启动。")
+        return 1
 
     out_path = BASE_DIR / "output" / (args.out or "shadow_actions.jsonl")
     known = load_existing_keys(out_path)
@@ -227,7 +285,8 @@ def main() -> int:
             "source": {"store": "data/intraday_features.jsonl", "slot": "post",
                        "observed_at": source_rec.get("timestamp"),
                        "source_model_version": source_rec.get("model_version"),
-                       "contains_future_labels": False},
+                       "contains_future_labels": False,
+                       "samples_source": samples_source},
             "features": {k: (round(v, 6) if isinstance(v, (int, float)) else v)
                          for k, v in feat.items()},
             "t1": {"p_up": round(t1.p_up, 6), "p_flat": round(t1.p_flat, 6),

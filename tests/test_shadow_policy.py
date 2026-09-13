@@ -1,6 +1,7 @@
 """P1-⑦：shadow_policy 纯函数测试（policy_action / jsonl 去重 / 追加 / 幂等）。
 
 只测不依赖网络/模型的纯逻辑；完整链路由每日实际运行留档验证。
+2026-09-13 D2 补：Shadow 双通道闸门 resolve_promotion_mode + 零网络样本源。
 """
 import json
 import sys
@@ -11,8 +12,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from shadow_policy import (append_records, load_existing_keys, load_post_inputs,  # noqa: E402
-                           policy_action, POLICY_THR)
+import shadow_policy                                   # noqa: E402
+from shadow_policy import (append_records, load_existing_keys,  # noqa: E402
+                           load_frozen_samples, load_post_inputs,
+                           resolve_promotion_mode, policy_action, POLICY_THR)
 from core import intraday_feature_store as feature_store  # noqa: E402
 
 
@@ -113,6 +116,68 @@ class TestJsonlRoundtrip(unittest.TestCase):
                          json.dumps({"date": "2026-09-01", "fund": "A"}) + "\n",
                          encoding="utf-8")
             self.assertEqual(load_existing_keys(p), {("2026-09-01", "A")})
+
+
+class _FakeEngine:
+    """只带闸门用到的字段，不碰真实模型。"""
+
+    def __init__(self, approved):
+        self.model_approved = approved
+        self.model_ready = False
+        self.approval_error = "promotion_not_approved" if not approved else None
+
+
+class TestPromotionGate(unittest.TestCase):
+    """D2（2026-09-13 Summer 拍板）：完整批准 / 预注册降级 双通道。"""
+
+    def setUp(self):
+        self._orig_eval = shadow_policy.mr.evaluate_prereg_degradation
+
+    def tearDown(self):
+        shadow_policy.mr.evaluate_prereg_degradation = self._orig_eval
+
+    def test_full_approval_short_circuits(self):
+        # 完整批准时不得去读降级旁路（防止意外抬升未批准模型）
+        def boom(*a, **k):
+            raise AssertionError("完整批准路径不应调用降级评估")
+        shadow_policy.mr.evaluate_prereg_degradation = boom
+        mode, note = resolve_promotion_mode(_FakeEngine(True))
+        self.assertEqual(mode, "approved_full")
+        self.assertIn("完整批准", note)
+
+    def test_degraded_when_prereg_passes(self):
+        shadow_policy.mr.evaluate_prereg_degradation = lambda name: (True, "prereg_degraded")
+        mode, note = resolve_promotion_mode(_FakeEngine(False))
+        self.assertEqual(mode, "prereg_degraded")
+        self.assertIn("仅纸面记录", note)
+
+    def test_blocked_when_prereg_fails(self):
+        shadow_policy.mr.evaluate_prereg_degradation = lambda name: (False, "prereg_expired")
+        mode, note = resolve_promotion_mode(_FakeEngine(False))
+        self.assertIsNone(mode)                 # 两通道都不过 → 调用方必拒记
+        self.assertEqual(note, "prereg_expired")  # 原因透传，便于日志定位
+
+
+class TestFrozenSampleSource(unittest.TestCase):
+    """零网络硬纪律：路径 σ 只读冻结 JSONL，缺失即失败，不回退抓取。"""
+
+    def test_reads_latest_frozen_file(self):
+        rows, src = load_frozen_samples()
+        self.assertIsNotNone(rows, f"冻结样本缺失：{src}")
+        self.assertTrue(src.startswith("forecast_outputs/samples_frozen_"))
+        self.assertGreater(len(rows), 1000)
+        self.assertIn("fwd5", rows[0])
+
+    def test_no_fallback_to_network_when_missing(self):
+        orig = shadow_policy.BASE_DIR
+        with tempfile.TemporaryDirectory() as td:
+            shadow_policy.BASE_DIR = Path(td)
+            try:
+                rows, src = load_frozen_samples()
+            finally:
+                shadow_policy.BASE_DIR = orig
+        self.assertIsNone(rows)
+        self.assertEqual(src, "no_frozen_samples")
 
 
 if __name__ == "__main__":

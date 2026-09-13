@@ -161,6 +161,106 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     return True, "ok"
 
 
+# ---------- v6（2026-09-13，Summer 拍板 D2）：Shadow 降级授权旁路 ----------
+# 背景：derive_promotion v1「三周期 CI 下界全 > 0」在 n≈900 / 306 日块下对
+# T+1/T+3 结构性不可达（单模型 IC 日块 sd≈0.031 → 需 |IC|≳0.065，见
+# output/forecast_lab_mde_20260912.md + forecast_lab_review_v2_20260912.md §2.2）。
+# 后果是 shadow_policy 每交易日拒记 → 前瞻证据链断裂。
+# 降级授权（prereg_shadow_v1）判据预注册于 data/promotion_prereg.json，
+# 规则文本见 output/forecast_lab_prereg_rules_20260913.md §二（2026-09-13 落盘）。
+#
+# 作用域硬边界（不得扩大）：本函数结果**只**供 shadow_policy.py 的纸面记录
+# 闸门使用。verify_approval()（对外展示/决策链原子授权）**不读取本函数**、
+# 行为不变；config.model_ready 与 registry promotion 字段也均不受影响。
+
+PROMOTION_PREREG_PATH = BASE_DIR / "data" / "promotion_prereg.json"
+PROMOTION_DEGRADE_RULE_VERSION = "prereg_shadow_v1"
+
+
+def evaluate_prereg_degradation(pkl_name: str,
+                                prereg_path: Path | None = None,
+                                today: str | None = None) -> tuple[bool, str]:
+    """评估模型是否获得「Shadow 降级授权」（仅纸面记录，非对外批准）。
+
+    判据（预注册 promotion_shadow_v1，逐条写死、任一不满足即 (False, reason)）：
+    D1 登记文件存在且 enabled=true；
+    D2 条目中存在 pkl_name 的授权，且 registry 模型 sha256 与登记值逐字节一致；
+    D3 registry validation.report_sha256 与登记值一致（报告与模型脱钩即拒）；
+    D4 validation.metrics 的 T+5 decision=approved 且 ric_ci 下界 > 0；
+    D5 T+1 / T+3 rank_ic ≥ 0（点估计不为负即可，不要求显著）；
+    D6 未过期：today（缺省=今天）≤ expiry。
+    任何解析失败/字段缺失一律 (False, ...)——降级路径比主路径更保守。
+
+    返回 (ok, reason)。ok=True 时 reason="prereg_degraded"（供记录打标）。
+    """
+    import datetime as _dt
+
+    path = prereg_path or PROMOTION_PREREG_PATH
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False, "prereg_file_missing_or_unreadable"
+    if not isinstance(doc, dict) or doc.get("enabled") is not True:
+        return False, "prereg_not_enabled"
+    grants = doc.get("grants")
+    if not isinstance(grants, dict) or pkl_name not in grants:
+        return False, "prereg_no_grant_for_model"
+    grant = grants[pkl_name]
+    if not isinstance(grant, dict):
+        return False, "prereg_grant_malformed"
+    # rule_version 登记在文件顶层（一份文件一套判据）；grant 内可覆盖，但
+    # 两处任一存在时必须等于本代码实现的版本，防止「旧判据配新代码」。
+    for where, ver in (("file", doc.get("rule_version")),
+                       ("grant", grant.get("rule_version"))):
+        if ver is not None and ver != PROMOTION_DEGRADE_RULE_VERSION:
+            return False, f"prereg_rule_version_mismatch_{where}"
+
+    entry = get_model_entry(pkl_name)
+    if entry is None:
+        return False, "no_entry"
+    if str(entry.get("sha256", "")) != str(grant.get("model_sha256", "")):
+        return False, "model_sha_mismatch_vs_prereg"
+
+    validation = entry.get("validation") or {}
+    if str(validation.get("report_sha256", "")) != str(grant.get("report_sha256", "")):
+        return False, "report_sha_mismatch_vs_prereg"
+    metrics = validation.get("metrics") or {}
+
+    # D4：T+5 必须 approved 且 CI 下界 > 0
+    m5 = metrics.get("5") if isinstance(metrics.get("5"), dict) else None
+    if m5 is None or m5.get("decision") != "approved":
+        return False, "t5_not_approved"
+    try:
+        lo5 = float(m5["ric_ci"][0])
+    except (KeyError, TypeError, ValueError, IndexError):
+        return False, "t5_ci_missing"
+    if not lo5 > 0.0:
+        return False, "t5_ci_lower_bound_not_positive"
+
+    # D5：T+1 / T+3 点估计不为负（不要求显著——这正是与 v1 的差别）
+    for h in ("1", "3"):
+        mh = metrics.get(h) if isinstance(metrics.get(h), dict) else None
+        if mh is None:
+            return False, f"t{h}_metrics_missing"
+        try:
+            ic = float(mh["rank_ic"])
+        except (KeyError, TypeError, ValueError):
+            return False, f"t{h}_rank_ic_missing"
+        if not ic >= 0.0:
+            return False, f"t{h}_rank_ic_negative"
+
+    # D6：有效期
+    expiry = str(grant.get("expiry", ""))
+    try:
+        exp_d = _dt.date.fromisoformat(expiry)
+    except ValueError:
+        return False, "prereg_expiry_unparsable"
+    today_d = (_dt.date.fromisoformat(today) if today else _dt.date.today())
+    if today_d > exp_d:
+        return False, "prereg_expired"
+    return True, "prereg_degraded"
+
+
 def registry_summary() -> dict:
     """当前注册表摘要（供报告/诊断用）。"""
     reg = load_registry()

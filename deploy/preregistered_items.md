@@ -84,3 +84,62 @@
   - 触发判断**只允许复用当天已收集的运行证据**（zcode_runs 小节 / shadow 末行 / 新报告文件名），**禁止为浮出触发而新增任何数据请求或运行 QuantV1 脚本** —— 避免为一条低紧迫度待办去撞东财频控（AGENTS.md 铁律第 1 条）。
   - 预注册项与其它待拍板项共用「每天最多 3 条」额度，但不得被静默丢弃（最多降入「其他」行）。
 - 本条状态**仍为 🟡 已登记 / 未实现**：接入浮出机制 ≠ 实现分红处理，生产净值口径未变。
+
+---
+
+## PR-20260913-01 · Shadow 降级授权到期（2026-10-12）必须复核，禁止静默续期
+
+- **登记日期**：2026-09-13
+- **状态**：🟡 **已登记 / 未实现**（触发时点在未来；登记 ≠ 实现）
+- **紧迫度**：中（到期日 2026-10-12；自动浮出机制会在临近时提请）
+
+### 背景（口径来源）
+
+Summer 2026-09-13 16:59 拍板 D2「预注册降级口径」：因晋升层「三周期 CI 下界全 > 0」
+在 n≈900 / 306 日块下对 T+1/T+3 **结构性不可达**（需 |IC|≳0.065，现值 0.005/0.002；
+证据见 `output/forecast_lab_mde_20260912.md` + `output/forecast_lab_review_v2_20260912.md` §2.2），
+`shadow_policy` 每交易日拒记 → 前瞻证据链断裂。
+
+已落地的旁路：`data/promotion_prereg.json`（判据 `prereg_shadow_v1`，expiry=2026-10-12）
++ `core/model_registry.evaluate_prereg_degradation()` + `shadow_policy.resolve_promotion_mode()`。
+**作用域硬边界**：仅授予纸面记录资格；`verify_approval()`（对外展示门）不读取旁路、行为不变。
+
+### 触发条件
+
+任一即触发本条：
+1. 系统日期 ≥ **2026-10-05**（到期前 1 周的预备窗口）；
+2. 2026-09-26 季度证据重估产出新结论；
+3. `shadow_policy` 出现 `prereg_expired` 拒记（说明已过 10-12 仍未复核）。
+
+### 触发时必须做的动作（三选一，先写死再选）
+
+1. **续期**：若降级授权期间的前瞻 shadow 样本已积累出可用证据（≥20 交易日）
+   → 以新证据重判是否仍需降级，重新登记 expiry（须附当次复核报告哈希）。
+2. **废止**：若晋升判据已按新规则（如 D1-c 双端点、或候选 D 扩样本后的可达门槛）重建
+   → 设 `enabled: false` 或删除本文件，Shadow 回到「完整批准才记录」。
+3. **转正**：若 T+1/T+3 在前瞻样本上真的显著 → 走 `derive_promotion` 主路径正常晋升，
+   降级旁路立即废止（旁路不得成为长期常驻通道）。
+
+### 已知约束
+
+- **禁止静默自动续期**：任何续期都必须是一次显式拍板 + 文件修订留痕（只增不改）。
+- 到期未复核 = 自动阻断（代码 D6 已如此实现，不会悄悄放行）；届时 22:30 Shadow
+  会拒记并在日汇总「待拍板」浮出，属于**预期的坏消息**，不是故障。
+- 两类证据永不混池：降级记录逐条带 `contract.promotion_mode = "prereg_degraded"`，
+  筛选/统计时必须与 `approved_full` 分开，否则晋升证据被污染。
+
+### 证据与复现
+
+- 规则预注册（先于实现落盘）：`output/forecast_lab_prereg_rules_20260913.md` §二 R2
+- 回归测例：`tests/test_model_registry.py::TestPreregDegradation`（10 条，含过期边界
+  10-12 有效 / 10-13 阻断、sha 不符拒、T+5 不显著拒、T+1 负 IC 拒）
+  + `tests/test_shadow_policy.py::TestPromotionGate`（3 条，含「完整批准时不得读旁路」
+  短路断言）+ `::TestFrozenSampleSource`（2 条，零网络不回退）
+- 隔离性验证：`verify_approval()` 在降级授权生效时仍返回
+  `(False, 'validation_not_approved')`（已由 happy-path 测例断言）
+
+### 明确不做
+
+- ❌ 不改 `derive_promotion` v1「三周期全过」（主授权口径保持原样，可回滚）。
+- ❌ 不改 `config.forecast.model_ready`（维持 false）、不改 registry 任何字段。
+- ❌ 不把降级授权扩大到对外展示、决策引擎、或任何下单链路。

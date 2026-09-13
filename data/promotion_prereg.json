@@ -1,0 +1,30 @@
+{
+  "kind": "promotion_prereg_degradation",
+  "rule_version": "prereg_shadow_v1",
+  "enabled": true,
+  "authorized_by": "Summer（2026-09-13 16:59 拍板 D2「预注册降级口径」）",
+  "rule_doc": "output/forecast_lab_prereg_rules_20260913.md §二",
+  "scope_note": "仅授予 shadow_policy 纸面记录资格；verify_approval（对外展示/决策链）不读取本文件、行为不变。降级记录逐条打 promotion_mode=prereg_degraded，与完整批准证据永不混池。",
+  "criteria": {
+    "D1": "本文件存在且 enabled=true",
+    "D2": "registry 模型 sha256 与登记值逐字节一致",
+    "D3": "validation.report_sha256 与登记值一致",
+    "D4": "T+5 decision=approved 且 ric_ci 下界 > 0",
+    "D5": "T+1 / T+3 rank_ic ≥ 0（点估计不为负即可，不要求显著）",
+    "D6": "today ≤ expiry（过期即回到全阻断；禁止静默自动续期）"
+  },
+  "grants": {
+    "forecast_v3.pkl": {
+      "model_sha256": "7b66ce123dfd577af0c81d21cb2db3d4fc3d3d8d8430d812202db5da042606c5",
+      "report_sha256": "eb8685e13736654c518f5f282522d5e903a963949d150c3c63ea8693fd144f2c",
+      "metrics_snapshot_at_prereg": {
+        "1": {"rank_ic": 0.005, "ric_ci": [-0.066, 0.07], "decision": "rejected"},
+        "3": {"rank_ic": 0.002, "ric_ci": [-0.061, 0.066], "decision": "rejected"},
+        "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142], "decision": "approved"}
+      },
+      "expiry": "2026-10-12",
+      "granted_at": "2026-09-13",
+      "review_nodes": ["2026-09-26 季度证据重估", "2026-10-12 expiry（到期未复核=自动阻断）"]
+    }
+  }
+}
