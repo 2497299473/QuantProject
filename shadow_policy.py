@@ -32,6 +32,7 @@
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -189,6 +190,113 @@ def resolve_promotion_mode(engine) -> tuple[str | None, str]:
     return None, reason
 
 
+def mirror_relative_score(post_feats: dict[str, dict], code: str) -> dict:
+    """用**生产真实现**算当日 `_score_relative`（不复制公式，防口径漂移）。
+
+    post 裆的 `est_chg` 与 14:55 的 `est_return` 同为「当日重仓估算涨跌%」（已查源码），
+    故直接以其为输入做「镜像分」，仅供事后对照，**不参与任何决策/下单**。
+    惰性 import + 全异常吞掉：私有函数改签名只会让对照字段变 error，不影响主流程。
+    """
+    try:
+        from core import decision_engine as de
+    except Exception as e:                      # noqa: BLE001
+        return {"error": f"import_failed:{type(e).__name__}"}
+    me = (post_feats.get(code) or {}).get("est_chg")
+    pool_est = {c: (f or {}).get("est_chg") for c, f in post_feats.items()}
+    if me is None or len([v for v in pool_est.values() if v is not None]) < 2:
+        return {"error": "est_chg_unavailable"}
+    try:
+        score, reasons = de._score_relative({"est_return": me}, pool_est, code)
+        others = [v for k, v in pool_est.items() if k != code and v is not None]
+        diff = float(me) - sum(others) / len(others)
+    except Exception as e:                      # noqa: BLE001
+        return {"error": f"call_failed:{type(e).__name__}"}
+    return {"est_chg": round(float(me), 6),
+            "diff_vs_pool_mean": round(diff, 6),
+            "score_15": int(score),
+            "reason": (reasons or [None])[0],
+            "source": "decision_engine._score_relative (read-only mirror)",
+            "semantics_note": "post 裆 est_chg 与 14:55 est_return 同为当日重仓估算涨跌%"}
+
+
+def load_expert_a(date: str | None) -> dict:
+    """调 lab venv 子进程给 A 专家打分（生产 venv 无 lightgbm，故隔环境执行）。
+
+    不往生产 venv 装包、不改 cron——这是项目既有的 lab 依赖隔离约定。
+    任何异常都只返回 {"error": ...}，由调用方写成逐条 error（主记录不得因此中断）。
+    """
+    lab_py = BASE_DIR / ".venv-lab" / "Scripts" / "python.exe"
+    script = BASE_DIR / "experiments" / "forecast_lab" / "score_expert_a.py"
+    if not lab_py.exists() or not script.exists():
+        return {"error": "lab_env_or_script_missing"}
+    cmd = [str(lab_py), "-X", "utf8", str(script)]
+    if date:
+        cmd += ["--date", date]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=180,
+                           cwd=str(BASE_DIR))
+    except Exception as e:                      # noqa: BLE001
+        return {"error": f"subprocess:{type(e).__name__}"}
+    line = (r.stdout or "").strip().splitlines()
+    if not line:
+        return {"error": f"empty_stdout:{(r.stderr or '')[-200:]}"}
+    try:
+        out = json.loads(line[-1])
+    except json.JSONDecodeError:
+        return {"error": "unparsable_stdout"}
+    if not out.get("ok"):
+        return {"error": f"scorer:{out.get('reason')}"}
+    return out
+
+
+def expert_a_shadow_block(code: str, scores_out: dict,
+                          post_feats: dict[str, dict]) -> dict:
+    """组装一条记录的 `a_relrank` 块（两臂都记，不择优；G2-⑤′ 只读用途）。"""
+    if "error" in scores_out:
+        return {"error": scores_out["error"],
+                "usage_lock": "relative_pool_only_no_abs_display"}
+    scores = scores_out.get("scores") or {}
+    arms_avail = list(scores_out.get("arms") or [])
+    if code not in scores:
+        return {"error": "fund_not_scored", "arms_available": arms_avail}
+    # 池内排名：同一天四个标的按该臂分数降序（1 = 最看好）；无未来数据参与
+    arms_block = {}
+    for arm in arms_avail:
+        v = scores[code].get(arm)
+        if v is None:
+            continue
+        rank = 1 + sum(1 for s in scores.values()
+                       if s.get(arm) is not None and float(s[arm]) > float(v))
+        arms_block[arm] = {"score": round(float(v), 6),
+                           "rank_in_pool": int(rank),
+                           "n_pool": int(scores_out.get("n_pool") or len(scores))}
+    mirror = mirror_relative_score(post_feats, code)
+    # 分歧标注（预注册 §三）：以 a_mean 符号 vs 镜像 diff 符号，不调和、不改分
+    divergence = "none"
+    am = (arms_block.get("a_mean") or {}).get("score")
+    diff = mirror.get("diff_vs_pool_mean")
+    if am is not None and isinstance(diff, (int, float)) and am != 0 and diff != 0:
+        if (am > 0) != (diff > 0):
+            divergence = ("a_bullish_live_bearish" if am > 0
+                          else "a_bearish_live_bullish")
+    return {
+        "artifact_sha256": str(scores_out.get("artifact_sha256", ""))[:16] + "…",
+        "samples_sha256": str(scores_out.get("samples_sha256", ""))[:16] + "…",
+        "frozen_at": scores_out.get("trained_at"),
+        "n_train": scores_out.get("n_train"),
+        "horizon": scores_out.get("horizon"),
+        "label_basis": scores_out.get("label_basis"),
+        "usage_lock": scores_out.get("usage_lock",
+                                    "relative_pool_only_no_abs_display"),
+        "arms": arms_block,
+        "mirror": mirror,
+        "divergence": divergence,
+        "role": "shadow_only_not_executed",
+        "contains_future_labels": False,
+    }
+
+
 def _fmt(v) -> str:
     return f"{v:+.4f}" if isinstance(v, (int, float)) else "  —  "
 
@@ -251,6 +359,18 @@ def main() -> int:
     except Exception:
         holdings_meta, holdings_by_fund = None, {}
 
+    # 候选 A（rel_rank）**只读影子并列**：接法 ①，不改分、不入决策链（G2-⑤′）。
+    # 打分跑在 .venv-lab（生产 venv 无 lightgbm）；**任何失败都不得阻断主记录**，
+    # 只在逐条 a_relrank 里落 error——明晚 09-14 的 D2 主目的不能因为一个对照块落空。
+    post_feats = {c: (r or {}).get("features") or {} for c, r in post_inputs.items()}
+    a_out = load_expert_a(d)
+    if "error" in a_out:
+        print(f"== [1.5] 候选 A 影子打分：不可用（{a_out['error']}）→ 主记录照常产出 ==")
+    else:
+        print(f"== [1.5] 候选 A 影子打分：arms={a_out.get('arms')} "
+              f"artifact={str(a_out.get('artifact_sha256'))[:12]}… "
+              f"n_train={a_out.get('n_train')}（只记录不执行）==")
+
     records = []
     print(f"== [2] shadow 记录（决策日 {d} · 动作口径 T+1 · θ={POLICY_THR} · 只记录不执行）==")
     for code in funds:
@@ -298,6 +418,7 @@ def main() -> int:
                    "q10": round(t5.q10, 6), "q50": round(t5.q50, 6),
                    "q90": round(t5.q90, 6)},
             "path": path_block,
+            "a_relrank": expert_a_shadow_block(code, a_out, post_feats),
             "policy": {"theta": POLICY_THR, "basis": "T+1", "action": act},
             "holdings": ({"as_of_date": holdings_meta,
                           **holdings_by_fund.get(code, {})}

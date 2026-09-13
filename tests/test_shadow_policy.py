@@ -13,7 +13,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import shadow_policy                                   # noqa: E402
-from shadow_policy import (append_records, load_existing_keys,  # noqa: E402
+from shadow_policy import (append_records, expert_a_shadow_block,  # noqa: E402
+                           load_existing_keys, load_expert_a,
                            load_frozen_samples, load_post_inputs,
                            resolve_promotion_mode, policy_action, POLICY_THR)
 from core import intraday_feature_store as feature_store  # noqa: E402
@@ -178,6 +179,61 @@ class TestFrozenSampleSource(unittest.TestCase):
                 shadow_policy.BASE_DIR = orig
         self.assertIsNone(rows)
         self.assertEqual(src, "no_frozen_samples")
+
+
+class TestExpertAShadowBlock(unittest.TestCase):
+    """接法 ①（影子并列，2026-09-13 预注册 §三）：两臂都记/排名/分歧标注/失败不阻断。"""
+
+    SCORES = {"ok": True, "artifact_sha256": "a" * 64, "samples_sha256": "b" * 64,
+              "n_train": 3371, "horizon": 5, "n_pool": 2,
+              "label_basis": "same_day_cross_section_excess",
+              "usage_lock": "relative_pool_only_no_abs_display",
+              "arms": ["a_mean", "a_med"],
+              "scores": {"F1": {"a_mean": 0.02, "a_med": -0.01},
+                         "F2": {"a_mean": -0.03, "a_med": 0.05}}}
+
+    def test_ranks_and_lock_present(self):
+        feats = {"F1": {"est_chg": 1.0}, "F2": {"est_chg": -1.0}}
+        blk = expert_a_shadow_block("F1", self.SCORES, feats)
+        self.assertEqual(blk["arms"]["a_mean"]["rank_in_pool"], 1)
+        self.assertEqual(blk["arms"]["a_med"]["rank_in_pool"], 2)  # 两臂独立排名
+        self.assertEqual(blk["usage_lock"], "relative_pool_only_no_abs_display")
+        self.assertFalse(blk["contains_future_labels"])
+        self.assertEqual(blk["role"], "shadow_only_not_executed")
+
+    def test_divergence_flagged_not_reconciled(self):
+        # A 看多 F1（a_mean>0）但镜像分看空（est_chg 低于池内均值）→ 标分歧
+        feats = {"F1": {"est_chg": -1.0}, "F2": {"est_chg": 3.0}}
+        blk = expert_a_shadow_block("F1", self.SCORES, feats)
+        # F1：a_mean=+0.02（A 看多）；est_chg=-1.0 vs 池内其余均值 +3.0
+        # → diff=-4.0（实时看空），预期精确判为 a_bullish_live_bearish
+        self.assertEqual(blk["mirror"]["diff_vs_pool_mean"], -4.0)
+        self.assertEqual(blk["divergence"], "a_bullish_live_bearish")
+        # 不调和：A 分与镜像分各自保持原值，不得被均值/衰减改写
+        self.assertEqual(blk["arms"]["a_mean"]["score"], 0.02)
+        self.assertEqual(blk["mirror"]["est_chg"], -1.0)
+
+    def test_no_divergence_when_same_direction(self):
+        # 同方向（A 看多 + 实时强势）→ none；不能误标分歧
+        feats = {"F1": {"est_chg": 3.0}, "F2": {"est_chg": -1.0}}
+        blk = expert_a_shadow_block("F1", self.SCORES, feats)
+        self.assertEqual(blk["divergence"], "none")
+
+    def test_scorer_error_degrades_to_field_not_exception(self):
+        # 打分器不可用 → 块里只有 error，主记录流程不得抛异常
+        blk = expert_a_shadow_block("F1", {"error": "lab_env_or_script_missing"}, {})
+        self.assertEqual(blk["error"], "lab_env_or_script_missing")
+        self.assertNotIn("arms", blk)
+
+    def test_load_expert_a_missing_lab_returns_error(self):
+        orig = shadow_policy.BASE_DIR
+        with tempfile.TemporaryDirectory() as td:
+            shadow_policy.BASE_DIR = Path(td)
+            try:
+                out = load_expert_a("2026-09-11")
+            finally:
+                shadow_policy.BASE_DIR = orig
+        self.assertEqual(out, {"error": "lab_env_or_script_missing"})
 
 
 if __name__ == "__main__":

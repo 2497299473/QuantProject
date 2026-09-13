@@ -1,0 +1,17 @@
+{
+  "kind": "expert_a_relrank_freeze_meta",
+  "artifact": "expert_a_relrank_v1.pkl",
+  "artifact_sha256": "5b6cb0f88a7c1a9c56358a2a9f44a68da3128b6cefe4a9d4894d8e5978b3148c",
+  "frozen_at": "2026-09-13T23:42:42",
+  "prereg": "output/forecast_lab_prereg_A_relative_pool_20260913.md",
+  "samples_sha256": "be8e55f02b39a25dc48f2efd67150c895ceebfebfe97c647b00610f61a05b034",
+  "n_train": 3371,
+  "train_date_max": "2026-08-12",
+  "horizon": 5,
+  "arms": [
+    "a_mean",
+    "a_med"
+  ],
+  "usage_lock": "relative_pool_only_no_abs_display",
+  "not_registered_note": "不写入 data/model_registry/registry.json（A 未获生产批准）"
+}
