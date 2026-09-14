@@ -22,7 +22,7 @@ output/backups/
 output/timesfm/*.tsv
 output/sina_nav/
 
-# Forecast Lab ¶³½á²úÎï£¨Ñù±¾°æ±¾Ö¤¾İ£¬Ìå»ı¿É¿Ø¡¢Ğè¿ç»ú¶Ô±È¹Ê²»Èë¿â£©
+# Forecast Lab å†»ç»“äº§ç‰©ï¼ˆæ ·æœ¬ç‰ˆæœ¬è¯æ®ï¼Œä½“ç§¯å¯æ§ã€éœ€è·¨æœºå¯¹æ¯”æ•…ä¸å…¥åº“ï¼‰
 forecast_outputs/
 
 .venv-lab/
