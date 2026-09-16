@@ -18,8 +18,35 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 
-EXCLUDE_DIRS = {"__pycache__"}
+EXCLUDE_DIRS = {"__pycache__", "manifest_history"}
 EXCLUDE_FILES = {"manifest.json"}
+HISTORY_DIRNAME = "manifest_history"
+
+
+def _archive_previous(out: Path) -> Path | None:
+    """归档上一版 manifest，保证历史记录内嵌的 sha256 永远可解析（2026-09-16）。
+
+    shadow 每条记录内嵌 `data_manifest_sha256`（= 该条记录计算时 manifest 文件的
+    sha256 前 16 位）。若直接覆盖，旧版本只剩 git 历史，未提交时则彻底丢失——
+    审计时无法把记录对应回当时的数据快照。
+
+    归档名取旧版 `generated_at`（同版本重复归档幂等跳过）；无旧文件返回 None。
+    """
+    if not out.exists():
+        return None
+    try:
+        prev = json.loads(out.read_text(encoding="utf-8"))
+        stamp = str(prev.get("generated_at") or "").replace("-", "").replace(":", "")
+    except (OSError, json.JSONDecodeError):
+        stamp = ""
+    if len(stamp) != 15:                  # 期望 YYYYMMDDTHHMMSS
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.localtime(out.stat().st_mtime))
+    hist = out.parent / HISTORY_DIRNAME
+    hist.mkdir(parents=True, exist_ok=True)
+    dest = hist / f"manifest_{stamp}.json"
+    if not dest.exists():
+        dest.write_text(out.read_text(encoding="utf-8"), encoding="utf-8")
+    return dest
 
 
 def _sha256(p: Path) -> str:
@@ -62,7 +89,12 @@ def main() -> int:
     }
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    archived = _archive_previous(out)
+    if archived:
+        print(f"[hist] 上一版 manifest 已归档 → {archived}")
+    tmp = out.with_suffix(".json.tmp")          # 原子写：避免半截文件被当成有效清单
+    tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(out)
     print(f"[ok] 数据指纹 {len(files)} 个文件 → {out}")
     return 0
 
