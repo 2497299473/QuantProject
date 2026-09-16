@@ -35,7 +35,7 @@
 - Market Context OOS: **EVIDENCE ACCUMULATION**（usable_for_oos 逐日标记；满 60 日先做独立 OOS，再测对 T+5 Forecast 的增量价值）
 - 运行退出码: **0=SUCCESS / 2=DEGRADED / 1=FAILED**（2026-09-16 落地；降级项写 `output/run_manifest/run_manifest_<run_id>.json`，含 data / lookthrough / intraday_features / market_context / report / notification / shadow 逐环状态 + `degraded_reasons`。`exit=0` 从此等价于「本次证据链完整」，不再等价于「程序没崩」）
 - 证据通道隔离: **ENFORCED**（2026-09-16；`approved_full` / `prereg_degraded` / `legacy_invalid` 三通道默认禁止跨通道聚合；读取一律走 `shadow_policy.load_records_by_channel()`，`--channels` 清点、`--archive-legacy` 把 36 条 legacy 搬出活跃流）
-- 数据快照 manifest: **REGENERATED (2026-09-16)**（`data_fingerprint.py` → `data/manifest.json`，351 个文件；此前版本停留 2026-08-31 且 `root` 残留 WSL 路径，已纠正为 `D:\PythonProject\QuantV1\data`）
+- 数据快照 manifest: **REGENERATED (2026-09-16)**（`data_fingerprint.py` → `data/manifest.json`，351 个文件；此前版本停留 2026-08-31 且 `root` 残留 WSL 路径，已纠正为 `D:\PythonProject\QuantV1\data`。旧版归档至 `data/manifest_history/manifest_20260831T091253.json`——12 条前瞻 shadow 记录内嵌的 `afd156ab12a3bff1` 由此仍可解析）
 - Forecast/Policy 整合: **LOCKED**（Market Context 仅描述性标签，不进 Forecast、不进 Policy、不改任何门禁）
 - Intraday delta: **DATA ACCUMULATION**（配对日 < 15 门槛，不产 verdict）
 - 下次重估: **2026-09-26 阶段性复核**（数据源稳定性 + Market Context 首批样本质量 + Forecast 既有证据重估；**≠ 晋升评估**，Market Context 晋升在满 60 有效交易日后）
@@ -233,7 +233,7 @@ copy .env.example .env                 # 填 FEISHU_WEBHOOK（可选签名 FEISH
 
 | 事项 | 频率 | 操作 |
 |---|---|---|
-| 数据快照 manifest | 数据目录变动后 / 每月 | 跑 `python data_fingerprint.py` 重生成 `data/manifest.json`（shadow 契约内嵌其 sha256，过期即证据链失真） |
+| 数据快照 manifest | 数据目录变动后 / 每月 | 跑 `python data_fingerprint.py` 重生成 `data/manifest.json`（shadow 契约内嵌其 sha256，过期即证据链失真；旧版自动归档到 `data/manifest_history/`，保证历史记录内嵌哈希永远可解析） |
 | 节假日日历 | 每年 12 月 | 更新 `data/holidays.json`，代码零改动 |
 | 持仓变动（基金） | 申赎成交后 | 改 `holdings.json`（份额/成本净值/可选 max_position_pct / consecutive_adds） |
 | 持仓快照（重仓股） | 每季度 | 自动（季报披露后接口自动可见） |
