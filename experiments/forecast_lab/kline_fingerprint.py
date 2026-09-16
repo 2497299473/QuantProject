@@ -18,8 +18,18 @@
 用法：
   python experiments/forecast_lab/kline_fingerprint.py                # 自检
   python experiments/forecast_lab/kline_fingerprint.py --write forecast_outputs/kfp_20260910.json
+  # 追加板块指数扫描（面板成员全集，见下）：
+  python experiments/forecast_lab/kline_fingerprint.py --write ... --with-sector
   # 作为库（freeze_samples.py 接入）：
   from kline_fingerprint import build_fingerprint
+
+板块扫描（2026-09-16 追加，预注册 §五之三「不足则扩到面板成员全集」）：
+  实测原遍历集 = data/stock_klines + data/klines 两目录，**不含 data/sector_klines**，
+  故候选 D 面板的板块主代理 BK0457 不在指纹内。扩法为 **opt-in**：
+  `include_sector=True` 才追加扫描 sector_klines 全目录（含 fallback 码），
+  **默认 False → 09-10 起 freeze_samples / run_m0_power 的既有口径与 aggregate
+  逐字节不变**（只扩清单，不改哈希算法与序列化格式）。开启时新增键
+  `n_sector` / `sector_sha`、`schema_version` 记为 "2"，aggregate 与旧基线不可直接对比。
 """
 from __future__ import annotations
 
@@ -32,6 +42,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[2]          # QuantV1 根
 STOCK_DIR = BASE_DIR / "data" / "stock_klines"
 FUND_DIR = BASE_DIR / "data" / "klines"
+SECTOR_DIR = BASE_DIR / "data" / "sector_klines"      # 2026-09-16 §五之三 扩清单
 
 
 def _seq_sha(pairs: list[tuple[str, float]]) -> str:
@@ -71,8 +82,12 @@ def _nav_series(path: Path) -> list[tuple[str, float]] | None:
     return out
 
 
-def build_fingerprint(fund_codes: list[str] | None = None) -> dict:
-    """扫描两目录生成指纹。fund_codes=None 时收全部 data/klines/*.json。"""
+def build_fingerprint(fund_codes: list[str] | None = None,
+                      include_sector: bool = False) -> dict:
+    """扫描两目录生成指纹。fund_codes=None 时收全部 data/klines/*.json。
+
+    include_sector=False（默认）＝ 09-10 起的原口径，输出键与 aggregate 不变。
+    """
     per_stock: dict[str, str] = {}
     bad: list[str] = []
     if STOCK_DIR.is_dir():
@@ -91,13 +106,27 @@ def build_fingerprint(fund_codes: list[str] | None = None) -> dict:
             bad.append(f"{c}.json(fund)")
         else:
             per_fund[c] = _seq_sha(s)
+    per_sector: dict[str, str] = {}
+    if include_sector:
+        if not SECTOR_DIR.is_dir():
+            raise RuntimeError(
+                f"include_sector=True 但 {SECTOR_DIR} 不存在——拒绝生成缺板块的半份指纹")
+        for p in sorted(SECTOR_DIR.glob("*.json")):
+            s = _json_series(p, "klines")
+            if s is None or not s:
+                bad.append(p.name)
+            else:
+                per_sector[p.stem] = _seq_sha(s)
     if not per_stock and not per_fund:
         raise RuntimeError("stock_klines 与 klines 均无可用缓存——拒绝生成空指纹")
     canonical = "\n".join(f"{k},{v}" for k, v in sorted(per_stock.items())) + \
         "\n#fund\n" + "\n".join(f"{k},{v}" for k, v in sorted(per_fund.items()))
-    return {
+    if include_sector:
+        canonical += "\n#sector\n" + \
+            "\n".join(f"{k},{v}" for k, v in sorted(per_sector.items()))
+    fp = {
         "kind": "forecast_lab_kline_fingerprint",
-        "schema_version": "1",
+        "schema_version": "2" if include_sector else "1",
         "n_stock": len(per_stock),
         "n_fund": len(per_fund),
         "unreadable": sorted(bad),
@@ -105,6 +134,10 @@ def build_fingerprint(fund_codes: list[str] | None = None) -> dict:
         "fund_sha": per_fund,
         "aggregate_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
     }
+    if include_sector:
+        fp["n_sector"] = len(per_sector)
+        fp["sector_sha"] = per_sector
+    return fp
 
 
 # ---------------- 离线自检（零网络，构造临时缓存目录） ----------------
@@ -113,13 +146,18 @@ def selftest() -> int:
     fails = []
 
     def check(cond, name):
+        nonlocal total
+        total += 1
         if not cond:
             fails.append(name)
+
+    total = 0
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         stk, fun = root / "stock_klines", root / "klines"
-        stk.mkdir(); fun.mkdir()
+        sec = root / "sector_klines"
+        stk.mkdir(); fun.mkdir(); sec.mkdir()
         kline = lambda rows: {"klines": rows}
         nav = lambda rows: {"navs": rows}
         (stk / "000001.json").write_text(json.dumps(kline(
@@ -128,7 +166,7 @@ def selftest() -> int:
             [["2020-01-01", 1.5], ["2020-01-02", 1.6]])), encoding="utf-8")
 
         import kline_fingerprint as kf
-        kf.STOCK_DIR, kf.FUND_DIR = stk, fun
+        kf.STOCK_DIR, kf.FUND_DIR, kf.SECTOR_DIR = stk, fun, sec
         fp1 = kf.build_fingerprint(["002112"])
         check(fp1["n_stock"] == 1 and fp1["n_fund"] == 1, "计数")
         check(len(fp1["aggregate_sha256"]) == 64, "聚合sha形态")
@@ -157,8 +195,25 @@ def selftest() -> int:
         fp6 = kf.build_fingerprint(["002112"])
         check("bad.json" in fp6["unreadable"], "坏文件显式列名")
         check(fp6["n_stock"] == 1, "坏文件不计入")
-    n = 8
-    print(f"[kline_fingerprint SELFTEST] {n - len(fails)} passed, {len(fails)} failed"
+
+        # ---- 2026-09-16 §五之三：板块扫描为 opt-in，默认口径逐字节不变 ----
+        # 锚点用 fp6（放入板块文件**之前**、且含全部历史改动与 bad.json 的最后一次默认指纹）；
+        # 不可用 fp1——它取出于股票文件被后续测试改写之前，会假失败。
+        (sec / "BK0457.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 3000.0], ["2020-01-02", 1, 3100.0]])), encoding="utf-8")
+        fp_no = kf.build_fingerprint(["002112"])
+        check(fp_no["aggregate_sha256"] == fp6["aggregate_sha256"], "默认口径不随板块文件变")
+        check("n_sector" not in fp_no and "sector_sha" not in fp_no, "默认不新增输出键")
+        fp_sec = kf.build_fingerprint(["002112"], include_sector=True)
+        check(fp_sec["n_sector"] == 1 and "BK0457" in fp_sec["sector_sha"], "板块纳入计数")
+        check(fp_sec["aggregate_sha256"] != fp6["aggregate_sha256"], "板块并入改变聚合")
+        check(kf.build_fingerprint(["002112"], include_sector=True)["aggregate_sha256"]
+              == fp_sec["aggregate_sha256"], "板块模式确定性")
+        (sec / "BK0457.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 2999.0], ["2020-01-02", 1, 3100.0]])), encoding="utf-8")
+        check(kf.build_fingerprint(["002112"], include_sector=True)["aggregate_sha256"]
+              != fp_sec["aggregate_sha256"], "板块历史close改写敏感")
+    print(f"[kline_fingerprint SELFTEST] {total - len(fails)} passed, {len(fails)} failed"
           + (f" -> {fails}" if fails else ""))
     return 1 if fails else 0
 
@@ -167,17 +222,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", default=None, help="指纹 JSON 输出路径")
     ap.add_argument("--funds", default=None, help="逗号分隔基金码（默认全部 klines/*.json）")
+    ap.add_argument("--with-sector", action="store_true",
+                    help="追加扫描 data/sector_klines/（§五之三 面板成员扩清单；默认关）")
     args = ap.parse_args()
     if not args.write:
         return selftest()
-    fp = build_fingerprint(args.funds.split(",") if args.funds else None)
+    fp = build_fingerprint(args.funds.split(",") if args.funds else None,
+                           include_sector=args.with_sector)
     out = Path(args.write)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(fp, ensure_ascii=False, indent=1, sort_keys=True),
                    encoding="utf-8")
     print(f"fingerprint -> {out}")
     print(f"  aggregate sha256 : {fp['aggregate_sha256']}")
-    print(f"  stock={fp['n_stock']} fund={fp['n_fund']} unreadable={fp['unreadable'] or '无'}")
+    print(f"  stock={fp['n_stock']} fund={fp['n_fund']} unreadable={fp['unreadable'] or '无'}"
+          + (f" sector={fp['n_sector']}" if args.with_sector else ""))
     return 0
 
 
