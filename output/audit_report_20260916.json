@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-16T18:58:34",
+  "generated_at": "2026-09-16T19:20:17",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
-    "PASS": 10,
-    "FAIL": 3,
+    "PASS": 12,
+    "FAIL": 1,
     "WARN": 3
   },
   "production": "BLOCKED",
@@ -27,7 +27,7 @@
       "axis": "P0-研究有效性",
       "title": "数据快照可回溯（内嵌 hash 可解析）",
       "status": "PASS",
-      "detail": "当前 b8f840a07e9a3923；归档 1 版；journal 内嵌 1 个 hash（48 条记录）"
+      "detail": "当前 b8f840a07e9a3923；归档 1 版；journal 内嵌 1 个 hash（12 条记录）"
     },
     {
       "cid": "P0-4",
@@ -75,8 +75,8 @@
       "cid": "P1-6",
       "axis": "P1-证据链",
       "title": "legacy_invalid 已移出活跃流",
-      "status": "FAIL",
-      "detail": "活跃流分布 {'legacy_invalid': 36, 'prereg_degraded': 12}；仍有 36 条 legacy 混在活跃流（可 --arch 归档）"
+      "status": "PASS",
+      "detail": "活跃流分布 {'prereg_degraded': 12}"
     },
     {
       "cid": "P1-7",
@@ -89,8 +89,8 @@
       "cid": "P1-8",
       "axis": "P1-证据链",
       "title": "审批绑定数据快照 + 代码版本",
-      "status": "FAIL",
-      "detail": "forecast_v2.pkl 缺 data_manifest_sha256/git_commit；forecast_v3.pkl 缺 data_manifest_sha256/git_commit"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "cid": "P2-1",
