@@ -50,6 +50,10 @@ OUT_DIR = BASE / "forecast_outputs"
 DATA = BASE / "data"
 
 # ---- §一 面板成员（写死；改这里等于改面板口径，须同步预注册文与报告） ----
+# D2a（2026-09-16 拍板）支持外置成员清单扩展：--members <file.json> 给出
+#   {"extra_gate_proxies": [...], "extra_relaxed_proxies": [...]}
+# 时，在下面默认清单基础上**只扩清单**（特征/标签/PIT/哈希逻辑零改动）；
+# 不传 --members = 与历史 17 成员口径逐字节一致（D2a §四「只扩清单」条款）。
 FUNDS = ("002112", "002207", "022853", "025687")
 GATE_PROXIES = ("512480", "512880", "159915", "512660", "510880",
                 "512800", "160225", "512010", "501030")
@@ -60,6 +64,42 @@ PANEL_START = "2020-04-27"        # §九：D-lite 起点（全成员统一窗�
 HORIZON = 5                       # §三：fwd5 主端点
 EXTRA_FWDS = (1, 2, 3, 5, 10, 20)  # 沿用 load_samples 既有标签集
 A158_KEYS = feature_keys()
+
+# 默认清单快照（用于「不传 --members 时口径与历史逐字节一致」的自检断言）
+DEFAULT_GATE_PROXIES = GATE_PROXIES
+DEFAULT_RELAXED_PROXIES = RELAXED_PROXIES
+MEMBERS_SOURCE: dict = {"kind": "builtin"}   # meta 留痕：本轮成员清单来源
+
+
+def apply_members_file(path: Path) -> dict:
+    """D2a §四「成员清单参数化（只扩清单）」：读外置 JSON 扩宽 gate/relaxed 清单。
+
+    只允许**追加**（不可删、不可换、不可动基金/板块/起点/特征/标签逻辑）。
+    返回扩档摘要（写进 meta，供复现与审计）。校验失败即抛，不带病出面板。
+    """
+    global GATE_PROXIES, RELAXED_PROXIES, MEMBERS_SOURCE
+    spec = json.loads(Path(path).read_text(encoding="utf-8"))
+    unknown = set(spec) - {"extra_gate_proxies", "extra_relaxed_proxies"}
+    if unknown:
+        raise ValueError(f"成员清单文件含未知键（只支持 extra_*）：{sorted(unknown)}")
+    add_g = [str(c) for c in spec.get("extra_gate_proxies", [])]
+    add_r = [str(c) for c in spec.get("extra_relaxed_proxies", [])]
+
+    base = set(FUNDS) | set(DEFAULT_GATE_PROXIES) | set(DEFAULT_RELAXED_PROXIES) | set(SECTOR_CODES)
+    dup = (set(add_g) & set(add_r)) | (base & (set(add_g) | set(add_r)))
+    if dup:
+        raise ValueError(f"扩档码与既有成员或彼此重复：{sorted(dup)}")
+    if len(set(add_g)) != len(add_g) or len(set(add_r)) != len(add_r):
+        raise ValueError("扩档清单内部有重复")
+    for c in add_g + add_r:                      # 缓存必须已存在（刷新由 refresh 受控完成）
+        if not (DATA / "stock_klines" / f"{c}.json").exists():
+            raise FileNotFoundError(f"扩档码无本地缓存，须先受控刷新：{c}")
+
+    GATE_PROXIES = DEFAULT_GATE_PROXIES + tuple(add_g)
+    RELAXED_PROXIES = DEFAULT_RELAXED_PROXIES + tuple(add_r)
+    MEMBERS_SOURCE = {"kind": "file", "path": str(Path(path).name),
+                      "extra_gate_proxies": add_g, "extra_relaxed_proxies": add_r}
+    return MEMBERS_SOURCE
 
 
 def _load_series() -> dict[str, dict]:
@@ -204,12 +244,51 @@ def _selftest() -> int:
             fail += 1
             print(f"  [FAIL] {name}")
 
-    # 1) 成员数 = 17，且与 §一 表逐项一致
-    allc = list(FUNDS) + list(GATE_PROXIES) + list(RELAXED_PROXIES) + list(SECTOR_CODES)
-    check("成员 17 个", len(allc) == 17)
-    check("成员无重复", len(set(allc)) == 17)
-    check("分层计数 4/9/3/1", (len(FUNDS), len(GATE_PROXIES),
-                            len(RELAXED_PROXIES), len(SECTOR_CODES)) == (4, 9, 3, 1))
+    # 1) 默认清单 = 17，且与 §一 表逐项一致（扩档不影响此断言：断默认快照常量）
+    allc = (list(FUNDS) + list(DEFAULT_GATE_PROXIES) + list(DEFAULT_RELAXED_PROXIES)
+            + list(SECTOR_CODES))
+    check("默认成员 17 个", len(allc) == 17)
+    check("默认成员无重复", len(set(allc)) == 17)
+    check("默认分层计数 4/9/3/1", (len(FUNDS), len(DEFAULT_GATE_PROXIES),
+                                len(DEFAULT_RELAXED_PROXIES), len(SECTOR_CODES)) == (4, 9, 3, 1))
+
+    # 1b) apply_members_file 校验逻辑（临时文件，只测拒绝路径 + 一次成功追加）
+    import tempfile
+    def _expect_err(name, payload):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                         encoding="utf-8") as f:
+            json.dump(payload, f)
+            fp = Path(f.name)
+        try:
+            apply_members_file(fp)
+            check(name, False)          # 没抛 = 校验漏了
+        except (ValueError, FileNotFoundError):
+            check(name, True)
+        finally:
+            fp.unlink()
+            global GATE_PROXIES, RELAXED_PROXIES
+            GATE_PROXIES, RELAXED_PROXIES = DEFAULT_GATE_PROXIES, DEFAULT_RELAXED_PROXIES
+    _expect_err("1b.1 未知键拒绝", {"oops": []})
+    _expect_err("1b.2 与既有成员重复拒绝", {"extra_gate_proxies": ["512480"]})
+    _expect_err("1b.3 gate/relaxed 互重拒绝",
+                {"extra_gate_proxies": ["999001"], "extra_relaxed_proxies": ["999001"]})
+    _expect_err("1b.4 无缓存码拒绝", {"extra_gate_proxies": ["999999"]})
+
+    def _expect_ok(name, payload, want_g, want_r):
+        global GATE_PROXIES, RELAXED_PROXIES
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                         encoding="utf-8") as f:
+            json.dump(payload, f)
+            fp = Path(f.name)
+        try:
+            apply_members_file(fp)
+            check(name, len(GATE_PROXIES) == want_g and len(RELAXED_PROXIES) == want_r)
+        finally:
+            GATE_PROXIES, RELAXED_PROXIES = DEFAULT_GATE_PROXIES, DEFAULT_RELAXED_PROXIES
+            fp.unlink()
+    _expect_ok("1b.5 正向：有缓存码可追加", {"extra_gate_proxies": ["510300"]}, 10, 3)
+    check("1b.6 复原后仍为默认 9/3",
+          GATE_PROXIES == DEFAULT_GATE_PROXIES and RELAXED_PROXIES == DEFAULT_RELAXED_PROXIES)
 
     # 2) rel5 口径：同日横截面超额，均值/中位两把尺子
     rows = [{"member": "a", "kind": "fund", "date": "2020-04-27", "fwd5": 0.10},
@@ -268,6 +347,11 @@ def main(argv=None) -> int:
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--date", default=None, help="覆盖 date tag（默认今日）")
     ap.add_argument("--no-fingerprint", action="store_true", help="跳过同批指纹")
+    ap.add_argument("--members", default=None,
+                    help="D2a 扩档：外置成员清单 JSON（只支持 extra_gate_proxies/"
+                         "extra_relaxed_proxies；省略 = 历史 17 成员口径逐字节不变）")
+    ap.add_argument("--out-prefix", default="panel_dlite",
+                    help="产物文件名前缀（D2a 用 panel_dlite_v2）")
     args = ap.parse_args(argv)
     if args.selftest:
         return _selftest()
@@ -275,6 +359,11 @@ def main(argv=None) -> int:
     started = datetime.now()
     tag = args.date or started.strftime("%Y%m%d")
     print(f"# D-lite 面板生成 · {tag}（零网络：只读已刷新缓存）")
+    if args.members:
+        info = apply_members_file(Path(args.members))
+        print(f"  扩档清单   : {info['path']}  "
+              f"+gate {len(info['extra_gate_proxies'])} +relaxed {len(info['extra_relaxed_proxies'])}"
+              f"  → 成员 {len(FUNDS) + len(GATE_PROXIES) + len(RELAXED_PROXIES) + len(SECTOR_CODES)}")
 
     rows, stats = _build_rows()
     body = _canonical_jsonl(rows)
@@ -286,7 +375,7 @@ def main(argv=None) -> int:
     t1_ok = (sha1 == sha2) and (body == body2)
 
     OUT_DIR.mkdir(exist_ok=True)
-    out_jsonl = OUT_DIR / f"panel_dlite_{tag}.jsonl"
+    out_jsonl = OUT_DIR / f"{args.out_prefix}_{tag}.jsonl"
     out_jsonl.write_text(body, encoding="utf-8")
 
     t2 = _t2_vs_frozen(rows)
@@ -294,7 +383,10 @@ def main(argv=None) -> int:
     kfp_info = None
     if not args.no_fingerprint:
         kfp = build_fingerprint(include_sector=True)     # §五 之 3：面板 + 板块同批
-        kfp_p = OUT_DIR / f"kline_fingerprint_{tag}_panel.json"
+        # 默认前缀保持历史文件名（口径不变的旁证）；仅扩档批加前缀区分
+        kfp_name = (f"kline_fingerprint_{tag}_panel.json" if args.out_prefix == "panel_dlite"
+                    else f"kline_fingerprint_{args.out_prefix}_{tag}.json")
+        kfp_p = OUT_DIR / kfp_name
         kfp_p.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
                          encoding="utf-8")
         kfp_info = {"file": kfp_p.name, "aggregate_sha256": kfp["aggregate_sha256"],
@@ -322,6 +414,7 @@ def main(argv=None) -> int:
         "created_at": started.isoformat(timespec="seconds"),
         "prereg": "output/forecast_lab_prereg_D_panel_20260914.md",
         "scope": "D-lite", "panel_start": PANEL_START, "zero_network": True,
+        "members_source": MEMBERS_SOURCE,
         "n_rows": len(rows), "n_features": len(A158_KEYS), "n_members": len(stats["members"]),
         "rows_by_kind": dict(sorted(by_kind.items())),
         "rows_by_member": dict(sorted(by_member.items())),
@@ -336,7 +429,7 @@ def main(argv=None) -> int:
         "kline_fingerprint": kfp_info,
         "build_stats": stats,
     }
-    out_meta = OUT_DIR / f"panel_dlite_{tag}.meta.json"
+    out_meta = OUT_DIR / f"{args.out_prefix}_{tag}.meta.json"
     out_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print(f"\n== 结果 ==")
