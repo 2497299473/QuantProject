@@ -61,23 +61,58 @@ def _save_registry(reg: dict) -> bool:
         return False
 
 
+def capture_provenance() -> dict:
+    """采集登记时点的数据快照指纹与代码版本（P1-8 审批绑定）。
+
+    - ``data_manifest_sha256``：当前 ``data/manifest.json`` 的文件 sha256 前 16 位。
+      与 shadow journal 内嵌、审计 allowed 集合同口径（见 data_fingerprint.py）。
+    - ``git_commit``：``git rev-parse HEAD``（不可用时为 None，不编造）。
+
+    任一取不到就只缺哪一项写 None —— 缺失留痕优于伪造值（宁可 FAIL 也不假 PASS）。
+    """
+    out: dict = {"data_manifest_sha256": None, "git_commit": None}
+    man = BASE_DIR / "data" / "manifest.json"
+    if man.is_file():
+        try:
+            # [:16] 口径与 shadow_policy.py 内嵌、audit_project.py allowed 集合三处一致；
+            # 不 import shadow_policy 取常量：shadow_policy 反向依赖本模块（L73），会成环。
+            out["data_manifest_sha256"] = _file_sha256(man)[:16]
+        except OSError:
+            pass
+    try:
+        import subprocess
+        r = subprocess.run(["git", "-C", str(BASE_DIR), "rev-parse", "HEAD"],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            out["git_commit"] = r.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return out
+
+
 def register_model(pkl_path: Path, meta: dict) -> str | None:
     """把 pkl 登记进注册表，返回 sha256（失败返回 None）。
 
     meta: {model_version, feature_keys, horizons, flat_margin,
            trained_at, oos_start, n_train, n_oos, oos_metrics?}
+
+    P1-8（2026-09-16）：登记时自动绑定数据快照指纹 + 代码版本，使**新**条目天然可审计；
+    历史条目的回填走 ``bind_provenance.py``。
     """
     if not pkl_path.exists():
         return None
     digest = _file_sha256(pkl_path)
     reg = load_registry()
     key = pkl_path.name
+    prov = capture_provenance()
     entry = {
         "path": str(pkl_path),
         "sha256": digest,
         "size_bytes": pkl_path.stat().st_size,
         "registered_at": datetime.now().isoformat(timespec="seconds"),
         "meta": meta,
+        "data_manifest_sha256": prov["data_manifest_sha256"],
+        "git_commit": prov["git_commit"],
     }
     reg["models"][key] = entry
     return digest if _save_registry(reg) else None

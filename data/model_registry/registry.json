@@ -85,6 +85,16 @@
         "n_features": 7,
         "feature_dim": 7,
         "masking": null
+      },
+      "data_manifest_sha256": "afd156ab12a3bff1",
+      "git_commit": "6e0c9dd66be02666bcbceb7c48c867710d9e8971",
+      "provenance": {
+        "bound_at": "2026-09-16T19:20:16",
+        "manifest_file": "manifest_20260831T091253.json",
+        "manifest_generated_at": "2026-08-31T09:12:53",
+        "registration_vs_snapshot": "snapshot_after_registration",
+        "method": "backfill_evidence_attestation：manifest 侧 = 最早逐文件记录且哈希一致的快照（在场证明，非'登记当时'快照）；git_commit = 首个包含逐字节一致 pkl 的提交",
+        "git_tracked_path": "data/models/forecast_v2.pkl"
       }
     },
     "forecast_v3.pkl": {
@@ -177,6 +187,16 @@
           "missing_value": 0.0,
           "mask_value": 1.0
         }
+      },
+      "data_manifest_sha256": "afd156ab12a3bff1",
+      "git_commit": "6e0c9dd66be02666bcbceb7c48c867710d9e8971",
+      "provenance": {
+        "bound_at": "2026-09-16T19:20:16",
+        "manifest_file": "manifest_20260831T091253.json",
+        "manifest_generated_at": "2026-08-31T09:12:53",
+        "registration_vs_snapshot": "snapshot_after_registration",
+        "method": "backfill_evidence_attestation：manifest 侧 = 最早逐文件记录且哈希一致的快照（在场证明，非'登记当时'快照）；git_commit = 首个包含逐字节一致 pkl 的提交",
+        "git_tracked_path": "data/models/forecast_v3.pkl"
       }
     }
   }
