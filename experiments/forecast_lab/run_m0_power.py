@@ -160,9 +160,20 @@ class PairedBoot:
     """
 
     def __init__(self, base_pred: np.ndarray, y: np.ndarray,
-                 groups: list[np.ndarray], n_boot: int, seed: int):
-        rng = np.random.default_rng(seed)
-        picks = [rng.integers(0, len(groups), size=len(groups)) for _ in range(n_boot)]
+                 groups: list[np.ndarray], n_boot: int, seed: int,
+                 picks: list[np.ndarray] | None = None):
+        """picks=None → 默认日块 i.i.d. 有放回（逐字节与历史实现一致，勿动）。
+
+        picks 显式传入 → 由调用方决定重抽样单位（如 moving block / 分层按折），
+        本类只负责「给定重抽样集合 → 配对差值 → pct2.5 判出」的引擎部分。
+        2026-09-16 追加（D2b 探针用）；默认路径行为零变化。
+        """
+        if picks is None:
+            rng = np.random.default_rng(seed)
+            picks = [rng.integers(0, len(groups), size=len(groups)) for _ in range(n_boot)]
+        else:
+            assert len(picks) == n_boot, f"picks 条数 {len(picks)} != n_boot {n_boot}"
+            assert all(0 <= int(c) < len(groups) for p in picks for c in p), "picks 越界"
         mmax = max(int(sum(len(groups[c]) for c in p)) for p in picks)
         idx, mask = [], []
         for p in picks:
