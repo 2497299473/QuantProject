@@ -13,9 +13,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import shadow_policy                                   # noqa: E402
-from shadow_policy import (append_records, expert_a_shadow_block,  # noqa: E402
-                           load_existing_keys, load_expert_a,
+from shadow_policy import (CHANNELS, append_records, archive_legacy_records,  # noqa: E402
+                           expert_a_shadow_block, load_existing_keys, load_expert_a,
                            load_frozen_samples, load_post_inputs,
+                           load_records_by_channel, record_channel,
                            resolve_promotion_mode, policy_action, POLICY_THR)
 from core import intraday_feature_store as feature_store  # noqa: E402
 
@@ -234,6 +235,82 @@ class TestExpertAShadowBlock(unittest.TestCase):
             finally:
                 shadow_policy.BASE_DIR = orig
         self.assertEqual(out, {"error": "lab_env_or_script_missing"})
+
+
+class TestEvidenceChannels(unittest.TestCase):
+    """V4-A（2026-09-16·P0-1 尾巴清扫）：三通道隔离——跨通道默认禁止聚合。"""
+
+    @staticmethod
+    def _legacy(fund="A", date="2026-08-05"):
+        return {"date": date, "fund": fund, "status": "shadow",
+                "evidence_validity": "legacy_invalid",
+                "contract": {"model_version": 3}}
+
+    @staticmethod
+    def _live(fund="A", date="2026-09-14", mode="prereg_degraded"):
+        return {"date": date, "fund": fund, "status": "shadow",
+                "contract": {"model_version": 3, "promotion_mode": mode}}
+
+    def test_channel_precedence_and_fallback(self):
+        # legacy 标记优先级最高；无契约字段时才落 unclassified
+        self.assertEqual(record_channel(self._legacy()), "legacy_invalid")
+        self.assertEqual(record_channel(self._live(mode="approved_full")),
+                         "approved_full")
+        self.assertEqual(record_channel(self._live()), "prereg_degraded")
+        self.assertEqual(record_channel({"date": "2026-09-14", "fund": "A"}),
+                         "unclassified")
+        # 老格式（有 future-label 但缺 legacy 标记）不得被误归为前瞻通道
+        self.assertEqual(record_channel({"contract": {"model_version": 3},
+                                         "features": {"fwd1": 0.1}}),
+                         "unclassified")
+
+    def test_load_buckets_never_merge_channels(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "s.jsonl"
+            p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in
+                                   [self._legacy(), self._legacy("B"),
+                                    self._live(), self._live("B", mode="approved_full"),
+                                    {"date": "2026-09-14", "fund": "C"}]) + "\n",
+                         encoding="utf-8")
+            b = load_records_by_channel(p)
+            self.assertEqual(len(b["legacy_invalid"]), 2)
+            self.assertEqual(len(b["prereg_degraded"]), 1)
+            self.assertEqual(len(b["approved_full"]), 1)
+            self.assertEqual(len(b["unclassified"]), 1)
+            # 前瞻可聚合集合必须显式拼装，且不得漏入 legacy
+            prospective = b["approved_full"] + b["prereg_degraded"]
+            self.assertEqual(len(prospective), 2)
+            self.assertFalse(any(r.get("evidence_validity") == "legacy_invalid"
+                                 for r in prospective))
+
+    def test_missing_file_returns_empty_buckets(self):
+        b = load_records_by_channel(Path(tempfile.gettempdir()) / "no_such.jsonl")
+        self.assertEqual(set(b), set(CHANNELS) | {"unclassified"})
+        self.assertTrue(all(v == [] for v in b.values()))
+
+    def test_archive_moves_legacy_out_of_active_stream(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "s.jsonl"
+            arch = Path(td) / "legacy.jsonl"
+            p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in
+                                   [self._legacy(), self._live(), self._legacy("B")]) + "\n",
+                         encoding="utf-8")
+            n_arch, n_keep = archive_legacy_records(p, arch)
+            self.assertEqual((n_arch, n_keep), (2, 1))
+            self.assertEqual(len(arch.read_text(encoding="utf-8").splitlines()), 2)
+            remaining = load_records_by_channel(p)
+            self.assertEqual(len(remaining["legacy_invalid"]), 0)
+            self.assertEqual(len(remaining["prereg_degraded"]), 1)
+            # 幂等：再跑一次无 legacy 可搬，活跃流不变
+            self.assertEqual(archive_legacy_records(p, arch), (0, 1))
+            self.assertEqual(len(arch.read_text(encoding="utf-8").splitlines()), 2)
+
+    def test_archive_missing_file_is_noop(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(
+                archive_legacy_records(Path(td) / "none.jsonl",
+                                       Path(td) / "arch.jsonl"),
+                (0, 0))
 
 
 if __name__ == "__main__":

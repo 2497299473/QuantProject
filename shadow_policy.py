@@ -108,6 +108,83 @@ def load_existing_keys(path: Path) -> set:
     return keys
 
 
+# ---- 证据通道隔离（V4-A，2026-09-16·P0-1 尾巴清扫）----
+# 三条通道允许并存于同一 jsonl（保留单一 longitudinal stream 的运维便利），
+# 但**默认禁止跨通道聚合**：任何统计必须先显式声明 channel。
+CHANNELS = ("approved_full", "prereg_degraded", "legacy_invalid")
+UNCLASSIFIED = "unclassified"
+
+
+def record_channel(rec: dict) -> str:
+    """判定单条 shadow 记录归属的证据通道（判定顺序即优先级）。
+
+    - legacy_invalid：2026-09-11 前用已实现净值/历史 K 线生成、含未来标签，
+      已被整体作废，**永不与前瞻样本同池**；
+    - approved_full / prereg_degraded：读 contract.promotion_mode；
+    - unclassified：两处都取不到（老格式/字段损坏）→ 只能在清点里出现，
+      不得进任何 scorecard。
+    """
+    if rec.get("evidence_validity") == "legacy_invalid":
+        return "legacy_invalid"
+    mode = (rec.get("contract") or {}).get("promotion_mode")
+    if mode in ("approved_full", "prereg_degraded"):
+        return mode
+    return UNCLASSIFIED
+
+
+def load_records_by_channel(path: Path) -> dict[str, list[dict]]:
+    """按通道分桶读取 jsonl（坏行跳过）→ {channel: [records]}。
+
+    这是**唯一**被推荐的读取入口：调用方拿到的永远是单通道列表，
+    跨通道比较必须自己显式合并（默认写不出聚合误用）。
+    """
+    buckets: dict[str, list[dict]] = {c: [] for c in (*CHANNELS, UNCLASSIFIED)}
+    if not path.exists():
+        return buckets
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        buckets[record_channel(rec)].append(rec)
+    return buckets
+
+
+def archive_legacy_records(path: Path, archive: Path) -> tuple[int, int]:
+    """把 legacy_invalid 记录从活跃流搬进归档文件（幂等，保持原行序）。
+
+    返回 ``(archived_count, remaining_count)``。legacy 记录已被整体作废，
+    搬出后活跃流 = 纯前瞻样本，天然不可能被 scorecard 误聚合。
+    """
+    if not path.exists():
+        return 0, 0
+    legacy: list[dict] = []
+    keep: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        (legacy if record_channel(rec) == "legacy_invalid" else keep).append(rec)
+    if not legacy:
+        return 0, len(keep)
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    with archive.open("a", encoding="utf-8") as fh:
+        for r in legacy:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    tmp = path.with_suffix(".jsonl.tmp")
+    tmp.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep),
+                   encoding="utf-8")
+    tmp.replace(path)
+    return len(legacy), len(keep)
+
+
 def append_records(path: Path, records: list[dict]) -> int:
     """把新记录追加进 jsonl（读旧 → 拼新 → 原子重写）。返回新增条数。"""
     existing = ([ln for ln in path.read_text(encoding="utf-8").splitlines()
@@ -307,7 +384,26 @@ def main() -> int:
                     help="决策日期（缺省 = 数据中最新样本日）")
     ap.add_argument("--out", default=None,
                     help="输出文件名（默认 output/shadow_actions.jsonl）")
+    ap.add_argument("--channels", action="store_true",
+                    help="只清点各证据通道条数（不加载模型、不写任何文件）")
+    ap.add_argument("--archive-legacy", action="store_true",
+                    help="把 legacy_invalid 记录搬进 output/shadow_actions_legacy_invalid.jsonl")
     args = ap.parse_args()
+
+    # 证据通道隔离入口（2026-09-16）：两条都不加载模型，纯文件操作。
+    cli_out = BASE_DIR / "output" / (args.out or "shadow_actions.jsonl")
+    if args.channels:
+        counts = load_records_by_channel(cli_out)
+        print(f"== 证据通道清点（{cli_out.name}·跨通道禁止聚合）==")
+        for ch in (*CHANNELS, UNCLASSIFIED):
+            print(f"  {ch:<16} {len(counts[ch])} 条")
+        return 0
+    if args.archive_legacy:
+        n_arch, n_keep = archive_legacy_records(
+            cli_out, BASE_DIR / "output" / "shadow_actions_legacy_invalid.jsonl")
+        print(f"== [arch] legacy_invalid {n_arch} 条 → shadow_actions_legacy_invalid.jsonl；"
+              f"活跃流剩 {n_keep} 条 ==")
+        return 0
 
     t0 = time.time()
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
