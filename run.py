@@ -54,6 +54,27 @@ def _write_log(now: datetime) -> None:
         old.unlink(missing_ok=True)
 
 
+def _write_run_manifest(now: datetime, manifest: dict) -> None:
+    """机器可读运行清单（V4-A 证据底座，2026-09-16）。
+
+    退出码只说「成 / 降级 / 败」，本文件说「哪几环证据链是坏的」——供 Windows
+    计划任务与监控判读「程序没崩但数据坏了」的静默降级。落盘
+    output/run_manifest/run_manifest_<run_id>.json；失败不阻断主流程。
+    """
+    try:
+        run_id = f"{now:%Y%m%d_%H%M%S}_{manifest.get('slot', 'na')}"
+        out_dir = BASE_DIR / "output" / "run_manifest"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        payload = {"run_id": run_id, "ts": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                   **manifest}
+        (out_dir / f"run_manifest_{run_id}.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        log(f"[mani] 运行清单 → output/run_manifest/run_manifest_{run_id}.json"
+            f"（status={manifest.get('status')}）")
+    except Exception as e:                      # noqa: BLE001
+        log(f"[warn] 运行清单写入失败（不影响主流程）：{type(e).__name__} {e}")
+
+
 def load_holidays() -> set[str]:
     """读 data/holidays.json → {"2026-01-01", ...}（仅工作日休市日，周末由代码过滤）。"""
     data = json.loads((BASE_DIR / "data" / "holidays.json").read_text(encoding="utf-8"))
@@ -190,18 +211,26 @@ def _run(args, now: datetime) -> int:
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     log(f"[run ] slot={slot} 基金池={cfg['fund_pool']} 风险边界：{cfg['risk_boundary']}")
 
+    # V4-A 证据底座（2026-09-16）：本次运行的证据链状态。
+    # 退出码 0=SUCCESS / 2=DEGRADED / 1=FAILED；降级项一并写 output/run_manifest/。
+    degraded: list[str] = []
+
     funds = {}
+    fund_failures: list[str] = []
     for code in cfg["fund_pool"]:
         try:
             funds[code] = data_loader.load_fund(code, force_refresh=args.refresh)
             log(f"[data] {code} {funds[code]['name']} 净值 {len(funds[code]['navs'])} 条，"
                 f"最新 {funds[code]['navs'][-1]}，申购={funds[code].get('purchase_status')}")
         except Exception as e:
+            fund_failures.append(code)
             log(f"[warn] {code} 数据获取失败：{e}")
 
     if not funds:
         log("[fail] 无任何基金数据，退出")
         return 1
+    if fund_failures:
+        degraded.append("fund_data_partial:" + ",".join(fund_failures))
 
     lookthrough = None
     lt_missing: list[str] = []          # P0 探针：穿透静默缺失基金（进报告显式化）
@@ -217,7 +246,9 @@ def _run(args, now: datetime) -> int:
             if lt_missing:
                 log(f"[warn] ⚠️ 穿透缺失基金：{lt_missing}——持仓快照拉取失败（多为网络/代理受限），"
                     f"受影响：实时估算/日内特征/中期趋势维度；请检查网络后重跑")
+                degraded.append("lookthrough_missing:" + ",".join(lt_missing))
         except Exception as e:
+            degraded.append(f"lookthrough_unavailable:{type(e).__name__}")
             log(f"[warn] 穿透数据不可用，报告将跳过该栏：{e}")
 
     realtime: dict[str, dict] = {}
@@ -236,6 +267,7 @@ def _run(args, now: datetime) -> int:
     # ---- 日内特征（观察层）+ 快照持久化 ----
     feats = build_features(slot, lookthrough, realtime, now)
     if not feats:
+        degraded.append("intraday_features_empty")
         log("[warn] ⚠️ 无日内特征（穿透或实时行情为空）——倾向分/预测/动作评分今日缺位，报告决策栏不完整")
     if feats:
         if slot == "mid":
@@ -273,8 +305,10 @@ def _run(args, now: datetime) -> int:
                 f"breadth {mc_snap['breadth_all_above_ma20']*100:.0f}%"
                 + (f"（缺失 {len(mc_snap['errors'])} 项）" if mc_snap['errors'] else ""))
         else:
+            degraded.append("market_context_unavailable")
             log(f"[warn] 市场环境层不可用：{mc_snap.get('errors')}")
     except Exception as e:
+        degraded.append(f"market_context_error:{type(e).__name__}")
         log(f"[warn] 市场环境层异常（已跳过）：{type(e).__name__} {e}")
 
     # ---- 决策倾向层（实时数据进决策；动作层受 history_validated 硬门禁）----
@@ -343,23 +377,52 @@ def _run(args, now: datetime) -> int:
 
     if args.no_push:
         log("[push] --no-push 指定，跳过飞书推送")
+        push_status = {"ok": None, "reason": "skipped_no_push"}
     else:
         result = notify.push_feishu(slot, signals, account, realtime, decisions)
         if result.get("ok"):
             log("[push] 飞书推送成功")
+            push_status = {"ok": True, "reason": None}
         else:
-            log(f"[push] 飞书推送未成功（{result.get('reason') or result.get('error') or result.get('response')}）")
+            push_status = {"ok": False,
+                           "reason": str(result.get("reason") or result.get("error")
+                                         or result.get("response"))[:200]}
+            degraded.append("feishu_push_failed")
+            log(f"[push] 飞书推送未成功（{push_status['reason']}）")
 
     # Shadow Policy 日记录（2026-09-01，P1-⑦）：post 时点跑一次，只记录不执行。
-    # shadow_policy.py 自带幂等（同日同基金跳过）与冻结模型校验，失败不阻断主流程。
+    # shadow_policy.py 自带幂等（同日同基金跳过）与冻结模型校验，失败不阻断主流程，
+    # 但会计入降级项（V4-A：exit=0 不再等价于「证据链完整」）。
+    shadow_status = {"ok": None, "reason": "skipped_non_post_slot"}
     if slot == "post":
-        _run_shadow()
+        shadow_status = _run_shadow()
+        if not shadow_status.get("ok"):
+            degraded.append(f"shadow_failed:{shadow_status.get('reason')}")
 
+    _write_run_manifest(now, {
+        "slot": slot,
+        "data": {"ok": not fund_failures, "failed": fund_failures, "n_funds": len(funds)},
+        "lookthrough": {"ok": lookthrough is not None, "missing": lt_missing},
+        "intraday_features": {"ok": bool(feats), "n_funds": len(feats)},
+        "market_context": {"ok": bool(mc_snap and mc_snap.get("ok"))},
+        "report": {"ok": True, "path": f"output/report_{now:%Y%m%d}_{slot}.md"},
+        "notification": push_status,
+        "shadow": shadow_status,
+        "degraded_reasons": degraded,
+        "status": "DEGRADED" if degraded else "SUCCESS",
+    })
+    if degraded:
+        log(f"[exit] DEGRADED（{len(degraded)} 项降级：{'; '.join(degraded)}）")
+        return 2
     return 0
 
 
-def _run_shadow() -> None:
-    """调用 shadow_policy.py 记录当日 shadow 样本（subprocess，容忍失败）。"""
+def _run_shadow() -> dict:
+    """调用 shadow_policy.py 记录当日 shadow 样本（subprocess，容忍失败）。
+
+    返回 ``{"ok": bool, "reason": str | None}``：shadow 失败不阻断主流程，
+    但会作为降级项进入 run_manifest，并让本次退出码为 2。
+    """
     import subprocess
     try:
         r = subprocess.run([sys.executable, str(BASE_DIR / "shadow_policy.py")],
@@ -371,8 +434,11 @@ def _run_shadow() -> None:
         if r.returncode != 0:
             err = ((r.stderr or "").strip().splitlines() or ["<no stderr>"])[-1]
             log(f"[shadow] ⚠️ 退出码 {r.returncode}：{err}")
+            return {"ok": False, "reason": f"exit_{r.returncode}"}
+        return {"ok": True, "reason": None}
     except Exception as e:
         log(f"[shadow] ⚠️ 失败（不阻断主流程）：{e}")
+        return {"ok": False, "reason": type(e).__name__}
 
 
 def _append_state_ref_history(now, slot: str, code: str, sr: dict) -> None:
