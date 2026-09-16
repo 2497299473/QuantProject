@@ -85,10 +85,19 @@ def check_gates() -> list[tuple[str, bool, str]]:
     today = datetime.date.today().isoformat()
 
     # 1. 上游已跑完：当日 daily_runs 存在且非空
+    #    语义保持从严（不存在即 FAIL），只把「未到点」与「应有而未有」区分开，
+    #    避免 09:30 前的合法空窗被误读成任务挂了。
     dr = BASE_DIR / "output" / "daily_runs" / f"{today}.md"
     ok1 = dr.is_file() and dr.stat().st_size > 200
-    out.append(("上游已跑完", ok1,
-                f"{dr.name} exists={dr.is_file()} size={dr.stat().st_size if dr.is_file() else 0}"))
+    if ok1:
+        detail1 = f"{dr.name} size={dr.stat().st_size}"
+    elif dr.is_file():
+        detail1 = f"{dr.name} 过小({dr.stat().st_size}B)，疑未写完"
+    else:
+        pre_first = datetime.datetime.now().hour < 9   # 09:30 晨检是当日第一个上游
+        detail1 = f"{dr.name} 不存在" + ("（当日首个上游 09:30 未到点）" if pre_first
+                                       else "（09:30 已过而仍无记录）")
+    out.append(("上游已跑完", ok1, detail1))
 
     # 2. 无频控征兆：这里只做「当日请求计数未超」的静态检查；
     #    kamt 探针需要网络，留给 --run 前置执行（单请求，属授权范围内）
