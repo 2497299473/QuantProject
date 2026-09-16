@@ -1,4 +1,4 @@
-# QuantV1 · 定时任务运行约定（ZCode 自动化用）
+# QuantV1 · 定时任务运行约定（OpenSquilla cron / Windows 计划任务用）
 
 本目录是 QuantV1 的正式项目根（2026-09-08 起 Windows 原生，旧 WSL 路径已废弃）。
 场外基金日频参考系统：**只出参考建议，绝不自动下单**。
@@ -28,7 +28,7 @@
    - A 恢复 200 = 频控已解除 → 回主通道再跑一轮
    晚间补拉 `pull_sector_klines_evening.py`（Windows 计划任务 QuantFund_KlineEvening，
    21:30，venv）单轮不重试、只补缺口码；报告写 output/pull_sector_klines_evening_*.md
-   + zcode_runs 小节 [21:30 板块K线补拉]。
+   + daily_runs 小节 [21:30 板块K线补拉]。
 2. **shadow 只记录不执行**：`shadow_policy.py` 产出纸面样本。
    任何输出不得包含建议实盘操作的措辞，记录本身不构成投资建议。
 3. **幂等优先**：报"全部幂等跳过"是正常状态，不要为重跑出结果而反复执行。
@@ -63,7 +63,9 @@
 ## 运行报告落点（与 OpenSquilla 会话的同步通道）
 
 每次定时任务结束（成功或失败）必须把执行报告**追加**写入：
-`output\zcode_runs\<YYYY-MM-DD>.md`，小节标题带时段标识
+`output\daily_runs\<YYYY-MM-DD>.md`，小节标题带时段标识
 （如 `[16:00 板块K线]` / `[22:30 Shadow]` / `[09-26 季度重估]`）。
+历史目录名映射：2026-09-16 前本目录名为 `zcode_runs\`（ZCode 时代命名残留，已全量改名，
+git mv 保留历史）；旧文档与历史日志中的 `zcode_runs` 引用一律解为 `daily_runs`，历史留痕不改写。
 内容：日期时间、关键数字（ok/skip/fail、ADD/REDUCE/HOLD 计数等）、是否走兜底、
 FAIL 码、一句话结论。OpenSquilla 侧靠读这个目录汇报给用户，漏写=结果丢失。

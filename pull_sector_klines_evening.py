@@ -42,7 +42,7 @@ CACHE = BASE / 'data' / 'sector_klines'
 HOLIDAYS_JSON = BASE / 'data' / 'holidays.json'
 TODAY = date.today().isoformat()
 OUT_MD = BASE / 'output' / f'pull_sector_klines_evening_{date.today().strftime("%Y%m%d")}.md'
-ZRUNS_MD = BASE / 'output' / 'zcode_runs' / (date.today().isoformat() + '.md')
+ZRUNS_MD = BASE / 'output' / 'daily_runs' / (date.today().isoformat() + '.md')
 TASK_NAME = 'QuantFund_KlineEvening'
 
 
@@ -157,7 +157,7 @@ def main(argv=None):
                  ','.join(fail_codes) if fail_codes else '无', concl))
     with ZRUNS_MD.open('a', encoding='utf-8') as f:
         f.write('\n' + block)
-    print('appended zcode_runs report (trigger=%s)' % args.trigger, flush=True)
+    print('appended daily_runs report (trigger=%s)' % args.trigger, flush=True)
 
 
 if __name__ == '__main__':

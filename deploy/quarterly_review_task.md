@@ -63,7 +63,7 @@ sha256 → 聚合总指纹；`freeze_samples.py` 已接入）。记录：样本�
 
 ### 阶段 5 — 报告与留痕
 
-完整报告**追加**写入 `D:\PythonProject\QuantV1\output\zcode_runs\2026-09-28.md`，小节标题
+完整报告**追加**写入 `D:\PythonProject\QuantV1\output\daily_runs\2026-09-28.md`，小节标题
 「[09-26 季度重估]」。
 
 > 文件名说明（2026-09-09 拍板，勿改）：原定写 `2026-09-26.md`，但该文件已存 09-08 提前跑的旧版报告，
