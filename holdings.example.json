@@ -1,0 +1,10 @@
+{
+  "_comment": "持仓模板：复制为 holdings.json 后填入真实份额与成本净值。holdings.json 已被 .gitignore 排除，绝不入库。可选字段 max_position_pct（单基金仓位上限，缺省 0.8）/ consecutive_adds（连续加仓次数，缺省 0）。",
+  "as_of_date": "YYYY-MM-DD",
+  "funds": {
+    "000000": {
+      "shares": 0.0,
+      "cost_nav": 0.0
+    }
+  }
+}

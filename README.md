@@ -104,7 +104,8 @@ python backtest_factors.py        # 三因子全历史复验 + 横截面轮动�
 ```
 QuantV1/
 ├── config.json              # v4.0.0-decision：三因子 + decision 配置块（五维权重/阈值/四道门槛）
-├── holdings.json            # 持仓（本地私有，勿分享）——支持可选 max_position_pct / consecutive_adds
+├── holdings.json            # 持仓（本地私有，已被 .gitignore 排除、不入库）——支持可选 max_position_pct / consecutive_adds
+├── holdings.example.json    # 持仓模板（首次使用复制为 holdings.json 再填真实值）
 ├── .env.example             # 飞书 webhook + 可选 TUSHARE_TOKEN（个股K线备源）
 ├── run.py                   # 主入口：实时行情→特征→快照/决策全链路 + 节假日过滤 + 日志
 ├── backtest_action.py       # 【v4 新增】动作收益回测（加/减/不动 vs 不动 → 动作层解锁证据）

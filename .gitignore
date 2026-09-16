@@ -1,6 +1,10 @@
 # secrets (never commit)
 .env
 
+# 持仓（本地私有：含真实份额/成本，绝不入库）
+# 首次使用：复制 holdings.example.json 为 holdings.json 再填真实值
+holdings.json
+
 # daily-refreshed, re-fetchable data caches (pull scripts can rebuild)
 data/klines/*.json
 data/stock_klines/
