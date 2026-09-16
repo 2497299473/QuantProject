@@ -69,8 +69,14 @@ from run_m0_power import (PairedBoot, LGB_PARAMS, N_ROUNDS, HORIZON,  # noqa: E4
                           date_groups, norm_rank, rank_mean_rows)
 
 OUT_DIR = BASE / "forecast_outputs"
+PANEL_PREFIX_DEFAULT = "panel_dlite"          # 历史冻结件前缀（默认口径不变）
 PANEL_JSONL = "panel_dlite_20260916.jsonl"
 PANEL_META = "panel_dlite_20260916.meta.json"
+
+# D2a §四 / D2b R2：主池按 **kind** 派生（= fund + gate_proxy + sector，排除 relaxed），
+# 这样面板扩档后无需维护第二份代码清单；默认冻结件上「派生结果 == 硬编码 POOL14」由自检断言。
+PRIMARY_KINDS = frozenset({"fund", "gate_proxy", "sector"})
+
 
 # §一 面板成员分层（与 build_panel_dlite 的成员表逐项一致）
 FUNDS = ["002112", "002207", "022853", "025687"]
@@ -294,6 +300,14 @@ def _selftest() -> int:
     p14 = [s for s in rows_p if s["member"] in set(POOL14)]
     chk("13 主池样本量 > 0 且全部含 fwd5",
         len(p14) > 1000 and all(s.get("fwd5") is not None for s in p14))
+    # 主池改为按 kind 派生（扩档自适应）→ 在冻结件上必须与硬编码 14 员清单逐行等集
+    pk = [s for s in rows_p if s.get("kind") in PRIMARY_KINDS]
+    chk("13b kind 派生主池 == 硬编码 POOL14（冻结件回归）",
+        len(pk) == len(p14) and {s["member"] for s in pk} == set(POOL14)
+        and len(set(s["member"] for s in pk)) == 14)
+    chk("13c variant 常量与 D2b 一致（v2 需折归属）",
+        "make_picks" in open(BASE / "experiments" / "forecast_lab" / "run_d2b_ruler_probe.py",
+                             encoding="utf-8").read())
     oos14 = [s for s in p14 if s["date"] >= OOS_START]
     chk("14 OOS(≥2025-04-30) 非空", len(oos14) > 500)
     widths = Counter(s["date"] for s in oos14)
@@ -327,13 +341,25 @@ def _selftest() -> int:
 # ---------------------------------------------------------------- 主流程
 def main(argv=None) -> int:
     import argparse
+    global PANEL_JSONL, PANEL_META
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--skip-perm", action="store_true",
                     help="跳过 permutation（调试用；正式裁决不得用）")
+    ap.add_argument("--panel", default=f"{PANEL_PREFIX_DEFAULT}_20260916",
+                    help="面板前缀（默认 = 冻结件 panel_dlite_20260916；D2a 传 panel_dlite_v2_20260917）")
+    ap.add_argument("--resample-variant", default="v0", choices=("v0", "v1", "v2"),
+                    help="门槛②的重抽样单位（D2b R2 拍板：扩档批主报 v2、并列 v0）；"
+                         "默认 v0 = 与 09-16 T3 逐字节同口径")
+    ap.add_argument("--n-perm", type=int, default=N_PERM,
+                    help="permutation 轮数（D2b 后建议 200；默认 50 = 历史口径）")
     args = ap.parse_args(argv)
     if args.selftest:
         return _selftest()
+
+    PANEL_JSONL = f"{args.panel}.jsonl"
+    PANEL_META = f"{args.panel}.meta.json"
+    variant = args.resample_variant
 
     t0 = datetime.now()
     stamp = t0.strftime("%Y%m%d")
@@ -347,11 +373,12 @@ def main(argv=None) -> int:
     if sha != meta["sha256_jsonl"]:
         print(f"  [ABORT] 面板 sha256 漂移：{sha[:16]}… != {meta['sha256_jsonl'][:16]}…")
         return 1
-    print(f"  {len(rows)} 行 sha256 一致 {sha[:16]}…")
+    print(f"  {len(rows)} 行 sha256 一致 {sha[:16]}…  variant={variant}  n_perm={args.n_perm}")
 
-    print("== [1] 池子构造（§七 不混池 → 主判据取 14 主池）==")
-    p14 = [s for s in rows if s["member"] in set(POOL14)]
+    # 主池按 kind 派生（扩档自适应，§七 不混池纪律不变）
+    p14 = [s for s in rows if s.get("kind") in PRIMARY_KINDS]
     p17 = rows
+    print(f"== [1] 池子构造（§七 不混池 → 主判据 = fund+gate+sector，本批 {len(set(s['member'] for s in p14))} 员）==")
     for name, pool in (("pool14", p14), ("pool17", p17)):
         w = Counter(s["date"] for s in pool if s["date"] >= OOS_START)
         print(f"  {name}: rows={len(pool)}  OOS日块={len(w)}  "
@@ -387,9 +414,16 @@ def main(argv=None) -> int:
               f"95%CI 半宽≈{sd1['ci95_halfwidth']:.4f}  "
               f"IC 均值={sd1['ic_mean']:+.4f}  区间=[{sd1['pct2_5']:+.4f},{sd1['pct97_5']:+.4f}]")
 
-        print(f"== [5] {name}：判据 A — PairedBoot MDE80 ==")
+        print(f"== [5] {name}：判据 A — PairedBoot MDE80（重抽样 variant={variant}）==")
+        groups = date_groups(base["dates"])
+        picks = None
+        if variant != "v0":
+            # 复用 D2b 探针的 picks 生成（同一实现，防口径漂移）
+            from run_d2b_ruler_probe import make_picks, fold_ids_of_blocks
+            fob = fold_ids_of_blocks(groups, folds, base["dates"])
+            picks = make_picks(variant, len(groups), N_BOOT, SEED, fold_of_group=fob)
         pb = PairedBoot(base["preds"], base["trues"],
-                        date_groups(base["dates"]), N_BOOT, SEED)
+                        date_groups(base["dates"]), N_BOOT, SEED, picks=picks)
         decide_base = pb.decide(base["preds"])
         print(f"  [sanity] base vs base 判出={decide_base}（必须 False）")
         if primary and decide_base:
@@ -402,8 +436,8 @@ def main(argv=None) -> int:
 
         perm = None
         if primary and not args.skip_perm:
-            print(f"== [6] pool14：I 类错误实测（N_PERM={N_PERM}）==")
-            perm = permutation_alpha(pool, folds, pb)
+            print(f"== [6] pool14：I 类错误实测（N_PERM={args.n_perm}）==")
+            perm = permutation_alpha(pool, folds, pb, n_perm=args.n_perm)
             print(f"  轮级误报率={perm['round_level_fp_rate']:.2f}（>0.10 → 尺子失真、MDE 作废）"
                   f"  单轮判出中位数={perm['perm_power_median']:.4f}")
 
@@ -443,11 +477,16 @@ def main(argv=None) -> int:
            "prereg": "output/forecast_lab_prereg_D_panel_20260914.md §六 T3 + R2 之二",
            "created_at": t0.isoformat(timespec="seconds"),
            "panel": PANEL_JSONL, "panel_sha256": sha,
-           "pool_primary": "pool14 (4 fund + 9 gate + BK0457; relaxed excluded per §七)",
+           "resample_variant": variant,
+           "variant_note": ("v0 = 日块 i.i.d.（09-16 T3 同口径）；v2 = 两阶段分层（D2b R2 拍板主报）；"
+                            "v1 moving block 已被 D2b 判定修钝、不用于裁决"),
+           "pool_primary": (f"kind∈{sorted(PRIMARY_KINDS)} 派生（"
+                            f"{len(set(s['member'] for s in p14))} 员；relaxed excluded per §七）"),
            "feature_space": "a158-50 + B1 mask = 100 dims (§二 / R1)",
            "label_endpoint": f"fwd{HORIZON}",
            "oos_start": OOS_START, "window_days": WINDOW_DAYS,
            "n_boot": N_BOOT, "seed": SEED, "n_draw": N_DRAW, "rho_grid": RHO_GRID,
+           "n_perm": args.n_perm,
            "ref_ic_sd_from": "output/forecast_lab_review_v2_20260912.md L76 (0.0307)",
            "gates": {"mde80_le": MDE80_GATE, "ic_sd_lt": REF_IC_SD},
            "results": results,
