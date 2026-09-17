@@ -142,6 +142,9 @@ def load_fund(code: str, force_refresh: bool = False) -> dict:
         if cached is not None and not force_refresh \
                 and _cache_fresh(cache, cfg["cache_ttl_hours"]):
             cached["_source"] = "cache"
+            # 步 5 source trace：缓存文件里的 source 是「上次取数时」的源，对本次
+            # 加载已失真（本次实际来自 cache）→ 剥除，防止 stale 源名混进展示层。
+            cached.pop("source", None)
             return cached
     try:
         fund = _fetch_fund_nav(code, cfg["pingzhongdata_url"],
@@ -152,6 +155,7 @@ def load_fund(code: str, force_refresh: bool = False) -> dict:
             else (_read_cache(cache) if cache.exists() else None)
         if fallback is not None:
             fallback["_source"] = f"cache:fallback({e})"
+            fallback.pop("source", None)   # 同上：降级态的源名失真，剥除
             return fallback
         raise
     # 净值序列以 lsjz 最新一条为准确认口径（两者都是官方净值，仅校验日期齐不齐）

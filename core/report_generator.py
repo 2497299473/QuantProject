@@ -24,6 +24,19 @@ def _fund_table(signals: dict) -> str:
     return "\n".join(rows)
 
 
+def source_trace_notes(signals: dict) -> list[str]:
+    """步 5 source trace 单一事实源：fresh 且实际源 ≠ eastmoney（主源）→ 换源提示行。
+
+    `report_generator._data_source_notice`（落盘报告）与 `notify._build_card`
+    （飞书卡片）共用，避免两处判定漂移。cache / cache:fallback 态不参与
+    （data_loader 已剥除 stale source 键）。
+    """
+    return [f"{code}（实际来源 {s['source']}，东财主源本次未取到）"
+            for code, s in signals.items()
+            if not s.get("_source", "fresh").startswith("cache")
+            and s.get("source") and s["source"] != "eastmoney"]
+
+
 def _data_source_notice(signals: dict) -> str:
     """数据来源透明度提示（融合版增强：吸收 quant_test 母本的降级告警链路）。
 
@@ -31,18 +44,26 @@ def _data_source_notice(signals: dict) -> str:
     - fresh          本次运行抓取成功 → 不提示
     - cache          TTL 内缓存复用 → 轻提示（净值日期可见）
     - cache:fallback 接口失败降级读缓存 → ⚠️ 显式告警
+
+    步 5 source trace（2026-09-17）：fresh 时 data_loader 附附加键 `source`=实际源名。
+    主源 eastmoney 为默认态不提示；**回落到备源（如 sina）必须显式提示**——
+    这是「多源链换源」这一新行为第一次在报告可见（历史持仓口径不同，值得读者知道）。
     """
-    warns, notes = [], []
+    warns, notes, switched = [], [], []
     for code, s in signals.items():
         src = s.get("_source", "fresh")
         if src.startswith("cache:fallback"):
             warns.append(f"{code}（净值截至 {s['last_nav_date']}）")
         elif src == "cache":
             notes.append(f"{code}（截至 {s['last_nav_date']}）")
+    switched = source_trace_notes(signals)   # 单一事实源，与飞书卡片共用
     lines = []
     if warns:
         lines.append(f"> ⚠️ **数据降级告警**：{'、'.join(warns)} 本次接口抓取失败，"
                      "已使用本地缓存，净值可能非最新，结论仅供参考。")
+    if switched:
+        lines.append(f"> ℹ️ **数据源切换**：{'、'.join(switched)}。备源净值与东财口径"
+                     "逐日同源（新浪 openapi），但披露时点可能略有差异。")
     if notes:
         lines.append(f"<sub>本地缓存复用（TTL 内未重新抓取）：{'、'.join(notes)}。</sub>")
     return "\n".join(lines)

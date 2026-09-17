@@ -113,6 +113,9 @@ def compute_signals(funds: dict[str, dict], lookthrough: dict[str, dict] | None 
             "purchase_status": f.get("purchase_status", ""),
             "redeem_status": f.get("redeem_status", ""),
             "_source": f.get("_source", "fresh"),
+            # 步 5 source trace：fresh 时 data_loader 附的实际取数源（eastmoney/sina）；
+            # cache / cache:fallback 无此键 → 空串，报告层按三态分支处理，不混入。
+            "source": f.get("source", ""),
             "pool_rank_returns": pool_returns,
             "wording": f"总分 {score:+d} · {stance}（弱参考，不构成买卖指令）",
         }

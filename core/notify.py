@@ -62,6 +62,14 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
         fields.append({"is_short": False, "text": {
             "tag": "lark_md",
             "content": f"⚠️ **异常波动**：{', '.join(account['abnormal_alerts'])} 单日涨跌超 2σ"}})
+    # 步 5 source trace：净值实际来源≠东财主源时卡片显式提示（与落盘报告共用判定）
+    from .report_generator import source_trace_notes   # 局部 import：防模块级环
+    switched = source_trace_notes(signals)
+    if switched:
+        fields.append({"is_short": False, "text": {
+            "tag": "lark_md",
+            "content": "ℹ️ **数据源切换**：" + "、".join(switched)
+                       + "。备源与东财口径逐日同源，披露时点可能略有差异。"}})
     if decisions:
         dec_lines = [f"{code}：倾向{d['score']:+d} 候选{d['candidate']} → **{d['action']}**"
                      for code, d in decisions.items()]
