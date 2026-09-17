@@ -55,12 +55,46 @@ GATE_PROXIES = {"512480": "1", "512880": "1", "159915": "0", "512660": "1",
 RELAXED_PROXIES = {"159611": "0", "515220": "1", "159825": "0"}
 SECTOR = "BK0457"
 
+MARKET_PREFIX = {"51": "1", "50": "1", "56": "1", "58": "1",
+                 "15": "0", "16": "0", "18": "0"}   # 与 screen_panel_candidates.MARKET_HINT 同口径
+
 SLEEP_BETWEEN = 2.0          # B 组纪律：序列间隔 >=2s
 CUTOFF = dtime(11, 20)       # R3 硬停线：11:20 起零东财新请求
 CLOSE_TIME = dtime(15, 0)    # 今日 bar 在此之前一律视为未完成
 
 RATE_MARKERS = ("DegradedResponse", "SUSPECT_DEGRADED", "PARSE_MISMATCH",
                 "持仓拉取失败", "年持仓拉取失败")
+
+
+# ---------------------------------------------------------------- D2a 外置追加清单
+
+def _infer_market(code: str) -> str:
+    """码段前缀派生 market（'1' 沪 / '0' 深）。无法判定即抛，不臆猜。"""
+    mkt = MARKET_PREFIX.get(str(code)[:2])
+    if mkt is None:
+        raise ValueError(f"无法从码段判定 market：{code}（请显式登记，勿猜）")
+    return mkt
+
+
+def load_members_file(path: Path) -> list[tuple[str, str]]:
+    """D2a §五：外置采购清单 {"extra_gate_proxies": [...], "extra_relaxed_proxies": [...]}。
+
+    与 build_panel_dlite.apply_members_file 同格式、同「只追加」纪律；本函数只负责
+    把码翻成 (code, market) 供刷新用，不碰面板口径。键名不认即抛（防两处漂移）。
+    """
+    spec = json.loads(Path(path).read_text(encoding="utf-8"))
+    unknown = set(spec) - {"extra_gate_proxies", "extra_relaxed_proxies"}
+    if unknown:
+        raise ValueError(f"采购清单含未知键（只支持 extra_*）：{sorted(unknown)}")
+    add = [str(c) for c in spec.get("extra_gate_proxies", [])]
+    add += [str(c) for c in spec.get("extra_relaxed_proxies", [])]
+    if len(set(add)) != len(add):
+        raise ValueError("采购清单内部有重复")
+    known = set(GATE_PROXIES) | set(RELAXED_PROXIES) | set(FUNDS) | {SECTOR}
+    dup = known & set(add)
+    if dup:
+        raise ValueError(f"采购清单与既有成员重复：{sorted(dup)}")
+    return [(c, _infer_market(c)) for c in add]
 
 
 # ---------------------------------------------------------------- 日历 / 目标日
@@ -152,7 +186,14 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
                     help="只打印计划：零网络、零写入")
+    ap.add_argument("--members", default=None,
+                    help="D2a §五 外置追加采购清单 JSON（只增不改既有 17 序列口径）")
+    ap.add_argument("--only-members", action="store_true",
+                    help="只刷 --members 清单（跳过既有 17 序列）；需与 --members 同用")
     args = ap.parse_args(argv)
+
+    if args.only_members and not args.members:
+        ap.error("--only-members 需要 --members")
 
     now = datetime.now()
     target = latest_closed_trading_day(now)
@@ -160,20 +201,28 @@ def main(argv=None) -> int:
 
     # (kind, code, market, path, json_key)
     members: list[tuple[str, str, str, Path, str]] = []
-    for c in sorted(GATE_PROXIES):
-        members.append(("gate", c, GATE_PROXIES[c], STOCK_DIR / f"{c}.json", "klines"))
-    for c in sorted(RELAXED_PROXIES):
-        members.append(("relaxed", c, RELAXED_PROXIES[c], STOCK_DIR / f"{c}.json", "klines"))
-    for c in FUNDS:
-        members.append(("fund", c, "", FUND_DIR / f"{c}.json", "navs"))
-    members.append(("sector", SECTOR, "", SECTOR_DIR / f"{SECTOR}.json", "klines"))
+    extra: list[tuple[str, str]] = load_members_file(Path(args.members)) if args.members else []
+    if not args.only_members:
+        for c in sorted(GATE_PROXIES):
+            members.append(("gate", c, GATE_PROXIES[c], STOCK_DIR / f"{c}.json", "klines"))
+        for c in sorted(RELAXED_PROXIES):
+            members.append(("relaxed", c, RELAXED_PROXIES[c], STOCK_DIR / f"{c}.json", "klines"))
+        for c in FUNDS:
+            members.append(("fund", c, "", FUND_DIR / f"{c}.json", "navs"))
+        members.append(("sector", SECTOR, "", SECTOR_DIR / f"{SECTOR}.json", "klines"))
+    for c, mkt in extra:
+        members.append(("d2a", c, mkt, STOCK_DIR / f"{c}.json", "klines"))
 
     head = [
         f"# D-lite 面板受控批量刷新 · {now.isoformat(timespec='seconds')}",
         "",
         f"- 目标末根日期（最近已收盘交易日）：**{target}**",
-        f"- 面板成员：{len(members)} 序列（gate {len(GATE_PROXIES)} + relaxed "
-        f"{len(RELAXED_PROXIES)} + fund {len(FUNDS)} + sector 1）",
+        f"- 面板成员：{len(members)} 序列（base gate {len(GATE_PROXIES) if not args.only_members else 0}"
+        f" + relaxed {len(RELAXED_PROXIES) if not args.only_members else 0}"
+        f" + fund {len(FUNDS) if not args.only_members else 0}"
+        f" + sector {1 if not args.only_members else 0}"
+        f" + D2a 追加 {len(extra)}）"
+        + (f"\n- 追加清单来源：`{Path(args.members).name}`" if args.members else ""),
         f"- R3 硬停线：{cutoff.isoformat(timespec='minutes')}（此后零东财新请求）",
         f"- dry-run：{'是' if args.dry_run else '否'}",
         "",
@@ -194,10 +243,10 @@ def main(argv=None) -> int:
         print("\n".join(head))
         return 0
 
-    snapshots: dict[Path, bytes] = {}
+    snapshots: dict[Path, bytes | None] = {}
     for *_, path, _key, _cur, fresh in plan:
-        if path.exists():
-            snapshots[path] = path.read_bytes()
+        # None = 动手前本无此文件 -> 回滚 = 删除（否则盘中半成品会留成全新污染缓存）
+        snapshots[path] = path.read_bytes() if path.exists() else None
 
     results: list[str] = []
     rows: list[str] = []
@@ -229,7 +278,9 @@ def main(argv=None) -> int:
         new = _last_date(path, key)
         action = "REFRESHED" if ok else "FAIL"
         if ok and new is not None and new > target:
-            if path in snapshots:                   # 盘中半成品 -> 当场还原
+            if snapshots.get(path) is None:         # 原本无缓存 -> 删掉本次落的半成品
+                path.unlink(missing_ok=True)
+            else:                                   # 盘中半成品 -> 当场还原
                 path.write_bytes(snapshots[path])
             new = _last_date(path, key)
             action, deg = "REVERTED_SAME_DAY", True
