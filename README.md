@@ -19,7 +19,7 @@
 
 - 代际命名（V4 · 2026-09-16 拍板）：**V4 = 证据链闭环代（Evidence-Contract Generation）**。本行为代际名的**唯一权威落点**。三轴并存、互不覆盖：**Project Generation: V4** / **Engine Version: 4.0.0-decision** / **Forecast Model Version: 3（协议 B1）**。`config.json` 的 `version` 字段被代码引用，**不改**（改它不属于 bug 修复，违反 v0.1 冻结纪律）。历史代际 `V3 = Windows Native Generation / 数据架构重构代` 已封版；文档中**不再使用「README 标题 v5」这类代际混淆写法**。
 
-- 运行环境: **Windows 原生**（2026-09-08 自 WSL Ubuntu 迁至 `D:\PythonProject\QuantV1`；项目自带 `.venv` Python 3.12.13，依赖版本与 WSL 侧锁死一致（见 `requirements.txt`）；全量单测两边均 221/221（3 skip），forecast_v3.pkl 已实测 `load_models()=True`）
+- 运行环境: **Windows 原生**（2026-09-08 自 WSL Ubuntu 迁至 `D:\PythonProject\QuantV1`；项目自带 `.venv` Python 3.12.13，依赖版本与 WSL 侧锁死一致（见 `requirements.txt`）；全量单测入口见「快速开始」，不写死项数，forecast_v3.pkl 已实测 `load_models()=True`）
 - Forecast model version: **3**（B1 双列 14 维，MODEL_VERSION 闸）
 - Production status: **BLOCKED**（model_ready=false，动作层 history_validated=false 锁死）
 - T+5 方向: **PARTIAL**（pooled RankIC +0.080 CI[+0.020,+0.140] 显著，最近窗 -0.051 衰减）
@@ -33,8 +33,9 @@
 - Drift: **MONITOR LIVE**（drift_monitor_20260901：covered_pct/composite 真实漂移，est_chg 折 4 PSI 0.453 显著；观察层不绑 verdict）
 - Market Context: **v0.1 封版，观察期**（09-02 上线 → 09-03 v0.1 → 09-04 封版；每日 11:30/14:55 快照落盘 `data/market_context/` + `history.jsonl`；指标定义冻结至满 60 有效交易日，期间不改口径）
 - Market Context OOS: **EVIDENCE ACCUMULATION**（usable_for_oos 逐日标记；满 60 日先做独立 OOS，再测对 T+5 Forecast 的增量价值）
-- 运行退出码: **0=SUCCESS / 2=DEGRADED / 1=FAILED**（2026-09-16 落地；降级项写 `output/run_manifest/run_manifest_<run_id>.json`，含 data / lookthrough / intraday_features / market_context / report / notification / shadow 逐环状态 + `degraded_reasons`。`exit=0` 从此等价于「本次证据链完整」，不再等价于「程序没崩」）
+- 运行退出码: **0=SUCCESS / 2=DEGRADED / 1=FAILED**（2026-09-16 落地；2026-09-17 校正语义。降级项写 `output/run_manifest/run_manifest_<run_id>.json`，含 data / lookthrough / realtime / intraday_features / market_context / report / notification / shadow 逐环状态 + `degraded_reasons`。语义：`exit=0` = 本次运行**未触发任何已定义降级条件**；`exit=2` = 运行完成但证据链 DEGRADED；`exit=1` = 核心流程失败。**清单自身落盘失败也计 DEGRADED（exit=2）**，监控侧以「exit=2 且本次 run_id 无对应清单」识别 `run_manifest_write_failed`）
 - 证据通道隔离: **ENFORCED**（2026-09-16；`approved_full` / `prereg_degraded` / `legacy_invalid` 三通道默认禁止跨通道聚合；读取一律走 `shadow_policy.load_records_by_channel()`，`--channels` 清点、`--archive-legacy` 把 36 条 legacy 搬出活跃流）
+- 审计状态机: **四层独立（2026-09-17）**（`audit_project.py` 输出 `audit_health` / `model_promotion` / `action_enable` / `production_status` 四层，互不替代。当前=`PASS_WITH_WARNINGS` / `BLOCKED` / `HOLD_ONLY` / `BLOCKED`。**审计健康 ≠ 生产资格**：0 FAIL 不得推出生产可用——旧版把 0 FAIL 直接打印成 `PRODUCTION: NOT BLOCKED` 属状态机错误，已修。结果落 `output/audit_current.json`（唯一当前指针）+ `output/audit_history/`（只增不删）；`--no-write` 为只读复核。JSON `schema_version=2.0`，旧 `production` 字段保留兼容但只反映审计 FAIL 数）
 - 数据快照 manifest: **REGENERATED (2026-09-16)**（`data_fingerprint.py` → `data/manifest.json`，351 个文件；此前版本停留 2026-08-31 且 `root` 残留 WSL 路径，已纠正为 `D:\PythonProject\QuantV1\data`。旧版归档至 `data/manifest_history/manifest_20260831T091253.json`——12 条前瞻 shadow 记录内嵌的 `afd156ab12a3bff1` 由此仍可解析）
 - Forecast/Policy 整合: **LOCKED**（Market Context 仅描述性标签，不进 Forecast、不进 Policy、不改任何门禁）
 - Intraday delta: **DATA ACCUMULATION**（配对日 < 15 门槛，不产 verdict）
@@ -52,7 +53,10 @@ python run.py --slot post         # 收盘前 14:55 · 决策窗口（读 11:30 
 python run.py --slot post --force # 非交易日强制执行（周末/节假日调试）
 python run.py --no-push           # 只落盘报告，不推送飞书
 python run.py --no-lookthrough    # 跳过重仓股穿透（省网络请求）
-python -m unittest discover -s tests -v    # 全部单测（281 项，3 skip）
+python -m unittest discover -s tests -v    # 全量单测（套件位于 tests/，项数不写死）
+python run_tests.py --layer fast           # 分层快跑：纯函数/契约（日常开发，秒级）
+python run_tests.py --layer slow           # 分层慢跑：模型/回测/真实数据耦合
+python audit_project.py                    # V4 审计契约 → audit_current.json + audit_history/
 python backtest_action.py         # 动作收益回测（加/减/不动 vs 不动，解锁动作层的唯一证据）
 python backtest_lookthrough.py    # 穿透信号回测（第四因子裁决依据）
 python backtest_chanlun.py        # 缠论事件回测（观察层裁决依据）
@@ -108,6 +112,8 @@ QuantV1/
 ├── holdings.example.json    # 持仓模板（首次使用复制为 holdings.json 再填真实值）
 ├── .env.example             # 飞书 webhook + 可选 TUSHARE_TOKEN（个股K线备源）
 ├── run.py                   # 主入口：实时行情→特征→快照/决策全链路 + 节假日过滤 + 日志
+├── run_tests.py             # 分层测试执行器（fast/slow，unittest 原生，无需 pytest）
+├── audit_project.py         # V4 审计契约（只读/零网络）→ 四层状态 + current/history 留档
 ├── backtest_action.py       # 【v4 新增】动作收益回测（加/减/不动 vs 不动 → 动作层解锁证据）
 ├── backtest_lookthrough.py  # 穿透信号回测（防前视）
 ├── backtest_chanlun.py      # 缠论买卖点事件回测（防前视）
@@ -134,8 +140,9 @@ QuantV1/
 ├── data/stock_klines/       # 个股K线缓存（TTL 12h）
 ├── data/intraday/           # 【v4 新增】日内特征快照（保留最近 30 个）
 ├── backups/                 # 重构前代码备份（backups/20260825-v4/）
-├── tests/                   # 单测：契约/PIT/预测/门禁/影子通道（281 项，3 skip）
-├── output/                  # 报告 + 回测报告 + logs/ 运行日志（保留 180 次）
+├── tests/                   # 单测：契约/PIT/预测/门禁/影子通道（分层清单见 tests/layers.py）
+│   └── layers.py            # 测试分层唯一事实来源（fast/slow），conftest.py 映射 pytest marker
+├── output/                  # 报告 + 回测报告 + logs/；audit_current.json（当前审计指针）+ audit_history/
 └── deploy/                  # Windows 部署：定时任务（11:30/14:55）+ 桌面快捷方式
 ```
 
