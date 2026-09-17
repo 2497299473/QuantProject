@@ -2,9 +2,9 @@
 
 已落地：
 - stock_tencent.py / stock_eastmoney.py / stock_tushare.py   ← 步 2（2026-09-17）
+- realtime_tencent.py                                         ← 步 3（2026-09-17）
 
 待落地：
-- realtime_tencent.py                                         ← 步 3 迁自 real_time.py
 - fund_eastmoney.py / fund_sina.py                            ← 步 4 迁自 data_loader.py
   与 experiments/sina_nav_redundant/pull_sina_nav.py
 
