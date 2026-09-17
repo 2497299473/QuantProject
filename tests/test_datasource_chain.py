@@ -206,12 +206,47 @@ class TestRunChain(unittest.TestCase):
 class TestSkeletonGuards(unittest.TestCase):
     """硬约束的回归锚点：骨架不得偷偷引入网络 / 缓存 / 副作用。"""
 
-    def test_providers_dir_empty_of_modules(self):
-        # 步 1 验收：骨架不接任何 provider
+    def test_providers_dir_matches_migration_steps(self):
+        # 步 2 起 providers/ 允许有实现；本守护防止「悄悄加源」绕过迁移步序
         pkg = BASE_DIR / "core" / "datasource" / "providers"
         mods = {p.name for p in pkg.glob("*.py")}
-        self.assertEqual(mods, {"__init__.py"},
-                         "providers/ 出现新文件时请同步更新本守护与迁移步序")
+        self.assertEqual(mods, {"__init__.py", "stock_tencent.py",
+                               "stock_eastmoney.py", "stock_tushare.py"},
+                         "providers/ 文件集变化时请同步更新本守护与迁移步序")
+
+    def test_provider_classes_expose_contract_attrs(self):
+        # 契约字段齐备：chain/registry 依赖 name/category/priority/timeout_s
+        from core.datasource.providers.stock_eastmoney import EastmoneyKlineProvider
+        from core.datasource.providers.stock_tencent import TencentKlineProvider
+        from core.datasource.providers.stock_tushare import TushareKlineProvider
+        expected = [("tencent", 0), ("eastmoney", 1), ("tushare", 2)]
+        got = [(p().name, p().priority) for p in
+               (TencentKlineProvider, EastmoneyKlineProvider, TushareKlineProvider)]
+        self.assertEqual(got, expected)
+        for cls in (TencentKlineProvider, EastmoneyKlineProvider, TushareKlineProvider):
+            inst = cls()
+            self.assertEqual(inst.category, "stock_kline")
+            self.assertGreater(inst.timeout_s, 0)
+            self.assertTrue(callable(inst.fetch))
+
+    def test_providers_reach_network_only_through_netutil(self):
+        # 传输层单一入口：providers 只许 import ...netutil，不得自带网络客户端
+        import ast
+        pkg = BASE_DIR / "core" / "datasource" / "providers"
+        for py in pkg.glob("*.py"):
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+            imported: list[str] = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imported += [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imported.append(node.module)
+            for n in imported:
+                if n.split(".")[-1] in {"netutil"}:
+                    continue
+                self.assertNotIn(n.split(".")[0],
+                                 {"requests", "httpx", "urllib", "socket", "curl_cffi"},
+                                 f"{py.name} 直接引入网络依赖 {n}：应经 ...netutil")
 
     def test_no_networking_imports_in_package(self):
         import ast

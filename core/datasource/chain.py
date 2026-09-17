@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from .base import FetchResult, Provider
+from .base import PROTOCOL, FetchResult, Provider
 from .health import HealthTracker
 
 
@@ -54,7 +54,7 @@ def run_chain(chain: list[Provider], *,
             result = provider.fetch(**params)
         except Exception as exc:  # 协议违反兜底：不让一个坏 provider 打断整条链
             result = FetchResult(ok=False, source=provider.name,
-                                 error=f"protocol:{type(exc).__name__}: {exc}")
+                                 error=f"{PROTOCOL}{type(exc).__name__}: {exc}")
         elapsed_ms = int((time.monotonic() - started) * 1000)
         # 用 provider 自己的计时（若给了），否则用包裹层墙钟
         latency = result.latency_ms if result.latency_ms else elapsed_ms
