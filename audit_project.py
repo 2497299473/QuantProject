@@ -23,13 +23,15 @@
 from __future__ import annotations
 
 import argparse
+import ast
+import bisect
 import hashlib
 import json
 import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -143,23 +145,115 @@ def _models() -> dict:
 
 # ---------------------------------------------------------------- P0 研究有效性
 
+# --- PIT 前视防护（语义判据，2026-09-17 由字面量匹配改写）-----------------------
+# 原实现只抠源码字面量（有没有 `_QTR_LAG =` 与「公告日」字样）：既会把改名误判成
+# PASS，也验证不了真正要紧的安全属性。现核验两条语义属性：
+#   ① 安全：生效日滞后 ≥ 法定披露时限折算下界（低于即对「卡时限才披露」的基金存在前视）；
+#   ② 诚实：源码如实声明该滞后是「法定时限下界」，不冒充真实公告日
+#      （东财 F10 无公告日字段，2026-09-17 实测；真实公告日无零网络来源）。
+# 法定披露时限（公开规则）：季报 15 个交易日 / 半年报 60 自然日 / 年报 90 自然日。
+_LEGAL_QTR_WORKING_DAYS = 15
+_LEGAL_HALF_CAL_DAYS = 60
+_LEGAL_YEAR_CAL_DAYS = 90
+PIT_SRC = BASE_DIR / "core" / "lookthrough.py"
+PIT_CALENDAR = DATA / "stock_klines" / "510300.json"
+
+
+def pit_trading_days() -> list[str] | None:
+    """本地交易日历（面板 K 线日期列）；不可得返回 None（判据降级 WARN，不臆断）。"""
+    raw = load_json(PIT_CALENDAR)
+    kl = raw.get("klines") if isinstance(raw, dict) else raw
+    if not isinstance(kl, list):
+        return None
+    out: list[str] = []
+    for r in kl:
+        if isinstance(r, (list, tuple)) and r and isinstance(r[0], str):
+            out.append(r[0][:10])
+        elif isinstance(r, dict):
+            d = r.get("date") or r.get("day") or r.get("datetime")
+            if isinstance(d, str):
+                out.append(d[:10])
+    return sorted(set(out)) or None
+
+
+def pit_lag_floor(mmdd: str, tdays: list[str], years: list[int],
+                  today: str) -> int | None:
+    """某季末口径的滞后下界（天）= max(法定最晚披露日 − 报告期)，按真实交易日历。"""
+    floors: list[int] = []
+    for y in years:
+        p = f"{y}-{mmdd}"
+        if p > today:
+            continue
+        if mmdd in ("03-31", "09-30"):                       # 15 个交易日
+            j = bisect.bisect_right(tdays, p) + _LEGAL_QTR_WORKING_DAYS - 1
+            if j >= len(tdays):
+                continue
+            dl = tdays[j]
+        else:                                                # 60 / 90 个自然日
+            n = _LEGAL_HALF_CAL_DAYS if mmdd == "06-30" else _LEGAL_YEAR_CAL_DAYS
+            dl = (datetime.strptime(p, "%Y-%m-%d")
+                  + timedelta(days=n)).strftime("%Y-%m-%d")
+        floors.append((datetime.strptime(dl, "%Y-%m-%d")
+                       - datetime.strptime(p, "%Y-%m-%d")).days)
+    return max(floors) if floors else None
+
+
 def check_pit(a: Audit) -> None:
-    src = BASE_DIR / "core" / "lookthrough.py"
-    txt = src.read_text(encoding="utf-8") if src.is_file() else ""
+    """PIT 前视防护：滞后下界 ≥ 法定时限（安全）+ 如实声明（诚实）。"""
+    cid, axis = "P0-1", "P0-研究有效性"
+    title = "PIT 无前视（生效日滞后 ≥ 法定披露时限）"
+    txt = PIT_SRC.read_text(encoding="utf-8") if PIT_SRC.is_file() else ""
     if not txt:
-        a.add("P0-1", "P0-研究有效性", "PIT 使用真实公告日", WARN, "core/lookthrough.py 未找到")
+        a.add(cid, axis, "PIT 前视防护", WARN, "core/lookthrough.py 未找到")
         return
-    fixed_lines = [i + 1 for i, ln in enumerate(txt.splitlines()) if "_QTR_LAG =" in ln]
-    has_announce = bool(re.search(r"ann_date|announce_date|公告日|披露日", txt))
-    if fixed_lines and not has_announce:
-        a.add("P0-1", "P0-研究有效性", "PIT 使用真实公告日（非固定滞后）", FAIL,
-              "仍用固定滞后 _QTR_LAG（core/lookthrough.py "
-              + ",".join(f"L{n}" for n in fixed_lines) + "）；未见公告日字段")
-    elif fixed_lines and has_announce:
-        a.add("P0-1", "P0-研究有效性", "PIT 使用真实公告日（非固定滞后）", WARN,
-              "同时存在固定滞后与公告日逻辑，需人工确认生效路径")
+
+    m = re.search(r"^_QTR_LAG\s*=\s*(\{[^}]*\})", txt, re.M)
+    if not m:
+        a.add(cid, axis, title, FAIL, "core/lookthrough.py 未声明生效日滞后表 _QTR_LAG")
+        return
+    try:
+        lag = ast.literal_eval(m.group(1))
+    except (ValueError, SyntaxError):
+        a.add(cid, axis, title, FAIL, "滞后表 _QTR_LAG 无法解析")
+        return
+    if not isinstance(lag, dict) or not lag:
+        a.add(cid, axis, title, FAIL, "滞后表 _QTR_LAG 非非空映射")
+        return
+
+    # 诚实性：如实声明为「法定时限下界」，不冒充真实公告日
+    declared = bool(re.search(
+        r"法定.{0,8}(时限|下界)|披露.{0,6}(时限|下界)|非.{0,8}公告日", txt))
+
+    tdays = pit_trading_days()
+    years = (load_json(BASE_DIR / "config.json") or {}).get(
+        "lookthrough", {}).get("history_years") or []
+    if tdays is None or not years:
+        a.add(cid, axis, title, WARN,
+              f"本地交易日历或 history_years 不可得，下界无法核验"
+              f"（已声明下界={declared}，滞后={lag}）")
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    floors, bad = {}, []
+    for mmdd in ("03-31", "06-30", "09-30", "12-31"):
+        fl = pit_lag_floor(mmdd, tdays, [int(y) for y in years], today)
+        if fl is None:
+            continue
+        floors[mmdd] = fl
+        cur = lag.get(mmdd)
+        if not isinstance(cur, int) or cur < fl:
+            bad.append(f"{mmdd}: {cur} < {fl}")
+
+    if bad:
+        a.add(cid, axis, title, FAIL,
+              "生效日滞后低于法定披露下界，存在前视：" + "；".join(bad))
+    elif not declared:
+        a.add(cid, axis, title, WARN,
+              f"滞后均达标（下界 {floors}，当前 {lag}），但源码未如实声明为"
+              "「法定时限下界」（勿冒充真实公告日）")
     else:
-        a.add("P0-1", "P0-研究有效性", "PIT 使用真实公告日（非固定滞后）", PASS, "")
+        a.add(cid, axis, title, PASS,
+              f"下界 {floors}；当前 {lag} 均达标；已声明为法定时限下界（非真实公告日）")
 
 
 def check_holdings_privacy(a: Audit) -> None:
