@@ -7,6 +7,7 @@
     python3 run.py --slot post     # 14:55 收盘前·决策窗口
     python3 run.py --slot post --force     # 非交易日也强制执行
     python3 run.py --slot post --no-push   # 只落盘报告，不推送飞书
+    python3 run.py --no-publish-gate       # 调试逃生口：跳过发布资格门禁照常推
     python3 run.py --no-lookthrough        # 跳过重仓股穿透（省网络请求）
 
 v4 数据流（2026-08-25，GPT-5.6 诊断落地 + 项目回测铁律融合）：
@@ -36,6 +37,7 @@ from core import intraday_feature_store as feat_store
 from core import forecast_engine
 from core import decision_engine
 from core import market_context
+from audit_project import publish_gate   # 发布资格单一来源（本文件只调不裁决）
 
 _LOG: list[str] = []
 
@@ -256,6 +258,8 @@ def main() -> int:
     parser.add_argument("--slot", choices=["pre", "mid", "post"], help="时点（缺省按时钟自动判断）")
     parser.add_argument("--force", action="store_true", help="非交易日也强制执行")
     parser.add_argument("--no-push", action="store_true", help="不推送飞书，只落盘报告")
+    parser.add_argument("--no-publish-gate", action="store_true",
+                        help="调试逃生口：跳过发布资格门禁照常推送（审计可查，须慎用）")
     parser.add_argument("--refresh", action="store_true", help="忽略净值缓存强制重新抓取")
     parser.add_argument("--no-lookthrough", action="store_true", help="跳过重仓股穿透观察（省网络请求）")
     args = parser.parse_args()
@@ -437,20 +441,52 @@ def _run(args, now: datetime) -> int:
     if append_obsidian_log(slot, signals, account, now):
         log(f"[obs ] 盘后信号已追加 → Obsidian 信号流水")
 
+    # 发布资格门禁（V4-A，2026-09-17，方案 A 整批裁决）：本次内存证据 + 当日
+    # 已落盘清单并集判定；任一只持有基金带降级 ⇒ 整批不推。用闭包延迟求值：
+    # post 推送时本次清单尚未落盘，extra 必须带上当下 degraded，否则只审上午旧账。
+    # 注：论域由 audit_project 侧从 holdings.json 取（shares>0），此处不得把代码
+    # 写进清单——output/run_manifest/ 随仓库跟踪，写入即泄露持仓（P0-2）。
+    gate_structured = {
+        "data": {"failed": fund_failures},
+        "lookthrough": {"missing": lt_missing},
+        "realtime": {"failed": realtime_failures, "degraded": realtime_degraded},
+    }
+
+    def gate_eval():
+        current = [r for r in degraded if r != "feishu_push_failed"]
+        return publish_gate(now, extra=[(current, gate_structured)])
+
     if args.no_push:
         log("[push] --no-push 指定，跳过飞书推送")
         push_status = {"ok": None, "reason": "skipped_no_push"}
+    elif args.no_publish_gate:
+        gate = gate_eval()
+        log(f"[gate] --no-publish-gate 指定，跳过发布资格门禁（本次评估：{gate['detail']}）")
+        push_status = {"ok": None, "reason": "skipped_gate_flag",
+                       "gate": {"ok": gate["ok"], "reason": gate["reason"]}}
+        degraded.append("publish_gate_bypassed")   # 不静默绕闸：exit=2 留痕可审计
     else:
-        result = notify.push_feishu(slot, signals, account, realtime, decisions)
-        if result.get("ok"):
-            log("[push] 飞书推送成功")
-            push_status = {"ok": True, "reason": None}
+        gate = gate_eval()
+        if not gate["ok"]:
+            log(f"[gate] 发布资格拦截：{gate['detail']}")
+            # 清单会随仓库跟踪：只落计数与原因，真实代码只进本地日志（P0-2）。
+            push_status = {"ok": None, "reason": "blocked_publish_gate",
+                           "gate": {"ok": False, "reason": gate["reason"],
+                                    "n_contaminated": len(gate["contaminated"]),
+                                    "n_universe": len(gate["universe"])}}
+            degraded.append(f"publish_gate_blocked:{gate['reason']}")
         else:
-            push_status = {"ok": False,
-                           "reason": str(result.get("reason") or result.get("error")
-                                         or result.get("response"))[:200]}
-            degraded.append("feishu_push_failed")
-            log(f"[push] 飞书推送未成功（{push_status['reason']}）")
+            result = notify.push_feishu(slot, signals, account, realtime, decisions)
+            if result.get("ok"):
+                log("[push] 飞书推送成功")
+                push_status = {"ok": True, "reason": None,
+                               "gate": {"ok": True, "reason": None}}
+            else:
+                push_status = {"ok": False,
+                               "reason": str(result.get("reason") or result.get("error")
+                                             or result.get("response"))[:200]}
+                degraded.append("feishu_push_failed")
+                log(f"[push] 飞书推送未成功（{push_status['reason']}）")
 
     # Shadow Policy 日记录（2026-09-01，P1-⑦）：post 时点跑一次，只记录不执行。
     # shadow_policy.py 自带幂等（同日同基金跳过）与冻结模型校验，失败不阻断主流程，

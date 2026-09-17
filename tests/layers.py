@@ -34,6 +34,7 @@ LAYERS: dict[str, str] = {
     "test_intraday.py": FAST,
     "test_layers.py": FAST,
     "test_model_registry.py": FAST,
+    "test_publish_gate.py": FAST,       # 全程 tempdir 造证据，零网络不碰真实 output/
     "test_pit_guard.py": FAST,
     "test_run_manifest.py": FAST,      # 全程 tempdir，不碰真实 data/ 与 output/
     "test_quantile_calib.py": FAST,
