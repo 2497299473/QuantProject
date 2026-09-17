@@ -1,0 +1,138 @@
+{
+  "schema_version": "2.0",
+  "generated_at": "2026-09-17T12:45:13",
+  "project": "D:\\PythonProject\\QuantV1",
+  "summary": {
+    "PASS": 14,
+    "FAIL": 0,
+    "WARN": 2
+  },
+  "audit_health": "PASS_WITH_WARNINGS",
+  "model_promotion": "BLOCKED",
+  "action_enable": "HOLD_ONLY",
+  "production_status": "BLOCKED",
+  "inputs": {
+    "model_ready": false,
+    "history_validated": false,
+    "blocked_models": [
+      "forecast_v2.pkl",
+      "forecast_v3.pkl"
+    ]
+  },
+  "production": "NOT BLOCKED",
+  "legacy_note": "'production' 为旧字段（仅反映审计 FAIL 数，不代表生产资格）；请以 production_status 为准。",
+  "checks": [
+    {
+      "cid": "P0-1",
+      "axis": "P0-研究有效性",
+      "title": "PIT 无前视（生效日滞后 ≥ 法定披露时限）",
+      "status": "PASS",
+      "detail": "下界 {'03-31': 25, '06-30': 60, '09-30': 29, '12-31': 90}；当前 {'03-31': 25, '06-30': 65, '09-30': 30, '12-31': 95} 均达标；已声明为法定时限下界（非真实公告日）"
+    },
+    {
+      "cid": "P0-2",
+      "axis": "P0-研究有效性",
+      "title": "持仓文件未进入版本库",
+      "status": "PASS",
+      "detail": "未被跟踪"
+    },
+    {
+      "cid": "P0-3",
+      "axis": "P0-研究有效性",
+      "title": "数据快照可回溯（内嵌 hash 可解析）",
+      "status": "PASS",
+      "detail": "当前 b8f840a07e9a3923；归档 1 版；journal 内嵌 1 个 hash（12 条记录）"
+    },
+    {
+      "cid": "P0-4",
+      "axis": "P0-研究有效性",
+      "title": "数据快照新鲜度",
+      "status": "PASS",
+      "detail": "generated_at=2026-09-16T18:12:40 · n_files=351 · 年龄 0 天"
+    },
+    {
+      "cid": "P1-1",
+      "axis": "P1-证据链",
+      "title": "模型权重 sha256 与注册表一致",
+      "status": "PASS",
+      "detail": "2 个模型"
+    },
+    {
+      "cid": "P1-2",
+      "axis": "P1-证据链",
+      "title": "验证报告 sha256 与注册表绑定一致",
+      "status": "PASS",
+      "detail": "2 份报告"
+    },
+    {
+      "cid": "P1-3",
+      "axis": "P1-证据链",
+      "title": "promotion 与 config.model_ready 一致",
+      "status": "PASS",
+      "detail": "model_ready=False；blocked 2 个"
+    },
+    {
+      "cid": "P1-4",
+      "axis": "P1-证据链",
+      "title": "动作层历史验证硬门禁",
+      "status": "PASS",
+      "detail": "history_validated=False"
+    },
+    {
+      "cid": "P1-5",
+      "axis": "P1-证据链",
+      "title": "影子证据通道隔离",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "cid": "P1-6",
+      "axis": "P1-证据链",
+      "title": "legacy_invalid 已移出活跃流",
+      "status": "PASS",
+      "detail": "活跃流分布 {'prereg_degraded': 12}"
+    },
+    {
+      "cid": "P1-7",
+      "axis": "P1-证据链",
+      "title": "运行清单已实际产出",
+      "status": "PASS",
+      "detail": "1 份；最新 run_manifest_20260917_113003_mid.json status=SUCCESS"
+    },
+    {
+      "cid": "P1-8",
+      "axis": "P1-证据链",
+      "title": "审批绑定数据快照 + 代码版本",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "cid": "P2-1",
+      "axis": "P2-工程卫生",
+      "title": "manifest 原子写",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "cid": "P2-2",
+      "axis": "P2-工程卫生",
+      "title": "Tushare 走 HTTPS",
+      "status": "WARN",
+      "detail": "core\\stock_data.py:L66"
+    },
+    {
+      "cid": "P2-3",
+      "axis": "P2-工程卫生",
+      "title": "测试分层（fast/slow）",
+      "status": "WARN",
+      "detail": "测试文件 30 个；pytest 配置 无；markers 无"
+    },
+    {
+      "cid": "P2-4",
+      "axis": "P2-工程卫生",
+      "title": "密钥文件未入库",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}
