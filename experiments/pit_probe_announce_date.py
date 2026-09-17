@@ -84,19 +84,31 @@ def check_gates() -> list[tuple[str, bool, str]]:
     out: list[tuple[str, bool, str]] = []
     today = datetime.date.today().isoformat()
 
-    # 1. 上游已跑完：当日 daily_runs 存在且非空
-    #    语义保持从严（不存在即 FAIL），只把「未到点」与「应有而未有」区分开，
-    #    避免 09:30 前的合法空窗被误读成任务挂了。
-    dr = BASE_DIR / "output" / "daily_runs" / f"{today}.md"
-    ok1 = dr.is_file() and dr.stat().st_size > 200
-    if ok1:
-        detail1 = f"{dr.name} size={dr.stat().st_size}"
+    # 1. 上游已跑完：看**当日受控批量刷新**记录 output/ops_runs/{today}-dlite-refresh.md。
+    #    2026-09-17 10:32 复核：原判据查 output/daily_runs/{today}.md 指错了目录——该目录
+    #    是日终作业产物（历史文件 mtime 全在 22:30~01:14），上午发单永远 FAIL＝坏传感器。
+    #    语义仍从严：记录不存在 / 过小 / 非当日写入 / 记了停手，任一即 FAIL。
+    dr = BASE_DIR / "output" / "ops_runs" / f"{today}-dlite-refresh.md"
+    if dr.is_file() and dr.stat().st_size > 200:
+        mday = datetime.date.fromtimestamp(dr.stat().st_mtime).isoformat()
+        try:
+            body = dr.read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            body, mday = "", "unreadable"
+            print(f"  [warn] 读上游记录失败：{type(e).__name__}: {e}")
+        stopped = ("停手：是" in body) or ("停手: 是" in body)
+        ok1 = (mday == today) and not stopped
+        detail1 = (f"{dr.name} size={dr.stat().st_size} mtime={mday}"
+                   + ("（停手记录）" if stopped else "")
+                   + ("" if mday == today else "（非当日写入）"))
     elif dr.is_file():
+        ok1 = False
         detail1 = f"{dr.name} 过小({dr.stat().st_size}B)，疑未写完"
     else:
-        pre_first = datetime.datetime.now().hour < 9   # 09:30 晨检是当日第一个上游
-        detail1 = f"{dr.name} 不存在" + ("（当日首个上游 09:30 未到点）" if pre_first
-                                       else "（09:30 已过而仍无记录）")
+        ok1 = False
+        pre_first = datetime.datetime.now().hour < 9   # 晨检是当日第一个上游
+        detail1 = f"{dr.name} 不存在" + ("（当日首个上游未到点）" if pre_first
+                                       else "（上游未到点或已失败）")
     out.append(("上游已跑完", ok1, detail1))
 
     # 2. 无频控征兆：这里只做「当日请求计数未超」的静态检查；
