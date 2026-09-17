@@ -206,6 +206,71 @@ class TestRunWiring(unittest.TestCase):
         self.assertIn('"feishu_push_failed"', self.src)
 
 
+class TestLastRunWins(GateHarness):
+    """逐基金干净与否以「最后一次完整评估」为准；运行级证据全天粘性。"""
+
+    def setUp(self):
+        super().setUp()
+        self.set_holdings(**{"000001": 100.0, "512890": 200.0})
+
+    def _full(self, degraded=(), data_fail=(), lt_missing=(), rt_fail=(), rt_deg=()):
+        """构造一份「完整评估」清单（四节键位齐全且 data.ok=True）。"""
+        return {"data": {"ok": not data_fail, "failed": list(data_fail),
+                         "n_funds": 2},
+                "lookthrough": {"ok": not lt_missing, "missing": list(lt_missing)},
+                "realtime": {"ok": not (rt_fail or rt_deg),
+                             "failed": list(rt_fail), "degraded": list(rt_deg)}}
+
+    def test_recovered_fund_unblocks_batch(self):
+        """S1：mid 一只行情 degraded，post 全恢复且完整评估 ⇒ 放行（核心诉求）。"""
+        self.manifest("20260917_113003_mid", ["realtime_degraded:000001"],
+                      self._full(rt_deg=["000001"]))
+        self.manifest("20260917_145500_mid", [], self._full())
+        g = self.gate()
+        self.assertTrue(g["ok"], g["detail"])
+        self.assertEqual(g["superseded"], {"000001": ["realtime_degraded:000001"]},
+                         "被覆盖的旧问题要留观测痕迹，但不影响裁决")
+        self.assertEqual(g["n_assess_runs"], 2)
+
+    def test_still_dirty_at_last_run_still_blocks(self):
+        """S2：末轮同一只基金仍不干净 ⇒ 照拦，措辞指向末轮证据。"""
+        self.manifest("20260917_113003_mid", ["realtime_degraded:000001"],
+                      self._full(rt_deg=["000001"]))
+        self.manifest("20260917_145500_mid", ["lookthrough_missing:000001"],
+                      self._full(lt_missing=["000001"]))
+        g = self.gate()
+        self.assertFalse(g["ok"])
+        self.assertEqual(g["contaminated"]["000001"], ["lookthrough_missing:000001"])
+
+    def test_incomplete_last_run_falls_back_to_union(self):
+        """S3：末轮证据残缺（无 realtime 节）⇒ 不得洗白，回落到全天并集。"""
+        self.manifest("20260917_113003_mid", ["realtime_degraded:000001"],
+                      self._full(rt_deg=["000001"]))
+        self.manifest("20260917_145500_mid", [], {"data": {"ok": True, "failed": []}})
+        g = self.gate()
+        self.assertFalse(g["ok"], "没评估过逐基金的那轮不得覆盖旧账")
+        self.assertEqual(g["n_assess_runs"], 1)
+
+    def test_run_level_problem_stays_sticky_all_day(self):
+        """S4：运行级问题（池内非持仓基金数据挂）末轮干净也全天粘。"""
+        self.manifest("20260917_113003_mid", ["fund_data_partial:022853"],
+                      {"data": {"ok": False, "failed": ["022853"], "n_funds": 3},
+                       "lookthrough": {"ok": True, "missing": []},
+                       "realtime": {"ok": True, "failed": [], "degraded": []}})
+        self.manifest("20260917_145500_mid", [], self._full())
+        g = self.gate()
+        self.assertFalse(g["ok"], "市场级缺位不是逐基金 last-run-wins 能洗白的")
+        self.assertEqual(g["run_level"], ["fund_data_partial:022853"])
+
+    def test_memory_extra_is_the_last_word(self):
+        """run.py 的本次内存证据排在所有落盘清单之后 ⇒ 它就是「最后一次」。"""
+        self.manifest("20260917_113003_mid", ["realtime_degraded:000001"],
+                      self._full(rt_deg=["000001"]))
+        g = self.gate(extra=[([], self._full())])
+        self.assertTrue(g["ok"], g["detail"])
+        self.assertEqual(sorted(g["eligible"]), ["000001", "512890"])
+
+
 class TestAuditIntegration(GateHarness):
     def test_check_publish_gate_is_warn_not_fail(self):
         """污染时 WARN：审计 FAIL 数继续只度量静态审计（防 audit→gate 自锁）。"""

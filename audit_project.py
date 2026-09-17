@@ -514,6 +514,28 @@ def attribute_degradations(reasons, structured, universe):
     return run_level, per_fund
 
 
+def fund_evidence_complete(m: dict) -> bool:
+    """本轮清单是否对论域做过完整逐基金评估（last-run-wins 的「可作准」条件）。
+
+    四个逐基金字段的 ok/failed 必须全部在场且 data.ok=True（基金数据拉了但
+    部分失败 ⇒ 评估残缺）。**故意不看** lookthrough.ok / market_context.ok：
+    这些是运行级问题，由 run_level 全天粘性另行拦截，不得让它们在「覆盖」时
+    顺便把逐基金 last-run-wins 也否掉（那是双重惩罚，也非本函数职责）。
+    """
+    def sect(name):
+        return m.get(name) if isinstance(m.get(name), dict) else {}
+
+    data = sect("data")
+    if data.get("ok") is not True or "failed" not in data:
+        return False
+    for name, keys in (("lookthrough", ("ok", "missing")),
+                       ("realtime", ("ok", "failed", "degraded"))):
+        sec = sect(name)
+        if any(k not in sec for k in keys):
+            return False
+    return True
+
+
 def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
     """飞书发布资格门禁（V4-A，2026-09-17；方案 A 整批裁决，审计侧仅 WARN 呈现）。
 
@@ -544,14 +566,24 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
     uni: set[str] = {str(c) for c in (universe or ())} | set(held_fund_codes())
 
     run_level: list[str] = []
-    per_fund: dict[str, list[str]] = {}
+    per_fund_union: dict[str, list[str]] = {}
+    last_assessed: dict[str, list[str]] | None = None
+    n_assess_runs = 0
     for reasons, m in runs:
         kept = [r for r in reasons
                 if str(r).partition(":")[0] not in GATE_EXCLUDED_REASONS]
         rl, pf = attribute_degradations(kept, m, uni)
         run_level += rl
         for c, rs in pf.items():
-            per_fund.setdefault(c, []).extend(rs)
+            per_fund_union.setdefault(c, []).extend(rs)
+        if fund_evidence_complete(m):
+            n_assess_runs += 1
+            last_assessed = pf          # 逐基金 last-run-wins（覆盖上一轮可恢复问题）
+    # 运行级（市场背景/盘点互除等）全天粘性；逐基金若从未有完整评估轮⇒安并集
+    per_fund = last_assessed if last_assessed is not None else per_fund_union
+    superseded = {c: sorted(set(per_fund_union[c]) - set(per_fund.get(c, ())))
+                  for c in per_fund_union if per_fund is not per_fund_union}
+    superseded = {c: v for c, v in superseded.items() if v}
 
     contaminated = {}
     for c in sorted(uni):
@@ -570,7 +602,8 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
     else:
         reason = None
     if ok:
-        detail = f"当日 {len(runs)} 次证据运行，{len(eligible)}/{len(uni)} 只基金干净 → 可发布"
+        detail = (f"当日 {len(runs)} 次证据运行（{n_assess_runs} 次完整评估），"
+                  f"逐基金以最后一次为准 → {len(eligible)}/{len(uni)} 只干净 → 可发布")
     else:
         parts = []
         if run_level:
@@ -594,6 +627,8 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
             "n_runs": len(runs), "universe": sorted(uni), "eligible": eligible,
             "contaminated": {c: contaminated[c] for c in sorted(contaminated)},
             "run_level": sorted(set(run_level)),
+            "superseded": superseded,      # 早轮脏、末轮已恢复（仅观测，不影响裁决）
+            "n_assess_runs": n_assess_runs,
             "excluded": sorted(GATE_EXCLUDED_REASONS) + ["manifest.notification"],
             "detail": detail}
 
