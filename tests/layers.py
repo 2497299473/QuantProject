@@ -30,6 +30,7 @@ LAYERS: dict[str, str] = {
     "test_datasource_chain.py": FAST,   # fake provider 纯内存，零网络不碰 data/
     "test_datasource_providers.py": FAST,  # stub 掉 netutil，零网络不碰 data/
     "test_realtime_datasource.py": FAST,   # 步 3：stub netutil，零网络不碰 data/
+    "test_fund_datasource.py": FAST,       # 步 4：stub netutil，零网络不碰 data/
     "test_delta_intraday.py": FAST,
     "test_drift_monitor.py": FAST,
     "test_dynamics.py": FAST,

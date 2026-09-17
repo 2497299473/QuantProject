@@ -212,7 +212,8 @@ class TestSkeletonGuards(unittest.TestCase):
         mods = {p.name for p in pkg.glob("*.py")}
         self.assertEqual(mods, {"__init__.py", "stock_tencent.py",
                                "stock_eastmoney.py", "stock_tushare.py",
-                               "realtime_tencent.py"},
+                               "realtime_tencent.py",
+                               "fund_eastmoney.py", "fund_sina.py"},
                          "providers/ 文件集变化时请同步更新本守护与迁移步序")
 
     def test_provider_classes_expose_contract_attrs(self):

@@ -1,22 +1,45 @@
-"""数据层：东方财富免费接口（无需 API Key）。
+"""数据层：东方财富主源 + 新浪备源（基金净值），provider 链装配点（V4 步 4，2026-09-17）。
 
-两个数据源（均已在 2026-08-22 会话验证可用）：
-1. pingzhongdata/{code}.js —— 全量历史净值（含基金名称/费率等元信息）
-2. api.fund.eastmoney.com/f10/lsjz —— 净值明细 + 申购/赎回状态（需带 Referer）
-
-已知失效接口（不要使用）：fundgz 实时估值（404）、fundmobapi（网络繁忙）。
+设计契约（Obsidian《V4数据源层重构方案-SourceRegistry-20260917》硬约束 1/2/4）：
+- 对外签名 `load_fund(code, force_refresh)`、`fetch_pingzhongdata(code)`、
+  `fetch_lsjz(code)` **一字不改**；`_source` 三态 `fresh`/`cache`/`cache:fallback`
+  语义不动（report_generator 按 `cache:fallback` 前缀出告警）。
+- 净值抓取从「东财单源 + 失败读缓存」升级为「SourceRegistry 链：东财 → 新浪」；
+  **全链失败才降级读缓存**（cache:fallback 语义保持，只是触发条件更宽：任一源失败
+  不再直接 fallback，而是先换源）。链**严格串行**（硬约束 4），无自动并发。
+- `fresh` 结果新增**附加键** `source`（'eastmoney'|'sina'，实际取数源，供步 5 展示层）；
+  不改 `_source` 三态取值域。缓存文件因此多一个键——仅新增维度，消费方按具名键读取。
+- `fetch_lsjz`（申赎状态，东财 f10 独有）不迁移：新浪无对应接口，失败仍不阻断
+  （`_lsjz_error` 留痕，口径同前）。
+- 已知失效接口（不要使用）：fundgz 实时估值（404）、fundmobapi（网络繁忙）。
 本地缓存 data/klines/{code}.json，TTL 内复用，避免同一运行日重复抓取。
 """
 import json
-import re
 import time
 from pathlib import Path
 
 from . import netutil
+from .datasource import SourceRegistry, run_chain
+from .datasource.providers.fund_eastmoney import EastmoneyFundNavProvider
+from .datasource.providers.fund_sina import SinaFundNavProvider
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 BASE_DIR = Path(__file__).resolve().parent.parent
+CATEGORY = "fund_nav"
+
+_registry_singleton: SourceRegistry | None = None
+
+
+def _registry() -> SourceRegistry:
+    """装配点：登记净值两类源。进程内单例，保证健康度跨调用累积。"""
+    global _registry_singleton
+    if _registry_singleton is None:
+        reg = SourceRegistry()
+        for cls in (EastmoneyFundNavProvider, SinaFundNavProvider):
+            reg.register(cls())
+        _registry_singleton = reg
+    return _registry_singleton
 
 
 def _http_get(url: str, referer: str | None = None, timeout: int = 15) -> str:
@@ -43,21 +66,24 @@ def _cache_fresh(path: Path, ttl_hours: float) -> bool:
 
 
 def fetch_pingzhongdata(code: str) -> dict:
-    """解析 pingzhongdata JS，返回 {name, navs: [(date, nav), ...]}。"""
+    """东财 pingzhongdata 单源抓取（公开面保留，内部走 provider）。
+
+    返回 {name, navs: [(date, nav), ...]}；失败抛 ValueError（旧契约），
+    错误文本带 `data:`/`network:` 失败前缀（比旧版多前缀，语义不变）。
+    """
     cfg = _load_config()["data"]
-    url = cfg["pingzhongdata_url"].format(code=code)
-    text = _http_get(url)
-    name_m = re.search(r'var fS_name = "([^"]+)"', text)
-    trend_m = re.search(r"Data_netWorthTrend\s*=\s*(\[.*?\]);", text)
-    if not trend_m:
-        raise ValueError(f"{code}: pingzhongdata 中未找到 Data_netWorthTrend")
-    raw = json.loads(trend_m.group(1))
-    navs = [(time.strftime("%Y-%m-%d", time.localtime(p["x"] / 1000)), p["y"]) for p in raw]
-    return {"code": code, "name": name_m.group(1) if name_m else code, "navs": navs}
+    res = EastmoneyFundNavProvider().fetch(code=code,
+                                           pz_url=cfg["pingzhongdata_url"])
+    if not res.ok:
+        raise ValueError(res.error)
+    out = dict(res.payload)
+    out.pop("source", None)
+    out["navs"] = [tuple(r) for r in out["navs"]]
+    return out
 
 
 def fetch_lsjz(code: str) -> dict:
-    """净值明细 + 申赎状态。返回 {records: [{date, nav, acc_nav, purchase, redeem}], latest_date}。"""
+    """净值明细 + 申赎状态（东财 f10 独有，不入多源链）。返回 {records: [{date, nav, acc_nav, purchase, redeem}], latest_date}。"""
     cfg = _load_config()["data"]
     url = cfg["lsjz_url"].format(code=code)
     text = _http_get(url, referer="https://fundf10.eastmoney.com/")
@@ -73,35 +99,60 @@ def fetch_lsjz(code: str) -> dict:
     return {"records": records, "latest_date": records[0]["date"] if records else ""}
 
 
-def load_fund(code: str, force_refresh: bool = False) -> dict:
-    """带缓存的全量净值加载。缓存未过期则直接复用。
+def _read_cache(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
-    _source 标记数据来源（融合版增强，吸收 quant_test 母本降级告警链路）：
-    - "fresh"          本次运行成功抓取官方接口
+
+def _fetch_fund_nav(code: str, pz_url: str, cached_name: str | None) -> dict:
+    """真取数：按链（东财 → 新浪）串行换源。全灭抛 ValueError 逐源列原因。
+
+    行形状统一为 tuple `(date, nav)`（与旧 fresh 一致；新浪 provider 返 list，
+    这里归一），name 缺失（sina 源无名称字段）时回退缓存旧值或代码。
+    """
+    reg = _registry()
+    result = run_chain(reg.chain_for(CATEGORY), health=reg.health,
+                       code=code, pz_url=pz_url)
+    if not result.ok:
+        detail = " | ".join(f"{a.source}:{a.error}" for a in result.attempts) \
+            or "无可用源（链为空）"
+        raise ValueError(f"{code}: 全部净值源失败（{detail}）")
+    fund = dict(result.payload)
+    fund["navs"] = [tuple(r) for r in fund.get("navs") or []]
+    if not fund.get("name"):
+        fund["name"] = cached_name or code
+    return fund
+
+
+def load_fund(code: str, force_refresh: bool = False) -> dict:
+    """带缓存的净值加载（多源链版）。缓存未过期则直接复用。
+
+    _source 标记数据来源（三态口径一字不动）：
+    - "fresh"          本次运行链上任一源成功（附加键 source 标实际源名）
     - "cache"          缓存未过期命中（数据可能非最新，报告层透传提示）
-    - "cache:fallback" 接口失败降级读缓存（母本 _source 口径，报告层显式告警）
+    - "cache:fallback" **全链失败**降级读缓存（报告层显式告警）
     """
     cfg = _load_config()["data"]
     cache = _cache_path(code)
+    cached = None
     if cache.exists():
-        try:
-            cached = json.loads(cache.read_text(encoding="utf-8"))
-            if not force_refresh and _cache_fresh(cache, cfg["cache_ttl_hours"]):
-                cached["_source"] = "cache"
-                return cached
-        except (json.JSONDecodeError, OSError):
-            pass  # 缓存损坏则走网络
+        cached = _read_cache(cache)   # 损坏缓存 → None，走网络（口径同前）
+        if cached is not None and not force_refresh \
+                and _cache_fresh(cache, cfg["cache_ttl_hours"]):
+            cached["_source"] = "cache"
+            return cached
     try:
-        fund = fetch_pingzhongdata(code)
+        fund = _fetch_fund_nav(code, cfg["pingzhongdata_url"],
+                               (cached or {}).get("name"))
         fund["_source"] = "fresh"
     except Exception as e:
-        if cache.exists():
-            try:
-                cached = json.loads(cache.read_text(encoding="utf-8"))
-                cached["_source"] = f"cache:fallback({e})"
-                return cached
-            except (json.JSONDecodeError, OSError):
-                pass
+        fallback = cached if cached is not None \
+            else (_read_cache(cache) if cache.exists() else None)
+        if fallback is not None:
+            fallback["_source"] = f"cache:fallback({e})"
+            return fallback
         raise
     # 净值序列以 lsjz 最新一条为准确认口径（两者都是官方净值，仅校验日期齐不齐）
     try:

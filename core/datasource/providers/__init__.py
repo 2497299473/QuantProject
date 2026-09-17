@@ -3,10 +3,10 @@
 已落地：
 - stock_tencent.py / stock_eastmoney.py / stock_tushare.py   ← 步 2（2026-09-17）
 - realtime_tencent.py                                         ← 步 3（2026-09-17）
+- fund_eastmoney.py / fund_sina.py                            ← 步 4（2026-09-17）
 
 待落地：
-- fund_eastmoney.py / fund_sina.py                            ← 步 4 迁自 data_loader.py
-  与 experiments/sina_nav_redundant/pull_sina_nav.py
+- 步 5 报告层 source trace（消费 provider 的 `source` 附加键，无新 provider）
 
 约定：
 - provider 一律返回 FetchResult，不抛异常；网络类错误文本必须以 `network:` 前缀
