@@ -67,6 +67,7 @@ MANIFEST_HIST = DATA / "manifest_history"
 ACTIVE_JOURNAL = OUTPUT / "shadow_actions.jsonl"
 LEGACY_ARCHIVE = OUTPUT / "shadow_actions_legacy_invalid.jsonl"
 RUN_MANIFEST_DIR = OUTPUT / "run_manifest"
+HOLDINGS = BASE_DIR / "holdings.json"      # 发布资格的持仓范围（本地私有，不入库）
 AUDIT_CURRENT = OUTPUT / "audit_current.json"
 AUDIT_HISTORY = OUTPUT / "audit_history"
 AUDIT_SELF = Path(__file__).resolve()      # 排除本脚本自身字面量，避免自指误报
@@ -87,6 +88,8 @@ class Check:
 @dataclass
 class Audit:
     checks: list = field(default_factory=list)
+    # 检查侧算出的结构化事实（如 publish_gate），payload 复用、避免双算
+    meta: dict = field(default_factory=dict)
 
     def add(self, cid: str, axis: str, title: str, status: str, detail: str = "") -> None:
         self.checks.append(Check(cid, axis, title, status, detail))
@@ -459,6 +462,184 @@ def check_run_manifest(a: Audit) -> None:
           f"{len(files)} 份；最新 {files[-1].name} status={payload.get('status')}")
 
 
+# ---------------------------------------------------------- P1-9 发布资格门禁
+
+GATE_EXCLUDED_REASONS = frozenset({"feishu_push_failed"})
+"""防自锁白名单：推送成败是被门禁**控制**的对象，不得作为门禁输入——
+否则「今日推送失败 ⇒ 今日清单带 feishu_push_failed ⇒ 明日门禁永不可过」。"""
+
+GATE_FUND_KEYED = {
+    "fund_data_partial": ("data", "failed"),
+    "lookthrough_missing": ("lookthrough", "missing"),
+    "realtime_failed": ("realtime", "failed"),
+    "realtime_degraded": ("realtime", "degraded"),
+}
+"""逐基金降级项前缀 → 清单结构化字段 (节, 键)。归因优先读结构化字段，
+前缀后的裸代码串仅作兜底；归因不成立即升运行级（fail-closed，宁严勿漏）。"""
+
+_CODE_RE = re.compile(r"\d{6}")
+
+
+def held_fund_codes() -> list[str]:
+    """holdings.json → shares>0 的基金代码；文件缺失/不可读返回空表（调用方兜底）。"""
+    h = load_json(HOLDINGS) or {}
+    funds = h.get("funds") or {}
+    return [str(c) for c, v in funds.items() if (v or {}).get("shares")]
+
+
+def attribute_degradations(reasons, structured, universe):
+    """降级项分解 → (run_level 列表, per_fund 字典)。
+
+    - 前缀在 GATE_FUND_KEYED 且代码可归因（结构化字段 ∪ 后缀裸代码）⇒ 记到具体基金；
+    - 其余（market_context_unavailable / shadow_failed:* / intraday_features_empty …）
+      以及归因漂移（代码不在论域内、字段与后缀对不上）⇒ 运行级 ⇒ 污染全部基金。
+    """
+    run_level: list[str] = []
+    per_fund: dict[str, list[str]] = {}
+    for raw in reasons:
+        r = str(raw)
+        prefix, _, suffix = r.partition(":")
+        codes: set[str] = set()
+        if prefix in GATE_FUND_KEYED:
+            section, key = GATE_FUND_KEYED[prefix]
+            sec = (structured or {}).get(section) or {}
+            listed = sec.get(key) if isinstance(sec, dict) else None
+            codes |= {str(x) for x in (listed or [])}
+            codes |= {t for t in suffix.split(",") if t and _CODE_RE.fullmatch(t)}
+            if codes and codes <= universe:
+                for c in sorted(codes):
+                    per_fund.setdefault(c, []).append(r)
+                continue
+        run_level.append(r)
+    return run_level, per_fund
+
+
+def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
+    """飞书发布资格门禁（V4-A，2026-09-17；方案 A 整批裁决，审计侧仅 WARN 呈现）。
+
+    回答的问题：**当日逐基金证据链此刻是否干净**。任一只带降级项 ⇒ 整批不推
+    （缺一只的报告本身就是残缺，推半份更危险）。
+
+    - 证据 = 当日已落盘 run_manifest（只取当日；剔除 ``notification`` 节与
+      GATE_EXCLUDED_REASONS）+ ``extra``（本次运行的内存证据：post 推送时本次
+      清单尚未落盘，不带上它就只审了上午的旧账）；
+    论域 = holdings.json 中 shares>0 的基金（清单**不得**写代码：run_manifest
+    目录会被跟踪，写进去等于泄露持仓，违反 P0-2）；
+    - 无当日证据 ⇒ ok=False（fail-closed；run.py 恒传本次 extra，正常链路不触发）；
+    - 本函数**只回答不执行**：拦截在 run.py 推送前置，呈现位 check_publish_gate。
+    """
+    now = now or datetime.now()
+    files = sorted(RUN_MANIFEST_DIR.glob(f"run_manifest_{now:%Y%m%d}_*.json")) \
+        if RUN_MANIFEST_DIR.is_dir() else []
+    runs: list[tuple[list[str], dict]] = []
+    for p in files:
+        m = load_json(p)
+        if not m:
+            continue
+        m = {k: v for k, v in m.items() if k != "notification"}
+        runs.append(([str(x) for x in (m.get("degraded_reasons") or [])], m))
+    for reasons, structured in (extra or ()): 
+        runs.append(([str(x) for x in (reasons or [])], dict(structured or {})))
+
+    uni: set[str] = {str(c) for c in (universe or ())} | set(held_fund_codes())
+
+    run_level: list[str] = []
+    per_fund: dict[str, list[str]] = {}
+    for reasons, m in runs:
+        kept = [r for r in reasons
+                if str(r).partition(":")[0] not in GATE_EXCLUDED_REASONS]
+        rl, pf = attribute_degradations(kept, m, uni)
+        run_level += rl
+        for c, rs in pf.items():
+            per_fund.setdefault(c, []).extend(rs)
+
+    contaminated = {}
+    for c in sorted(uni):
+        hits = sorted(set(run_level) | set(per_fund.get(c, ())))
+        if hits:
+            contaminated[c] = hits
+    eligible = [c for c in sorted(uni) if c not in contaminated]
+    ok = bool(uni) and bool(runs) and not contaminated
+
+    if not uni:
+        reason = "empty_universe"
+    elif not runs:
+        reason = "no_evidence_today"
+    elif contaminated:
+        reason = "contaminated_funds"
+    else:
+        reason = None
+    if ok:
+        detail = f"当日 {len(runs)} 次证据运行，{len(eligible)}/{len(uni)} 只基金干净 → 可发布"
+    else:
+        parts = []
+        if run_level:
+            # 报告含全池轮动/市场广度，池内任一全局证据缺位 ⇒ 整份残缺
+            parts.append(f"全局证据缺位 {len(set(run_level))} 项"
+                         f"（{sorted(set(run_level))[0][:44]}）")
+        self_dirty = {c: sorted(set(per_fund.get(c, ())))
+                      for c in contaminated if per_fund.get(c)}
+        if self_dirty:
+            worst = "; ".join(f"{c} 自身 {','.join(v)[:40]}"
+                              for c, v in sorted(self_dirty.items())[:3])
+            more = f" 等{len(self_dirty)}只" if len(self_dirty) > 3 else ""
+            parts.append(f"持仓基金不干净：{worst}{more}")
+        if not uni:
+            parts.append("论域为空（holdings 不可读或无 shares>0 持仓）")
+        elif not runs:
+            parts.append("当日无任何证据运行（无清单且无内存证据）")
+        detail = f"拦截({reason}) " + "；".join(parts)
+
+    return {"ok": ok, "reason": reason, "date": f"{now:%Y-%m-%d}",
+            "n_runs": len(runs), "universe": sorted(uni), "eligible": eligible,
+            "contaminated": {c: contaminated[c] for c in sorted(contaminated)},
+            "run_level": sorted(set(run_level)),
+            "excluded": sorted(GATE_EXCLUDED_REASONS) + ["manifest.notification"],
+            "detail": detail}
+
+
+def mask_fund_codes(codes):
+    """基金代码 → 位置别名（F1/F2…）。
+
+    动因：``audit_current.json`` 是入库产物，而发布论域由 holdings.json 的
+    shares>0 推出——直接写代码等于泄露「实际持有哪几只」，违反 P0-2 的
+    持仓隔离口径。别名保留污染结构（哪只脏、脏在哪）却不暴露身份；
+    真实明细只进控制台（本地）。
+    """
+    alias = {}
+    for c in sorted(str(x) for x in codes):
+        alias[c] = f"F{len(alias) + 1}"
+    return alias
+
+
+def _mask_detail(detail: str, alias: dict) -> str:
+    for code, name in sorted(alias.items(), key=lambda kv: -len(kv[0])):
+        detail = detail.replace(code, name)
+    return detail
+
+
+def check_publish_gate(a: Audit) -> None:
+    """P1-9（2026-09-17）：发布门禁在审计侧的呈现位——**只告警不裁决**。
+
+    刻意不计入 FAIL：① 防自锁——门禁输入含推送排除项所防不住「审计 FAIL ⇒
+    资格层 FAIL ⇒ 永远推不出去」的循环，WARN 保持 audit_health 只度量静态审计；
+    ② 保住「0 FAIL」对账口径。真正拦截在执行侧（run.py 推送前置查 ok）。
+
+    入库侧只留掩码后的结构（见 mask_fund_codes），真实代码只进控制台。
+    """
+    g = publish_gate()
+    a.meta["publish_gate"] = {"ok": g["ok"], "reason": g["reason"],
+                              "n_universe": len(g["universe"]),
+                              "eligible": len(g["eligible"]),
+                              "contaminated": len(g["contaminated"]),
+                              "detail": _mask_detail(g["detail"],
+                                                     mask_fund_codes(g["universe"])),
+                              # 仅内存使用（控制台打印），不进 payload
+                              "detail_real": g["detail"]}
+    a.add("P1-9", "P1-证据链", "飞书发布资格（当日逐基金证据干净）",
+          PASS if g["ok"] else WARN, g["detail"])
+
+
 # ---------------------------------------------------------------- P2 工程卫生
 
 def check_atomic_write(a: Audit) -> None:
@@ -584,6 +765,10 @@ def audit_payload(a: Audit, n: dict, st: dict) -> dict:
         "action_enable": st["action_enable"],
         "production_status": st["production_status"],
         "inputs": st["inputs"],
+        # 发布资格（P1-9）：check_publish_gate 算一次，这里复用不双算；入库只存
+        # 计数与掩码措辞（真实持仓代码不得进仓库，见 mask_fund_codes）。
+        "publish_gate": ({k: v for k, v in a.meta["publish_gate"].items()
+                         if k != "detail_real"} if a.meta.get("publish_gate") else None),
         # 兼容层（V4 不做 breaking change）：旧字段语义原样保留——只反映
         # 审计 FAIL 数，**不表达生产资格**；新的生产资格请读 production_status。
         "production": "BLOCKED" if n[FAIL] else "NOT BLOCKED",
@@ -638,6 +823,7 @@ def run_audit() -> Audit:
     check_shadow_channels(a)
     check_legacy_archived(a)
     check_run_manifest(a)
+    check_publish_gate(a)
     check_approval_binding(a)
     check_atomic_write(a)
     check_tushare_https(a)
@@ -684,6 +870,13 @@ def main() -> int:
     if st["production_status"] == "BLOCKED":
         print("  ↳ 审计健康与生产资格是两回事：本次审计可读、可信，"
               "但模型未获批/动作层锁死 ⇒ 不得据此启用动作。")
+    g = a.meta.get("publish_gate") or {}
+    print(f"PUBLISH_GATE:      {'PASS' if g.get('ok') else 'BLOCKED'}"
+          f"（clean {g.get('eligible', 0)}/{g.get('n_universe', 0)} 只；"
+          f"拦截器在 run.py 推送前置，此处仅呈现）")
+    if not g.get("ok"):
+        # 控制台是本地输出，可给真实代码；入库侧 audit_*.json 只存计数/掩码
+        print(f"  ↳ {g.get('detail_real') or g.get('detail', '')}")
 
     if args.json and not args.no_write:
         out, snap = write_audit_json(a, n, st, BASE_DIR / args.json)
