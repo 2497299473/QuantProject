@@ -9,16 +9,37 @@
 
 纪律
 ----
-- **只读**：不修改任何项目文件（``--json`` 指定的输出文件除外）；**零网络**。
+- **零网络**：不发起任何网络请求。
+- **默认留档**：默认写 ``output/audit_current.json``（当前指针）并向
+  ``output/audit_history/`` 追加一份带时间戳的快照；**不删不改历史**。
+  需要纯只读复核时加 ``--no-write``。
 - **可重复**：同一工作区两次运行结论一致（时间敏感项除外）。
-- **机器可读**：每条给出 PASS / FAIL / WARN，末行给 RESULT 汇总与生产闸门结论。
+- **机器可读**：每条给出 PASS / FAIL / WARN，末段给 RESULT 汇总与四层状态
+  （audit_health / model_promotion / action_enable / production_status）。
   以后无论谁来复审，只读这一份机器事实，不再基于报告做二次解释。
+
+状态机（V4-A，2026-09-17）
+------------------------
+四层状态彼此独立，禁止互相替代：
+
+    audit_health        PASS / PASS_WITH_WARNINGS / FAIL   ← 仅由本次检查计数决定
+    model_promotion     APPROVED / BLOCKED                 ← config.model_ready + registry
+    action_enable       ENABLED / HOLD_ONLY / BLOCKED      ← config.decision.gates.history_validated
+    production_status   READY / BLOCKED                    ← 三者同时达标才 READY
+
+历史教训：旧版把「0 FAIL」直接打印成 ``PRODUCTION: NOT BLOCKED``，而当前
+``model_ready=false`` / ``history_validated=false`` 恰恰是靠这两项为假才判 PASS，
+于是审计读到的其实是「配置与未获批状态一致」，却被表述成「生产可用」。
+假语句退出码（exit=0）≠ 准生证。
 
 退出码
 ------
-0 = 无 FAIL（可能含 WARN）
-2 = 存在 FAIL（生产应视为 BLOCKED）
+0 = 无 FAIL（审计健康为 PASS / PASS_WITH_WARNINGS）
+2 = 存在 FAIL（审计健康为 FAIL）
 1 = 审计脚本自身异常
+
+注意：退出码只表达 **审计健康**，不表达生产资格。当前 ``production_status`` 为
+BLOCKED（模型未获批、动作层锁死），审计健康良好时退出码仍为 0。
 """
 from __future__ import annotations
 
@@ -27,6 +48,7 @@ import ast
 import bisect
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -45,6 +67,8 @@ MANIFEST_HIST = DATA / "manifest_history"
 ACTIVE_JOURNAL = OUTPUT / "shadow_actions.jsonl"
 LEGACY_ARCHIVE = OUTPUT / "shadow_actions_legacy_invalid.jsonl"
 RUN_MANIFEST_DIR = OUTPUT / "run_manifest"
+AUDIT_CURRENT = OUTPUT / "audit_current.json"
+AUDIT_HISTORY = OUTPUT / "audit_history"
 AUDIT_SELF = Path(__file__).resolve()      # 排除本脚本自身字面量，避免自指误报
 
 EXPECTED_CHANNELS = ("approved_full", "prereg_degraded", "legacy_invalid")
@@ -493,6 +517,112 @@ def check_env_untracked(a: Audit) -> None:
           PASS if not hits else FAIL, "；".join(hits))
 
 
+# ---------------------------------------------------------------- 四层状态
+
+def _config() -> dict:
+    """读 config.json（独立成函数，便于测试注入，不与检查项耦合）。"""
+    return load_json(BASE_DIR / "config.json") or {}
+
+
+def derive_states(a: Audit) -> dict:
+    """把「审计健康」与「生产资格」拆成四层独立状态（V4-A，2026-09-17）。
+
+    关键不变式：``production_status == READY`` 要求 model_ready、history_validated
+    与审计健康**同时**达标；任一不满足即 BLOCKED。因此「0 FAIL」永远不能单独
+    推出「生产可用」——这正是旧版 ``PRODUCTION: NOT BLOCKED`` 的错误来源。
+    """
+    n = a.counts()
+    if n[FAIL]:
+        audit_health = "FAIL"
+    elif n[WARN]:
+        audit_health = "PASS_WITH_WARNINGS"
+    else:
+        audit_health = "PASS"
+
+    cfg = _config()
+    model_ready = bool((cfg.get("forecast") or {}).get("model_ready", False))
+    gates = (cfg.get("decision") or {}).get("gates") or {}
+    hv = gates.get("history_validated")
+
+    blocked = [name for name, e in _models().items()
+               if (e.get("promotion") or {}).get("status") == "blocked"]
+    model_promotion = "APPROVED" if (model_ready and not blocked) else "BLOCKED"
+
+    if hv is True:
+        action_enable = "ENABLED"
+    elif hv is False:
+        action_enable = "HOLD_ONLY"      # 门禁存在且明确锁死 ⇒ 只出倾向，动作恒 HOLD
+    else:
+        action_enable = "BLOCKED"        # 门禁缺失/不可判 ⇒ 更严
+
+    if (model_promotion == "APPROVED" and hv is True and audit_health != "FAIL"):
+        production_status = "READY"
+    else:
+        production_status = "BLOCKED"
+
+    return {
+        "audit_health": audit_health,
+        "model_promotion": model_promotion,
+        "action_enable": action_enable,
+        "production_status": production_status,
+        "inputs": {"model_ready": model_ready, "history_validated": hv,
+                   "blocked_models": blocked},
+    }
+
+
+# ---------------------------------------------------------------- 审计留档
+
+def audit_payload(a: Audit, n: dict, st: dict) -> dict:
+    """审计 JSON 正文（单一来源，current 与 history 两份内容完全一致）。"""
+    return {
+        "schema_version": "2.0",
+        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "project": str(BASE_DIR),
+        "summary": n,
+        "audit_health": st["audit_health"],
+        "model_promotion": st["model_promotion"],
+        "action_enable": st["action_enable"],
+        "production_status": st["production_status"],
+        "inputs": st["inputs"],
+        # 兼容层（V4 不做 breaking change）：旧字段语义原样保留——只反映
+        # 审计 FAIL 数，**不表达生产资格**；新的生产资格请读 production_status。
+        "production": "BLOCKED" if n[FAIL] else "NOT BLOCKED",
+        "legacy_note": "'production' 为旧字段（仅反映审计 FAIL 数，不代表生产"
+                       "资格）；请以 production_status 为准。",
+        "checks": [c.__dict__ for c in a.sorted_checks()],
+    }
+
+
+def write_audit_json(a: Audit, n: dict, st: dict, out: Path | None = None,
+                     history_dir: Path | None = None) -> tuple[Path, Path]:
+    """写「当前状态指针」+ 「只增不删的历史证据」（V4-A，2026-09-17）。
+
+    目录约定：
+
+        output/audit_current.json               ← 唯一当前状态（所有人只看这份）
+        output/audit_history/audit_<ts>.json    ← 历史证据，不删不改
+
+    动因：旧仓只有 ``output/audit_report_20260916.json`` 一份历史报告，与新代码
+    的当前结论不一致，却没有任何指针说明谁是「现在」。容易出现「模型 A 看旧
+    报告、模型 B 跑 audit、模型 C 看 README」三份状态并存。
+    """
+    out = out or AUDIT_CURRENT
+    hist = history_dir or (out.parent / "audit_history")
+    payload = audit_payload(a, n, st)
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, out)
+
+    hist.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    snap = hist / f"audit_{stamp}.json"
+    snap.write_text(text, encoding="utf-8")
+    return out, snap
+
+
 # ---------------------------------------------------------------- 主流程
 
 def run_audit() -> Audit:
@@ -518,7 +648,10 @@ def run_audit() -> Audit:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="V4 项目审计契约（只读 / 零网络）")
-    ap.add_argument("--json", help="把结果写成 JSON（相对项目根）")
+    ap.add_argument("--json", default=str(AUDIT_CURRENT.relative_to(BASE_DIR)),
+                    help="当前状态 JSON 路径（相对项目根；同时向 output/audit_history/ 留档）")
+    ap.add_argument("--no-write", action="store_true",
+                    help="纯只读模式：不写 current / history（供只读复核）")
     args = ap.parse_args()
 
     try:
@@ -540,21 +673,24 @@ def main() -> int:
         print(line)
 
     n = a.counts()
+    st = derive_states(a)
     print(f"\nRESULT: {n[PASS]} PASS / {n[FAIL]} FAIL / {n[WARN]} WARN")
-    print(f"PRODUCTION: {'BLOCKED' if n[FAIL] else 'NOT BLOCKED'}"
-          + (f"（{n[FAIL]} 项 FAIL）" if n[FAIL] else "（无 FAIL，仍含 WARN 项待观察）"))
+    print(f"AUDIT_HEALTH:      {st['audit_health']}")
+    print(f"MODEL_PROMOTION:   {st['model_promotion']}"
+          f"（model_ready={st['inputs']['model_ready']}）")
+    print(f"ACTION_ENABLE:     {st['action_enable']}"
+          f"（history_validated={st['inputs']['history_validated']}）")
+    print(f"PRODUCTION_STATUS: {st['production_status']}")
+    if st["production_status"] == "BLOCKED":
+        print("  ↳ 审计健康与生产资格是两回事：本次审计可读、可信，"
+              "但模型未获批/动作层锁死 ⇒ 不得据此启用动作。")
 
-    if args.json:
-        out = BASE_DIR / args.json
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps({
-            "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            "project": str(BASE_DIR),
-            "summary": n,
-            "production": "BLOCKED" if n[FAIL] else "NOT BLOCKED",
-            "checks": [c.__dict__ for c in a.sorted_checks()],
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"[json] → {out}")
+    if args.json and not args.no_write:
+        out, snap = write_audit_json(a, n, st, BASE_DIR / args.json)
+        print(f"[json] current → {out}")
+        print(f"[json] history → {snap}")
+    elif args.no_write:
+        print("[json] --no-write：未落盘（本次仅内存结论）")
 
     return 2 if n[FAIL] else 0
 
