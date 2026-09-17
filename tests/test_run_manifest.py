@@ -90,5 +90,125 @@ class TestExitCodeSemantics(unittest.TestCase):
         self.assertIn("log(f\"[exit] DEGRADED", src)
 
 
+class TestRealtimeDegradedContract(unittest.TestCase):
+    """V4-A（2026-09-17）：实时行情部分缺位必须进入 DEGRADED。
+
+    case A 请求异常（行情没拿到）/ case B est_change_pct=None（估值不可用）
+    / case C 全部正常（不得误报）。用 stub 替代真实抓取，零网络可测。
+    """
+
+    def setUp(self):
+        self._orig_fetch = run.realtime_mod.fetch_realtime
+        self._orig_est = run.realtime_mod.weighted_estimate
+        run._LOG.clear()
+
+    def tearDown(self):
+        run.realtime_mod.fetch_realtime = self._orig_fetch
+        run.realtime_mod.weighted_estimate = self._orig_est
+        run._LOG.clear()
+
+    @staticmethod
+    def _agg(code):
+        return {"rows": [{"code": code}], "snapshot_date": "2026-06-30"}
+
+    def _stub(self, behavior):
+        """behavior: code -> ("ok", pct) | ("none", None) | ("raise", None)"""
+
+        def fetch(rows):
+            if behavior[rows[0]["code"]][0] == "raise":
+                raise RuntimeError("network down")
+            return {"quotes": {}}
+
+        def est(rows, rt):
+            return {"est_change_pct": behavior[rows[0]["code"]][1],
+                    "covered_pct": 80.0}
+
+        run.realtime_mod.fetch_realtime = fetch
+        run.realtime_mod.weighted_estimate = est
+
+    def test_case_a_fetch_exception_is_degraded(self):
+        self._stub({"510300": ("raise", None), "159915": ("ok", 0.5)})
+        rt, failures, degraded_funds = run._collect_realtime(
+            {"510300": self._agg("510300"), "159915": self._agg("159915")})
+        self.assertEqual(failures, ["510300"])
+        self.assertEqual(degraded_funds, [])
+        self.assertEqual(list(rt), ["159915"], "失败基金不得混入 realtime")
+        self.assertEqual(run.realtime_degraded_reasons(failures, degraded_funds),
+                         ["realtime_failed:510300"])
+
+    def test_case_b_none_estimate_is_degraded(self):
+        self._stub({"159915": ("none", None)})
+        rt, failures, degraded_funds = run._collect_realtime({"159915": self._agg("159915")})
+        self.assertEqual(rt, {})
+        self.assertEqual(failures, [])
+        self.assertEqual(degraded_funds, ["159915"])
+        self.assertEqual(run.realtime_degraded_reasons(failures, degraded_funds),
+                         ["realtime_degraded:159915"])
+
+    def test_case_b_logs_warning(self):
+        self._stub({"159915": ("none", None)})
+        run._collect_realtime({"159915": self._agg("159915")})
+        self.assertTrue(any("估值不可用" in ln for ln in run._LOG),
+                        "est_change_pct=None 必须留下可判读的告警")
+
+    def test_case_c_clean_run_no_false_degradation(self):
+        self._stub({"510300": ("ok", 1.2), "159915": ("ok", -0.4)})
+        rt, failures, degraded_funds = run._collect_realtime(
+            {"510300": self._agg("510300"), "159915": self._agg("159915")})
+        self.assertEqual(len(rt), 2)
+        self.assertEqual(failures, [])
+        self.assertEqual(degraded_funds, [])
+        self.assertEqual(run.realtime_degraded_reasons(failures, degraded_funds), [],
+                         "全部正常时不得产生降级项")
+
+    def test_empty_lookthrough_is_not_a_failure(self):
+        rt, failures, degraded_funds = run._collect_realtime(None)
+        self.assertEqual((rt, failures, degraded_funds), ({}, [], []))
+
+
+class TestManifestFailureContract(unittest.TestCase):
+    """V4-A（2026-09-17）：清单写失败 ⇒ 不得声称「证据链完整」（exit=2）。"""
+
+    def setUp(self):
+        self._orig = run.BASE_DIR
+        self._td = tempfile.TemporaryDirectory()
+        run.BASE_DIR = Path(self._td.name)
+        run._LOG.clear()
+
+    def tearDown(self):
+        run.BASE_DIR = self._orig
+        run._LOG.clear()
+        self._td.cleanup()
+
+    def _out(self):
+        return Path(self._td.name) / "output" / "run_manifest"
+
+    def test_success_returns_true_and_leaves_no_tmp(self):
+        ok = run._write_run_manifest(datetime(2026, 9, 17, 11, 30, 3),
+                                     {"slot": "mid", "status": "SUCCESS"})
+        self.assertTrue(ok)
+        self.assertEqual(list(self._out().glob("*.tmp")), [], "原子写不得残留 tmp")
+        self.assertEqual(len(list(self._out().glob("*.json"))), 1)
+
+    def test_failure_returns_false(self):
+        run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
+        ok = run._write_run_manifest(datetime(2026, 9, 17, 11, 30, 3),
+                                     {"slot": "mid", "status": "SUCCESS"})
+        self.assertFalse(ok, "落盘失败必须返回 False 供调用方降级")
+
+    def test_finalize_maps_manifest_failure_to_exit_2(self):
+        run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
+        degraded = []
+        code = run._finalize_run(datetime(2026, 9, 17, 11, 30, 3),
+                                 {"slot": "mid", "status": "SUCCESS"}, degraded)
+        self.assertEqual(code, 2)
+        self.assertIn("run_manifest_write_failed", degraded)
+
+    def test_finalize_clean_run_is_exit_0(self):
+        code = run._finalize_run(datetime(2026, 9, 17, 11, 30, 3),
+                                 {"slot": "mid", "status": "SUCCESS"}, [])
+        self.assertEqual(code, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

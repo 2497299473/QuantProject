@@ -19,6 +19,7 @@ v4 数据流（2026-08-25，GPT-5.6 诊断落地 + 项目回测铁律融合）�
 """
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -54,25 +55,54 @@ def _write_log(now: datetime) -> None:
         old.unlink(missing_ok=True)
 
 
-def _write_run_manifest(now: datetime, manifest: dict) -> None:
+def _write_run_manifest(now: datetime, manifest: dict) -> bool:
     """机器可读运行清单（V4-A 证据底座，2026-09-16）。
 
     退出码只说「成 / 降级 / 败」，本文件说「哪几环证据链是坏的」——供 Windows
     计划任务与监控判读「程序没崩但数据坏了」的静默降级。落盘
-    output/run_manifest/run_manifest_<run_id>.json；失败不阻断主流程。
+    output/run_manifest/run_manifest_<run_id>.json。
+
+    原子写（2026-09-17）：tmp + ``os.replace``，半截文件不会被读成「证据完整」。
+    返回是否落盘成功；失败不阻断主流程，由调用方转成 DEGRADED（exit=2）。
+    本函数不把自身失败写进清单——清单都没写成，收据无从自证；监控侧改以
+    「exit=2 且本次 run_id 无对应清单」识别 ``run_manifest_write_failed``。
     """
+    run_id = f"{now:%Y%m%d_%H%M%S}_{manifest.get('slot', 'na')}"
+    out_dir = BASE_DIR / "output" / "run_manifest"
+    final = out_dir / f"run_manifest_{run_id}.json"
+    tmp = out_dir / f"{final.name}.tmp"
     try:
-        run_id = f"{now:%Y%m%d_%H%M%S}_{manifest.get('slot', 'na')}"
-        out_dir = BASE_DIR / "output" / "run_manifest"
         out_dir.mkdir(parents=True, exist_ok=True)
         payload = {"run_id": run_id, "ts": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
                    **manifest}
-        (out_dir / f"run_manifest_{run_id}.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+        os.replace(tmp, final)
         log(f"[mani] 运行清单 → output/run_manifest/run_manifest_{run_id}.json"
             f"（status={manifest.get('status')}）")
+        return True
     except Exception as e:                      # noqa: BLE001
-        log(f"[warn] 运行清单写入失败（不影响主流程）：{type(e).__name__} {e}")
+        log(f"[warn] 运行清单写入失败（本次运行判为 DEGRADED）：{type(e).__name__} {e}")
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+
+
+def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str]) -> int:
+    """落清单 + 定退出码（V4-A，2026-09-17）。
+
+    清单写失败 ⇒ 本次不得声称「证据链完整」：改为追加 ``run_manifest_write_failed``
+    并返回 2。清单本身不记录自身失败（文件都没写成，收据无从自证），监控侧以
+    「exit=2 且本次 run_id 无对应清单」识别。
+    """
+    if not _write_run_manifest(now, manifest_payload):
+        degraded.append("run_manifest_write_failed")
+    if degraded:
+        log(f"[exit] DEGRADED（{len(degraded)} 项降级：{'; '.join(degraded)}）")
+        return 2
+    return 0
 
 
 def load_holidays() -> set[str]:
@@ -138,6 +168,46 @@ def append_obsidian_log(slot: str, signals: dict, account: dict, now,
         with open(path, "a", encoding="utf-8") as fp:
             fp.write(row)
     return True
+
+
+def _collect_realtime(lookthrough: dict | None) -> tuple[dict[str, dict], list[str], list[str]]:
+    """实时行情采集 → (realtime, failures, degraded_funds)。
+
+    V4-A（2026-09-17）：两种缺位必须可判读——
+    - ``failures``：请求异常，行情根本没拿到；
+    - ``degraded_funds``：行情到手但估值不可用（``est_change_pct is None``）。
+    二者由调用方转成降级项，确保「部分基金缺位」不会伪装成 exit=0。抽成独立
+    函数是为了在零网络条件下测得到（否则只能拉起真实抓取）。
+    """
+    realtime: dict[str, dict] = {}
+    failures: list[str] = []
+    degraded_funds: list[str] = []
+    for code, a in (lookthrough or {}).items():
+        try:
+            rt = realtime_mod.fetch_realtime(a["rows"])
+            est = realtime_mod.weighted_estimate(a["rows"], rt)
+            if est["est_change_pct"] is not None:
+                realtime[code] = {"quotes": rt, **est}
+                log(f"[rt  ] {code} 当日估算 {est['est_change_pct']:+.2f}%"
+                    f"（前十大覆盖 {est['covered_pct']:.0f}%，持仓截至 {a['snapshot_date']}）")
+            else:
+                degraded_funds.append(code)
+                log(f"[warn] {code} 实时行情可得但估值不可用（est_change_pct=None，"
+                    f"覆盖 {est.get('covered_pct')}%）——该基金今日证据缺位")
+        except Exception as e:
+            failures.append(code)
+            log(f"[warn] {code} 实时行情不可用：{e}")
+    return realtime, failures, degraded_funds
+
+
+def realtime_degraded_reasons(failures: list[str], degraded_funds: list[str]) -> list[str]:
+    """实时行情缺位 → 降级项（纯函数，便于逐字校验降级措辞）。"""
+    out: list[str] = []
+    if failures:
+        out.append("realtime_failed:" + ",".join(failures))
+    if degraded_funds:
+        out.append("realtime_degraded:" + ",".join(degraded_funds))
+    return out
 
 
 def build_features(slot: str, lookthrough: dict | None, realtime: dict[str, dict],
@@ -251,18 +321,10 @@ def _run(args, now: datetime) -> int:
             degraded.append(f"lookthrough_unavailable:{type(e).__name__}")
             log(f"[warn] 穿透数据不可用，报告将跳过该栏：{e}")
 
-    realtime: dict[str, dict] = {}
-    if lookthrough:
-        for code, a in lookthrough.items():
-            try:
-                rt = realtime_mod.fetch_realtime(a["rows"])
-                est = realtime_mod.weighted_estimate(a["rows"], rt)
-                if est["est_change_pct"] is not None:
-                    realtime[code] = {"quotes": rt, **est}
-                    log(f"[rt  ] {code} 当日估算 {est['est_change_pct']:+.2f}%"
-                        f"（前十大覆盖 {est['covered_pct']:.0f}%，持仓截至 {a['snapshot_date']}）")
-            except Exception as e:
-                log(f"[warn] {code} 实时行情不可用：{e}")
+    realtime, realtime_failures, realtime_degraded = _collect_realtime(lookthrough)
+    # V4-A（2026-09-17）：实时行情部分失败必须显式降级。
+    # 部分基金缺位时报告仍会照常生成，不记降级则 exit=0 会谎称「证据链完整」。
+    degraded.extend(realtime_degraded_reasons(realtime_failures, realtime_degraded))
 
     # ---- 日内特征（观察层）+ 快照持久化 ----
     feats = build_features(slot, lookthrough, realtime, now)
@@ -399,10 +461,13 @@ def _run(args, now: datetime) -> int:
         if not shadow_status.get("ok"):
             degraded.append(f"shadow_failed:{shadow_status.get('reason')}")
 
-    _write_run_manifest(now, {
+    manifest_payload = {
         "slot": slot,
         "data": {"ok": not fund_failures, "failed": fund_failures, "n_funds": len(funds)},
         "lookthrough": {"ok": lookthrough is not None, "missing": lt_missing},
+        "realtime": {"ok": not (realtime_failures or realtime_degraded),
+                     "failed": realtime_failures, "degraded": realtime_degraded,
+                     "n_funds": len(realtime)},
         "intraday_features": {"ok": bool(feats), "n_funds": len(feats)},
         "market_context": {"ok": bool(mc_snap and mc_snap.get("ok"))},
         "report": {"ok": True, "path": f"output/report_{now:%Y%m%d}_{slot}.md"},
@@ -410,11 +475,8 @@ def _run(args, now: datetime) -> int:
         "shadow": shadow_status,
         "degraded_reasons": degraded,
         "status": "DEGRADED" if degraded else "SUCCESS",
-    })
-    if degraded:
-        log(f"[exit] DEGRADED（{len(degraded)} 项降级：{'; '.join(degraded)}）")
-        return 2
-    return 0
+    }
+    return _finalize_run(now, manifest_payload, degraded)
 
 
 def _run_shadow() -> dict:
