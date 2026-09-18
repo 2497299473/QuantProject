@@ -19,6 +19,7 @@ config.json / model_ready / 生产 .py，不写 data/。
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import sys
@@ -37,14 +38,37 @@ RATE_MARKERS = ("DegradedResponse", "SUSPECT_DEGRADED", "PARSE_MISMATCH",
                 "持仓拉取失败", "年持仓拉取失败")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="冻结样本 + K 线指纹（零写入 data/，只读包装器）")
+    ap.add_argument("--force", action="store_true",
+                    help="允许覆写同日已有冻结件（默认拒绝；覆写须在报告里记录「已重采」）")
+    args = ap.parse_args(argv)
+
     outdir = BASE_DIR / "forecast_outputs"
     outdir.mkdir(exist_ok=True)
+
+    started = datetime.now()
+    date_tag = started.strftime("%Y%m%d")
+    out_jsonl = outdir / f"samples_frozen_{date_tag}.jsonl"
+    out_meta = outdir / f"samples_frozen_{date_tag}.meta.json"
+    out_kfp = outdir / f"kline_fingerprint_{date_tag}.json"
+
+    # no-clobber（2026-09-18，C2 特征非不变性 P0）：同日已冻结过就**拒绝重采**。
+    # 依据：标签 0% 漂移、特征最高 100% 漂移 ⇒ 同一日期重采一次就是**另一套数字**。
+    # 若允许覆写，09-26 季度重估的「重试 1 次」会静默产出第二份样本，
+    # 阶段 1（冻结）与阶段 2（基线复算）的 sha 绑定随之失效。
+    # 必须在 load_samples() **之前**判定 —— 放在之后等于东财请求已发出去才说不采，
+    # 既没防住重采、又白烧一次配额。
+    if out_jsonl.exists() and not args.force:
+        print(f"\n[ABORT] 当日冻结件已存在，拒绝重采：{out_jsonl.name}")
+        print("        复用既有件（阶段 2 直接读它），或显式 --force 重采并在报告记录「已重采」。")
+        print("        校验既有件：python -X utf8 freeze_verify_tool.py verify "
+              f"--jsonl forecast_outputs/{out_jsonl.name}")
+        return 2
 
     # 生产路径，原样调用（含其 print 进度输出，便于后台日志观察是否卡频控）
     from backtest_spread import load_samples
 
-    started = datetime.now()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         samples = load_samples()
@@ -52,8 +76,6 @@ def main() -> int:
     flags = [m for m in warn_msgs if any(k in m for k in RATE_MARKERS)]
 
     # ---- 落盘 JSONL（canonical：sort_keys 保证 sha256 可复现）----
-    date_tag = started.strftime("%Y%m%d")
-    out_jsonl = outdir / f"samples_frozen_{date_tag}.jsonl"
     lines = [json.dumps(s, ensure_ascii=False, sort_keys=True) for s in samples]
     body = "".join(ln + "\n" for ln in lines)
     out_jsonl.write_text(body, encoding="utf-8")
@@ -70,7 +92,6 @@ def main() -> int:
     # 样本没变、语义变了。冻结时必须连 (date, close) 序列指纹一起落盘，
     # 否则两次「同 sha256 冻结」并不等价（P1 附带发现，报告 §六）。
     kfp = build_fingerprint()
-    out_kfp = outdir / f"kline_fingerprint_{date_tag}.json"
     out_kfp.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
                        encoding="utf-8")
 
@@ -95,7 +116,6 @@ def main() -> int:
         "kline_fingerprint_counts": {"stock": kfp["n_stock"], "fund": kfp["n_fund"],
                                      "unreadable": kfp["unreadable"]},
     }
-    out_meta = outdir / f"samples_frozen_{date_tag}.meta.json"
     out_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print("\n== P1-① 样本冻结结果 ==")
