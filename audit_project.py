@@ -332,6 +332,58 @@ def check_manifest_freshness(a: Audit) -> None:
           WARN if age > 7 else PASS, detail + ("（>7 天，建议重生成）" if age > 7 else ""))
 
 
+def check_manifest_scope_acyclic(a: Audit) -> None:
+    """数据快照清单不得包含 provenance 文件（V4.1 ①，2026-09-18）。
+
+    生产事实的常驻守护：`model_registry.capture_provenance()` 把本清单文件的
+    sha256 写进 registry，若 registry / 模型权重又出现在清单里，就构成自指环——
+    重生成即永远不一致，Evidence Contract 失去严格意义。data_fingerprint 侧有
+    生成时硬校验，但**已落盘的文件**还得靠审计在每次运行时复核（防止有人手工
+    回填、或用旧版本脚本重新生成）。
+
+    同时复算 snapshot_id：落盘值必须能由 files 重算得出，否则说明清单被改写过。
+    """
+    if not MANIFEST.is_file():
+        a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", FAIL,
+              "data/manifest.json 缺失")
+        return
+    payload = load_json(MANIFEST) or {}
+    files = {str(k).replace("\\", "/"): v for k, v in (payload.get("files") or {}).items()}
+    if not files:
+        a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", FAIL,
+              "清单 files 为空——无可核验内容")
+        return
+    # 与 data_fingerprint.PROVENANCE_DIRS 同口径；不 import 以免审计拉起额外模块
+    provenance = ("model_registry", "models")
+    offenders = sorted(k for k in files
+                       if any(part in provenance for part in k.split("/")))
+    scope = payload.get("scope")
+    if offenders:
+        a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", FAIL,
+              f"{len(offenders)} 项 provenance 文件入清单（环复现）：{offenders[:3]}"
+              "；须用 data_fingerprint.py 重生成")
+        return
+    if scope != "dataset_inputs":
+        a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", WARN,
+              f"scope={scope!r}（期望 'dataset_inputs'）——无环但语义未标注，"
+              "建议重生成")
+        return
+    import hashlib
+    h = hashlib.sha256()
+    h.update(b"dataset_inputs")
+    for rel in sorted(files):
+        h.update(f"{rel}\0{(files[rel] or {}).get('sha256', '')}\n".encode("utf-8"))
+    sid = payload.get("snapshot_id")
+    if sid != h.hexdigest()[:16]:
+        a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", FAIL,
+              f"snapshot_id={sid} 与 files 复算值 {h.hexdigest()[:16]} 不符"
+              "——清单内容与其 ID 不一致（疑似手工改写）")
+        return
+    a.add("P0-5", "P0-研究有效性", "数据快照 scope 无自指环", PASS,
+          f"scope=dataset_inputs · snapshot_id={sid} · {len(files)} 项均为数据输入"
+          "（registry/models 已出清单）")
+
+
 # ---------------------------------------------------------------- P1 证据链
 
 def check_registry_hash(a: Audit) -> None:
@@ -354,12 +406,30 @@ def check_registry_hash(a: Audit) -> None:
 
 
 def check_validation_binding(a: Audit) -> None:
+    """验证报告绑定核验（V4.1 ⑥ 收紧：active model 缺绑定即 FAIL）。
+
+    旧实现 `if not rf: continue` —— 某模型**根本没写** report_file 时被静默跳过，
+    既不计入 n 也不进 bad，于是「无绑定」与「绑定正确」同样得到 PASS。这与
+    model_registry.verify_validation_report() 的严格语义相反（那边缺字段直接判不过）。
+
+    现按 active / historical 分档（与 ② 同一套设计原则）：
+      - active model 缺 report_file / report_sha256 ⇒ FAIL（生产资格证据必须齐）；
+      - 历史模型缺绑定                    ⇒ WARN（档案事实，不阻断当前）。
+    """
     models = _models()
-    bad, n = [], 0
+    fc = (_config().get("forecast") or {})
+    active = str(fc.get("active_model") or "").strip()
+    bad, warn, n = [], [], 0
     for name, entry in models.items():
         v = entry.get("validation") or {}
         rf = v.get("report_file")
-        if not rf:
+        if not rf or not v.get("report_sha256"):
+            miss = "report_file+report_sha256" if not rf and not v.get("report_sha256") \
+                else ("report_file" if not rf else "report_sha256")
+            if name == active:
+                bad.append(f"{name}（active）缺 {miss}")
+            else:
+                warn.append(f"{name} 缺 {miss}（档案）")
             continue
         n += 1
         got = sha256_file(BASE_DIR / rf)
@@ -367,23 +437,35 @@ def check_validation_binding(a: Audit) -> None:
             bad.append(f"{name} 报告缺失 {rf}")
         elif got != v.get("report_sha256"):
             bad.append(f"{name} 报告 sha256 不符")
-    a.add("P1-2", "P1-证据链", "验证报告 sha256 与注册表绑定一致",
-          PASS if not bad else FAIL,
-          f"{n} 份报告" + ("；" + "；".join(bad) if bad else ""))
+    status = FAIL if bad else (WARN if warn else PASS)
+    detail = f"{n} 份报告已核验；active={active or '未声明'}"
+    parts = bad + warn
+    a.add("P1-2", "P1-证据链", "验证报告 sha256 与注册表绑定一致", status,
+          detail + ("；" + "；".join(parts) if parts else ""))
 
 
 def check_promotion_consistency(a: Audit) -> None:
+    """config.model_ready 与 **active model** 的 promotion 是否自洽（V4.1 ② 收紧）。
+
+    旧实现拿「registry 中全部 blocked 模型」当否决条件，因此一旦 model_ready
+    置 true，历史失败记录（v2 / v3 永久 blocked）就把这条检查永久钉死在 FAIL——
+    等于审计在逼人删除历史证据。现只看 active model；历史 blocked 转为可见信息。
+    """
     models = _models()
-    cfg = load_json(BASE_DIR / "config.json") or {}
-    ready = bool((cfg.get("forecast") or {}).get("model_ready", False))
-    blocked = [n for n, e in models.items()
-               if (e.get("promotion") or {}).get("status") == "blocked"]
-    if ready and blocked:
-        a.add("P1-3", "P1-证据链", "promotion 与 config.model_ready 一致", FAIL,
-              f"model_ready=true 但 {len(blocked)} 个模型 promotion=blocked：{'、'.join(blocked)}")
+    fc = (_config().get("forecast") or {})
+    ready = bool(fc.get("model_ready", False))
+    promotion, basis = resolve_model_promotion(fc.get("active_model"), models, ready)
+    active, hist = basis["active_model"], basis["historical_blocked"]
+
+    if ready and basis["reason"] != "ok":
+        detail = (f"model_ready=true 但 active={active or '未声明'} 判据="
+                  f"{basis['reason']}（active promotion={basis['active_promotion']}）")
+        a.add("P1-3", "P1-证据链", "promotion 与 config.model_ready 一致", FAIL, detail)
     else:
-        a.add("P1-3", "P1-证据链", "promotion 与 config.model_ready 一致", PASS,
-              f"model_ready={ready}；blocked {len(blocked)} 个")
+        note = f"model_ready={ready}；active={active or '未声明'}"
+        if hist:
+            note += f"；历史 blocked {len(hist)} 个（不参与当前裁决）"
+        a.add("P1-3", "P1-证据链", "promotion 与 config.model_ready 一致", PASS, note)
 
 
 def check_history_validated(a: Audit) -> None:
@@ -470,6 +552,7 @@ GATE_EXCLUDED_REASONS = frozenset({"feishu_push_failed"})
 
 GATE_FUND_KEYED = {
     "fund_data_partial": ("data", "failed"),
+    "fund_data_fallback": ("data", "fallback"),   # V4.1 ③：全链失败退旧缓存
     "lookthrough_missing": ("lookthrough", "missing"),
     "realtime_failed": ("realtime", "failed"),
     "realtime_degraded": ("realtime", "degraded"),
@@ -744,6 +827,48 @@ def _config() -> dict:
     return load_json(BASE_DIR / "config.json") or {}
 
 
+def resolve_model_promotion(active_model, models: dict, model_ready: bool) -> tuple[str, dict]:
+    """生产资格里的 model_promotion：**只看 active model**（V4.1 ②，2026-09-18）。
+
+    纯函数：不读盘、不看时间，(active_model, models, model_ready) 决定输出，可单测。
+
+    修的死锁：旧实现把「registry 中所有 blocked 模型」当否决权，于是历史失败记录
+    （v2 / v3）会永久阻止未来模型晋升——forecast_v4 即便 approved，只要 v2 还在
+    registry，结论仍是 BLOCKED。历史 promotion 是**档案事实**，不是当前生产的否决权。
+
+    fail-closed 三态：active_model 未声明 / 未登记 / promotion 非 approved
+    （含 pending / blocked / 缺字段）⇒ 一律 BLOCKED。宁可错杀，不可放行。
+
+    返回 (status, basis)：basis 同时给出 active 与 historical 两组事实，供审计与
+    报告分别呈现——历史 blocked 不再参与裁决，但必须可见，不得借修复之名抹掉痕迹。
+    """
+    active = str(active_model or "").strip()
+    blocked_all = sorted(n for n, e in (models or {}).items()
+                         if (e.get("promotion") or {}).get("status") == "blocked")
+    historical_blocked = [n for n in blocked_all if n != active]
+
+    if not active:
+        status, reason, active_status = "BLOCKED", "active_model_missing", None
+    elif active not in (models or {}):
+        status, reason, active_status = "BLOCKED", "active_model_not_registered", None
+    else:
+        active_status = ((models[active].get("promotion") or {})
+                         .get("status"))
+        if not model_ready:
+            status, reason = "BLOCKED", "model_ready_false"
+        elif active_status == "approved":
+            status, reason = "APPROVED", "ok"
+        else:
+            status, reason = "BLOCKED", f"active_promotion_{active_status or 'missing'}"
+    return status, {
+        "active_model": active or None,
+        "active_promotion": active_status,
+        "reason": reason,
+        "historical_blocked": historical_blocked,
+        "all_blocked": blocked_all,      # 旧字段兼容：全量 blocked 仍可得
+    }
+
+
 def derive_states(a: Audit) -> dict:
     """把「审计健康」与「生产资格」拆成四层独立状态（V4-A，2026-09-17）。
 
@@ -760,13 +885,21 @@ def derive_states(a: Audit) -> dict:
         audit_health = "PASS"
 
     cfg = _config()
-    model_ready = bool((cfg.get("forecast") or {}).get("model_ready", False))
+    fc = cfg.get("forecast") or {}
+    model_ready = bool(fc.get("model_ready", False))
     gates = (cfg.get("decision") or {}).get("gates") or {}
     hv = gates.get("history_validated")
 
-    blocked = [name for name, e in _models().items()
-               if (e.get("promotion") or {}).get("status") == "blocked"]
-    model_promotion = "APPROVED" if (model_ready and not blocked) else "BLOCKED"
+    # V4.1 ②（2026-09-18）：生产资格只看 **active model**，不看历史模型。
+    # 旧实现取「registry 里所有 blocked 的模型」，于是 v2/v3 这类失败的历史记录
+    # 会永久阻止未来任何模型晋升——forecast_v4 即便 approved，只要 v2 还留在
+    # registry，model_promotion 仍是 BLOCKED。历史模型的 promotion 是档案事实，
+    # 不是当前生产的否决权。
+    # active 由 config.forecast.active_model 显式声明（不靠 MODEL_VERSION 字符串
+    # 推断：audit 侧保持 stdlib-only，不 import core.forecast_engine）。
+    promotion, basis = resolve_model_promotion(fc.get("active_model"),
+                                               _models(), model_ready)
+    model_promotion = "APPROVED" if promotion == "APPROVED" else "BLOCKED"
 
     if hv is True:
         action_enable = "ENABLED"
@@ -786,7 +919,13 @@ def derive_states(a: Audit) -> dict:
         "action_enable": action_enable,
         "production_status": production_status,
         "inputs": {"model_ready": model_ready, "history_validated": hv,
-                   "blocked_models": blocked},
+                   # 兼容旧字段：blocked_models 仍是「全量 blocked」（语义不变），
+                   # 新增字段才表达 active/historical 拆分后的裁决依据。
+                   "blocked_models": basis["all_blocked"],
+                   "active_model": basis["active_model"],
+                   "active_promotion": basis["active_promotion"],
+                   "promotion_basis": basis["reason"],
+                   "historical_blocked_models": basis["historical_blocked"]},
     }
 
 
@@ -855,6 +994,7 @@ def run_audit() -> Audit:
     check_holdings_privacy(a)
     check_manifest_resolvable(a)
     check_manifest_freshness(a)
+    check_manifest_scope_acyclic(a)
     check_registry_hash(a)
     check_validation_binding(a)
     check_promotion_consistency(a)

@@ -56,6 +56,8 @@
     "prob_flat_margin": 0.003,
     "min_valid_samples": 200,
     "model_ready": false,
+    "active_model": "forecast_v3.pkl",
+    "_active_model_note": "V4.1 ②（2026-09-18）：生产资格只看这一只 active model；registry 里其余条目（forecast_v2.pkl 等）是历史档案，其 promotion=blocked 不再否决未来模型晋升。值须与 core/forecast_engine.py 的 MODEL_VERSION 所指权重一致（当前 MODEL_VERSION=3）。改 MODEL_VERSION 或换权重时必须同步此字段——审计在缺失/未登记时一律 fail-closed 判 BLOCKED。",
     "labels": {
       "_note": "fwd1/2/3/5/10/20 由 backtest_spread.load_samples 逐日生成，防前视（t 日持仓=披露生效日≤t 的最近季报快照）。"
     }

@@ -28,6 +28,23 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 BASE_DIR = Path(__file__).resolve().parent.parent
 CATEGORY = "fund_nav"
 
+NAV_FALLBACK_PREFIX = "cache:fallback"
+"""全链失败降级读缓存的 `_source` 前缀（实际值形如 `cache:fallback(<异常摘要>)`）。"""
+
+
+def is_nav_fallback(fund: dict) -> bool:
+    """该基金本次是否走了「全链失败 → 退回旧缓存」降级路径（V4.1 ③）。
+
+    单一事实源：run.py（运行状态机 / degraded / publish_gate）、report_generator
+    （读者可见告警）都用本谓词，避免两处 `startswith` 判定漂移。
+
+    语义要点：`cache:fallback` 时 `load_fund()` **正常返回、不抛异常**，所以调用方
+    只 catch 异常是抓不到它的——这正是 2026-09-18 审查指出的漏网：全链失败会
+    exit=0 且发布门禁看不见数据污染。
+    """
+    return str((fund or {}).get("_source", "")).startswith(NAV_FALLBACK_PREFIX)
+
+
 _registry_singleton: SourceRegistry | None = None
 
 

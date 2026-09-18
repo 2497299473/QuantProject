@@ -92,6 +92,15 @@ def _write_run_manifest(now: datetime, manifest: dict) -> bool:
         return False
 
 
+def nav_fallback_funds(funds: dict) -> list[str]:
+    """本次加载中走了 `cache:fallback`（全链失败退旧缓存）的基金代码（V4.1 ③）。
+
+    单独成函数只为可单测——判定语义本身归 `data_loader.is_nav_fallback`（唯一事实源），
+    本函数不做第二套 `startswith`。
+    """
+    return [str(c) for c, f in (funds or {}).items() if data_loader.is_nav_fallback(f)]
+
+
 def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str]) -> int:
     """落清单 + 定退出码（V4-A，2026-09-17）。
 
@@ -291,6 +300,7 @@ def _run(args, now: datetime) -> int:
 
     funds = {}
     fund_failures: list[str] = []
+    fund_fallbacks: list[str] = []      # V4.1 ③：全链失败→退回旧缓存的基金
     for code in cfg["fund_pool"]:
         try:
             funds[code] = data_loader.load_fund(code, force_refresh=args.refresh)
@@ -299,12 +309,23 @@ def _run(args, now: datetime) -> int:
         except Exception as e:
             fund_failures.append(code)
             log(f"[warn] {code} 数据获取失败：{e}")
+    # V4.1 ③（2026-09-18）：cache:fallback 是「load_fund 正常返回」的降级态，只 catch
+    # 异常抓不到它。旧实现漏判 ⇒ 全链失败仍 exit=0、发布门禁看不见数据污染，与
+    # 「数据降级 → DEGRADED → 必要时阻止发布」契约不一致。
+    fund_fallbacks = nav_fallback_funds(funds)
+    for code in fund_fallbacks:
+        log(f"[warn] {code} 净值链全链失败，已退回旧缓存"
+            f"（_source={funds[code].get('_source')}）→ 计为降级")
 
     if not funds:
         log("[fail] 无任何基金数据，退出")
         return 1
     if fund_failures:
         degraded.append("fund_data_partial:" + ",".join(fund_failures))
+    if fund_fallbacks:
+        # V4.1 ③：与 fund_data_partial 同级——都是「本次净值不可信」，只是成因不同
+        # （前者全链抛异常，后者全链失败后静默退回旧缓存）。
+        degraded.append("fund_data_fallback:" + ",".join(fund_fallbacks))
 
     lookthrough = None
     lt_missing: list[str] = []          # P0 探针：穿透静默缺失基金（进报告显式化）
@@ -447,7 +468,7 @@ def _run(args, now: datetime) -> int:
     # 注：论域由 audit_project 侧从 holdings.json 取（shares>0），此处不得把代码
     # 写进清单——output/run_manifest/ 随仓库跟踪，写入即泄露持仓（P0-2）。
     gate_structured = {
-        "data": {"failed": fund_failures},
+        "data": {"failed": fund_failures, "fallback": fund_fallbacks},
         "lookthrough": {"missing": lt_missing},
         "realtime": {"failed": realtime_failures, "degraded": realtime_degraded},
     }
@@ -499,7 +520,10 @@ def _run(args, now: datetime) -> int:
 
     manifest_payload = {
         "slot": slot,
-        "data": {"ok": not fund_failures, "failed": fund_failures, "n_funds": len(funds)},
+        # ok 语义保持不变（= 无抛异常型失败），fallback 单列：读侧若要判「数据可信」
+        # 需同时看 ok 与 fallback，避免悄悄改写既有字段的含义。
+        "data": {"ok": not fund_failures, "failed": fund_failures,
+                 "fallback": fund_fallbacks, "n_funds": len(funds)},
         "lookthrough": {"ok": lookthrough is not None, "missing": lt_missing},
         "realtime": {"ok": not (realtime_failures or realtime_degraded),
                      "failed": realtime_failures, "degraded": realtime_degraded,

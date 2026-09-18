@@ -51,6 +51,8 @@ LAYERS: dict[str, str] = {
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_contracts.py": SLOW,
     "test_data_fingerprint.py": SLOW,
+    "test_dataset_snapshot_scope.py": FAST,   # V4.1 ①：环检测纯逻辑；现场只读 manifest
+    "test_nav_fallback_degraded.py": FAST,    # V4.1 ③：tempdir + 内存结构，零网络
     "test_forecast.py": SLOW,
     "test_forecast_lifecycle.py": SLOW,
     "test_forecast_split.py": SLOW,

@@ -10,6 +10,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 STANCE_ICON = {"偏多": "🔴偏多", "偏空": "🟢偏空", "中性": "⚪中性"}
 
+from core import data_loader                        # noqa: E402  （V4.1 ③：_source 三态谓词单一事实源）
 from core import market_context as market_context_mod  # noqa: E402  （Market Context 观察层 v0）
 
 
@@ -52,7 +53,7 @@ def _data_source_notice(signals: dict) -> str:
     warns, notes, switched = [], [], []
     for code, s in signals.items():
         src = s.get("_source", "fresh")
-        if src.startswith("cache:fallback"):
+        if data_loader.is_nav_fallback(s):        # V4.1 ③：谓词单一事实源，不再两处 startswith
             warns.append(f"{code}（净值截至 {s['last_nav_date']}）")
         elif src == "cache":
             notes.append(f"{code}（截至 {s['last_nav_date']}）")
