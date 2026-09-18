@@ -28,13 +28,13 @@ Get-Date 取今天：
 
 ## 第三步 对每个日期 D：完整性检查 + 摘要 + 写文件
 
-1) **OpenSquilla 调度库证据**（只读；09:30 晨检无文件产出，执行证据只有这张表）：用 python 只读连 `C:\Users\Turn-\.opensquilla\state\scheduler.db`（URI `mode=ro`），查 scheduler_runs 表：
+1) **OpenSquilla 调度库证据**（只读；09:30 晨检无文件产出，执行证据只有这张表）：
 
    ```
-   select job_id, started_at, finished_at, success, error from scheduler_runs order by started_at
+   Set-Location -LiteralPath 'D:\PythonProject\QuantV1'; .\.venv\Scripts\python.exe -X utf8 daily_runs_tool.py runs --date <D>
    ```
 
-   过滤 started_at 落在 D 当天（+08:00）的行。job_id 前缀对应：93439da7=09:30 晨检、fa6d9cdd=16:00 板块K线、69b20a70=22:30 Shadow。库里 success 列仅供参考，是否跑完以文件小节为准。
+   该工具已内置「UTC 存储 → +08:00 归一」的日期过滤与逐 job 最新一次取值，**禁止再自己写 SQL 或按字符串自行过滤**（2026-09-17 事故：`scheduler_runs.started_at` 存的是 UTC ISO，按北京日期串匹配永远查不到 16:00 实例 → 误报「未执行」）。输出四行，`当日无记录` 即真无。job_id 前缀对应：93439da7=09:30 晨检、fa6d9cdd=16:00 板块K线、69b20a70=22:30 Shadow、ed7ae8c8=23:00 日汇总（本任务自身）。库里 success 列仅供参考，是否跑完以文件小节为准。
 
 2) **文件证据**：读 `D:\PythonProject\QuantV1\output\daily_runs\<D>.md`（不存在→按全部缺失处理，第 6 步仍要建文件留痕）。检查小节：[16:00 板块K线]、[21:30 板块K线补拉]、[22:30 Shadow]；若 D=2026-09-28 另查 [09-26 季度重估] 小节。
 
@@ -49,7 +49,13 @@ Get-Date 取今天：
 
 5) **摘要口径**（每小节一行，异常才展开两三行）：16:00 的 ok/skip/fail、FAIL 码、是否走 Playwright 兜底、新浪校验一行结论；21:30 的 ok/skip/fail 与一句话结论；22:30 新增条数或全部幂等跳过、ADD/REDUCE/HOLD 分布（出现 ADD 或 REDUCE 显著标注）；09:30 晨检是否跑（库证据）。
 
-6) **写入**（必须执行，无论检查结果好坏）：追加到 `D:\PythonProject\QuantV1\output\daily_runs\<D>.md`（目录不存在则创建），小节标题「[23:00 日汇总]」；补做的写「[23:00 日汇总]（顺延补做，实际执行 <今天日期>）」。小节末尾固定一行「需人工介入的点：…」（缺小节/未触发/FAIL/超时清单；全部正常则写「无」）。
+6) **写入**（必须执行，无论检查结果好坏）：**只能通过追加工具写，禁止自己读文件再整份重写**（2026-09-17 事故：读-改-写把当日 [16:00]/[21:30] 小节抹掉且 [23:00] 写了两份）。做法：先把小节正文（不含 `##` 标题行）写入临时文件，再执行
+
+   ```
+   Set-Location -LiteralPath 'D:\PythonProject\QuantV1'; .\.venv\Scripts\python.exe -X utf8 daily_runs_tool.py append --date <D> --section "[23:00 日汇总]" --file <临时文件>
+   ```
+
+   工具只 append、同名小节已存在则 SKIP（幂等），目录不存在会自动创建。补做的日期在正文首行写「（顺延补做，实际执行 <今天日期>）」。小节末尾固定一行「需人工介入的点：…」（缺小节/未触发/FAIL/超时清单；全部正常则写「无」）。SKIP 出现 = 说明本小节已写过，检查是否重复执行，不要 --force 强行再写。
 
 ## 第四步 待拍板清单（Summer 每天唯一需要行动的部分）
 
