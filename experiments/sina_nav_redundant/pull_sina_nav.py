@@ -8,7 +8,7 @@ r"""P1 · 新浪基金净值冗余拉取（旁路实验，不进生产链路）�
   CaihuiFundInfoService.getNav  num=100&page=N 分页，返回按日期降序；
   002112 total_num=2637 与东财缓存条数完全一致，样本日数值逐位吻合。
 
-运行（任意 python 3.10+，纯标准库）：
+运行（需能 import 项目 core，故用项目 venv）：
   .\.venv\Scripts\python.exe -X utf8 experiments\sina_nav_redundant\pull_sina_nav.py
   追加 --force 可重拉当日已存在的缓存。
 """
@@ -16,10 +16,13 @@ import argparse
 import json
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[2]  # 项目根
+sys.path.insert(0, str(BASE))               # 与 forecast_lab 脚本同约定，使 core 可导入
+
+from core import netutil  # noqa: E402
+
 OUT_DIR = BASE / "output" / "sina_nav"
 API = ("https://stock.finance.sina.com.cn/fundInfo/api/openapi.php/"
        "CaihuiFundInfoService.getNav")
@@ -29,20 +32,22 @@ PAGE_NUM = 100
 DATEFROM = "20150101"
 SLEEP = 0.8          # 页间隔；新浪无东财那种 IP 频控，保守起见仍限速
 MAX_PAGES = 60       # 60×100=6000 条，覆盖最长的 002112（2637）绰绰有余
+REFERER = "https://finance.sina.com.cn/"
 
 
-def _http_get_json(url: str, retries: int = 3) -> dict:
-    last = None
-    for k in range(retries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA,
-                                                       "Referer": "https://finance.sina.com.cn/"})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                return json.loads(r.read().decode("utf-8"))
-        except Exception as e:  # noqa: BLE001 —— 网络层统一重试
-            last = e
-            time.sleep(1.5 * (k + 1))
-    raise RuntimeError(f"GET failed after {retries} tries: {url} ({last})")
+def _http_get_json(url: str) -> dict:
+    """传输走 netutil（2026-09-18 改造）。
+
+    旧实现用裸 urllib.request.urlopen，会读 Windows 系统代理：开着 VPN 时
+    本脚本会从境外出口取数（实测数值与境内一致，但受 VPN 可用性牵连、且慢）。
+    netutil 自建 socket 逐 IP 直连，无视环境/系统代理，与生产 provider 同通道
+    （providers/__init__ 亦约定不得直接 import urllib）。
+
+    netutil 的 retries 语义为「首次之外的重试次数」，取 2 → 共 3 次尝试，
+    与旧实现的 3 次重试循环等量。
+    """
+    return netutil.http_get_json(url, headers={"User-Agent": UA, "Referer": REFERER},
+                                 timeout=15, retries=2)
 
 
 def fetch_sina_nav(code: str) -> list[list]:
