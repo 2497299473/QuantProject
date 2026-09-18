@@ -278,7 +278,7 @@ class TestAuditIntegration(GateHarness):
         self.manifest("20260917_113000_mid", ["market_context_unavailable"],
                       {"codes": ["000001"]})
         a = ap.Audit()
-        ap.check_publish_gate(a)
+        ap.check_publish_gate(a, now=NOW)   # 注入固定日：不随墙钟跨零点漂移
         self.assertEqual(len(a.checks), 1)
         self.assertEqual(a.checks[0].status, ap.WARN)
         self.assertEqual(a.checks[0].cid, "P1-9")
@@ -287,7 +287,7 @@ class TestAuditIntegration(GateHarness):
         self.set_holdings(**{"000001": 100.0})
         self.manifest("20260917_113000_mid", [], {"codes": ["000001"]})
         a = ap.Audit()
-        ap.check_publish_gate(a)
+        ap.check_publish_gate(a, now=NOW)
         self.assertEqual(a.checks[0].status, ap.PASS)
 
 

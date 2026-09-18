@@ -653,7 +653,7 @@ def _mask_detail(detail: str, alias: dict) -> str:
     return detail
 
 
-def check_publish_gate(a: Audit) -> None:
+def check_publish_gate(a: Audit, now: datetime | None = None) -> None:
     """P1-9（2026-09-17）：发布门禁在审计侧的呈现位——**只告警不裁决**。
 
     刻意不计入 FAIL：① 防自锁——门禁输入含推送排除项所防不住「审计 FAIL ⇒
@@ -661,8 +661,12 @@ def check_publish_gate(a: Audit) -> None:
     ② 保住「0 FAIL」对账口径。真正拦截在执行侧（run.py 推送前置查 ok）。
 
     入库侧只留掩码后的结构（见 mask_fund_codes），真实代码只进控制台。
+
+    `now`（2026-09-18 加）：透传给 publish_gate 供测例注入固定日；生产不传 = 墙钟。
+    原缺失此参数导致测试与墙钟耦合——跨零点后「当日证据」glob 失配、
+    clean-day 测例误判 WARN（2026-09-18 fast 全量实测抓到）。
     """
-    g = publish_gate()
+    g = publish_gate(now=now)
     a.meta["publish_gate"] = {"ok": g["ok"], "reason": g["reason"],
                               "n_universe": len(g["universe"]),
                               "eligible": len(g["eligible"]),
