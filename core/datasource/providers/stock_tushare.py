@@ -67,7 +67,7 @@ def _post(api_name: str, token: str, params: dict, fields: str, *,
           timeout: int) -> list[dict]:
     body = json.dumps({"api_name": api_name, "token": token, "params": params,
                        "fields": fields}).encode("utf-8")
-    data = netutil.http_post_json("http://api.tushare.pro", body,
+    data = netutil.http_post_json("https://api.tushare.pro", body,
                                   headers={"Content-Type": "application/json"},
                                   timeout=timeout)
     if data.get("code") != 0:
