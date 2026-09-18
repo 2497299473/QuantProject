@@ -1,13 +1,13 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-09-18T16:46:43",
+  "generated_at": "2026-09-18T17:04:42",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
-    "PASS": 17,
+    "PASS": 18,
     "FAIL": 0,
-    "WARN": 1
+    "WARN": 0
   },
-  "audit_health": "PASS_WITH_WARNINGS",
+  "audit_health": "PASS",
   "model_promotion": "BLOCKED",
   "action_enable": "HOLD_ONLY",
   "production_status": "BLOCKED",
@@ -149,8 +149,8 @@
       "cid": "P2-2",
       "axis": "P2-工程卫生",
       "title": "Tushare 走 HTTPS",
-      "status": "WARN",
-      "detail": "core\\datasource\\providers\\stock_tushare.py:L70"
+      "status": "PASS",
+      "detail": ""
     },
     {
       "cid": "P2-3",
