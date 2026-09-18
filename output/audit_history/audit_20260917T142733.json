@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-09-18T15:58:50",
+  "generated_at": "2026-09-17T14:27:33",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
-    "PASS": 17,
+    "PASS": 16,
     "FAIL": 0,
     "WARN": 1
   },
@@ -17,12 +17,6 @@
     "blocked_models": [
       "forecast_v2.pkl",
       "forecast_v3.pkl"
-    ],
-    "active_model": "forecast_v3.pkl",
-    "active_promotion": "blocked",
-    "promotion_basis": "model_ready_false",
-    "historical_blocked_models": [
-      "forecast_v2.pkl"
     ]
   },
   "publish_gate": {
@@ -31,7 +25,7 @@
     "n_universe": 2,
     "eligible": 2,
     "contaminated": 0,
-    "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+    "detail": "当日 1 次证据运行（0 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
   },
   "production": "NOT BLOCKED",
   "legacy_note": "'production' 为旧字段（仅反映审计 FAIL 数，不代表生产资格）；请以 production_status 为准。",
@@ -55,21 +49,14 @@
       "axis": "P0-研究有效性",
       "title": "数据快照可回溯（内嵌 hash 可解析）",
       "status": "PASS",
-      "detail": "当前 89e21db376195b01；归档 2 版；journal 内嵌 2 个 hash（20 条记录）"
+      "detail": "当前 b8f840a07e9a3923；归档 1 版；journal 内嵌 1 个 hash（12 条记录）"
     },
     {
       "cid": "P0-4",
       "axis": "P0-研究有效性",
       "title": "数据快照新鲜度",
       "status": "PASS",
-      "detail": "generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 0 天"
-    },
-    {
-      "cid": "P0-5",
-      "axis": "P0-研究有效性",
-      "title": "数据快照 scope 无自指环",
-      "status": "PASS",
-      "detail": "scope=dataset_inputs · snapshot_id=e70f299bb2cd485c · 355 项均为数据输入（registry/models 已出清单）"
+      "detail": "generated_at=2026-09-16T18:12:40 · n_files=351 · 年龄 0 天"
     },
     {
       "cid": "P1-1",
@@ -83,14 +70,14 @@
       "axis": "P1-证据链",
       "title": "验证报告 sha256 与注册表绑定一致",
       "status": "PASS",
-      "detail": "2 份报告已核验；active=forecast_v3.pkl"
+      "detail": "2 份报告"
     },
     {
       "cid": "P1-3",
       "axis": "P1-证据链",
       "title": "promotion 与 config.model_ready 一致",
       "status": "PASS",
-      "detail": "model_ready=False；active=forecast_v3.pkl；历史 blocked 1 个（不参与当前裁决）"
+      "detail": "model_ready=False；blocked 2 个"
     },
     {
       "cid": "P1-4",
@@ -111,14 +98,14 @@
       "axis": "P1-证据链",
       "title": "legacy_invalid 已移出活跃流",
       "status": "PASS",
-      "detail": "活跃流分布 {'prereg_degraded': 20}"
+      "detail": "活跃流分布 {'prereg_degraded': 12}"
     },
     {
       "cid": "P1-7",
       "axis": "P1-证据链",
       "title": "运行清单已实际产出",
       "status": "PASS",
-      "detail": "5 份；最新 run_manifest_20260918_145503_post.json status=SUCCESS"
+      "detail": "1 份；最新 run_manifest_20260917_113003_mid.json status=SUCCESS"
     },
     {
       "cid": "P1-8",
@@ -132,7 +119,7 @@
       "axis": "P1-证据链",
       "title": "飞书发布资格（当日逐基金证据干净）",
       "status": "PASS",
-      "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+      "detail": "当日 1 次证据运行（0 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
     },
     {
       "cid": "P2-1",
@@ -146,14 +133,14 @@
       "axis": "P2-工程卫生",
       "title": "Tushare 走 HTTPS",
       "status": "WARN",
-      "detail": "core\\datasource\\providers\\stock_tushare.py:L70"
+      "detail": "core\\stock_data.py:L66"
     },
     {
       "cid": "P2-3",
       "axis": "P2-工程卫生",
       "title": "测试分层（fast/slow）",
       "status": "PASS",
-      "detail": "测试文件 40 个；pytest 配置 有；markers 有"
+      "detail": "测试文件 32 个；pytest 配置 有；markers 有"
     },
     {
       "cid": "P2-4",

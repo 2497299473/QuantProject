@@ -1,0 +1,45 @@
+{
+  "run_id": "20260917_145503_post",
+  "ts": "2026-09-17T14:55:03",
+  "slot": "post",
+  "data": {
+    "ok": true,
+    "failed": [],
+    "n_funds": 4
+  },
+  "lookthrough": {
+    "ok": true,
+    "missing": []
+  },
+  "realtime": {
+    "ok": true,
+    "failed": [],
+    "degraded": [],
+    "n_funds": 4
+  },
+  "intraday_features": {
+    "ok": true,
+    "n_funds": 4
+  },
+  "market_context": {
+    "ok": true
+  },
+  "report": {
+    "ok": true,
+    "path": "output/report_20260917_post.md"
+  },
+  "notification": {
+    "ok": true,
+    "reason": null,
+    "gate": {
+      "ok": true,
+      "reason": null
+    }
+  },
+  "shadow": {
+    "ok": true,
+    "reason": null
+  },
+  "degraded_reasons": [],
+  "status": "SUCCESS"
+}
