@@ -44,6 +44,7 @@ LAYERS: dict[str, str] = {
     "test_pit_guard.py": FAST,
     "test_run_manifest.py": FAST,      # 全程 tempdir，不碰真实 data/ 与 output/
     "test_manifest_fund_mask.py": FAST,  # V4.1 ④：别名掩码/反查纯逻辑，tempdir 零网络
+    "test_v42_contracts.py": FAST,      # V4.2：审计新鲜度/状态门禁/流水幂等，tempdir 零网络
     "test_quantile_calib.py": FAST,
     "test_state_engine.py": FAST,
     "test_state_lookup.py": FAST,

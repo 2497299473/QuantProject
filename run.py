@@ -37,6 +37,7 @@ from core import intraday_feature_store as feat_store
 from core import forecast_engine
 from core import decision_engine
 from core import market_context
+import audit_project as audit_project_mod                             # 审计指针刷新入口
 from audit_project import (assert_no_fund_codes, mask_manifest_funds,   # 清单掩码 + 发布资格
                            publish_gate)                            # 单一来源（本文件只调不裁决）
 
@@ -161,12 +162,24 @@ def auto_slot(now: datetime | None = None) -> str:
 OBSIDIAN_LOG = Path(r"D:\Obsidian\My-First-Obsidian\量化交易工具\基金日频参谋-信号流水-2026.md")
 
 
+def _write_text_atomic(path: Path, text: str) -> None:
+    """原子写（tmp + os.replace）：只替换这一个文件，绝不整目录/整文件重排。"""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def append_obsidian_log(slot: str, signals: dict, account: dict, now,
                         path: Path = OBSIDIAN_LOG) -> bool:
     """盘后把当日信号追加一行到 Obsidian 信号流水（只记盘后、只记交易日）。
 
     设计（2026-08-23 用户确认）：盘前/盘中是过程态，盘后才是当日定论 → 一天 1 行。
-    文件不存在时自动创建并写表头；已存在则只追加，不覆盖历史。
+    文件不存在时自动创建并写表头。
+
+    V4.2 幂等（2026-09-18）：同一交易日**只保留一行**。重复运行不再追加第二行，而是
+    就地更新当日行（last-run-wins，与发布门禁同口径）——否则修 bug 后的重跑会与旧行
+    并存，读者无从判断哪行才是当日定论。实现只做**单行替换 + 原子写**：其余行逐字节
+    不动（09-18 已发生过「读-改-写整文件」把历史小节抹掉的事故，此处不再给那种机会）。
     """
     if slot != "post" or not is_trading_day(now):
         return False
@@ -178,15 +191,30 @@ def append_obsidian_log(slot: str, signals: dict, account: dict, now,
     acct = f"浮盈 {account['total_pnl_pct']:+.2f}%" if account.get("positions") else "无持仓"
     row = f"| {now:%m-%d} 盘后 | " + " | ".join(cells) + f" | {acct} |\n"
     path.parent.mkdir(parents=True, exist_ok=True)
+    key = f"| {now:%m-%d} 盘后 |"
     if not path.exists():
         head = ("# 基金日频参谋 · 盘后信号流水（2026）\n\n"
                 "> 只记盘后当日定论；🔴偏多 🟢偏空 ⚪中性；分数为三因子总分；不构成投资建议。\n\n"
                 "| 日期 | " + " | ".join(str(c) for c in signals) + " | 账户面 |\n"
                 "|:---" + "|---:" * (len(signals) + 1) + "|\n")
-        path.write_text(head + row, encoding="utf-8")
-    else:
-        with open(path, "a", encoding="utf-8") as fp:
-            fp.write(row)
+        _write_text_atomic(path, head + row)
+        return True
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    hits = [i for i, ln in enumerate(lines) if ln.startswith(key)]
+    if not hits:
+        _write_text_atomic(path, (text if text.endswith("\n") else text + "\n") + row)
+        return True
+    last_hit = hits[-1]
+    merged: list[str] = []
+    for i, ln in enumerate(lines):
+        if i not in hits:
+            merged.append(ln)
+        elif i == last_hit:
+            merged.append(row)          # 当日行就地更新（last-run-wins）
+    _write_text_atomic(path, "".join(merged))
+    log(f"[obs ] 当日流水行已就地更新（幂等：不追加第二行"
+        + (f"，归并 {len(hits)} 行重复" if len(hits) > 1 else "") + "）")
     return True
 
 
@@ -329,6 +357,15 @@ def _run(args, now: datetime) -> int:
     if not funds:
         log("[fail] 无任何基金数据，退出")
         return 1
+    # V4.2（2026-09-18）：申购/赎回状态可得性。状态未知**不**进 degraded（它不影响报告
+    # 其余栏的可信度，只影响「动作能不能执行」），而是① 记进清单 data.status_unknown
+    # ② 由 decision_engine 的硬门禁把动作锁成 HOLD。
+    status_unknown = [c for c in cfg["fund_pool"]
+                      if c in funds and not data_loader.is_fund_status_known(funds[c])]
+    if status_unknown:
+        log(f"[warn] {len(status_unknown)} 只基金申购/赎回状态未知（_lsjz 取数失败）："
+            f"{status_unknown}——动作层按硬门禁锁 HOLD，报告其余栏不受影响")
+
     if fund_failures:
         degraded.append("fund_data_partial:" + ",".join(fund_failures))
     if fund_fallbacks:
@@ -436,6 +473,8 @@ def _run(args, now: datetime) -> int:
                 feat_1455=feats.get(code),
                 pool_est=pool_est,
                 account_state=acct_states.get(code),
+                # V4.2：状态未知 ⇒ 动作层强制 HOLD（决策层硬门禁，不靠调用方自觉）
+                fund_status_known=data_loader.is_fund_status_known(funds.get(code)),
             ), feature_meta=feat_meta)
             decisions[code] = decision_engine.decision_to_cn(d)
             # v7 P1：预测特征日级累积存储（state→forecast 实验 / 联合回测的数据基建）
@@ -528,13 +567,15 @@ def _run(args, now: datetime) -> int:
         if not shadow_status.get("ok"):
             degraded.append(f"shadow_failed:{shadow_status.get('reason')}")
 
+
     manifest_payload = {
         "slot": slot,
         # ok 语义保持不变（= 无抛异常型失败），fallback 单列：读侧若要判「数据可信」
         # 需同时看 ok 与 fallback，避免悄悄改写既有字段的含义。
         # failed/fallback 为真实代码（内存态）；落盘时由 mask_manifest_funds 统一掩码。
         "data": {"ok": not fund_failures, "failed": fund_failures,
-                 "fallback": fund_fallbacks, "n_funds": len(funds)},
+                 "fallback": fund_fallbacks, "status_unknown": status_unknown,
+                 "n_funds": len(funds)},
         "lookthrough": {"ok": lookthrough is not None, "missing": lt_missing},
         "realtime": {"ok": not (realtime_failures or realtime_degraded),
                      "failed": realtime_failures, "degraded": realtime_degraded,
@@ -547,7 +588,22 @@ def _run(args, now: datetime) -> int:
         "degraded_reasons": degraded,
         "status": "DEGRADED" if degraded else "SUCCESS",
     }
-    return _finalize_run(now, manifest_payload, degraded, cfg["fund_pool"])
+    code = _finalize_run(now, manifest_payload, degraded, cfg["fund_pool"])
+
+    # 当前审计指针刷新（V4.2，2026-09-18）：让 output/audit_current.json 真正「current」
+    # ——旧版只有人手动跑审计才更新，实况里曾停在上一交易日。
+    # 位置在**清单落盘之后**：指针描述的必须是「含本次运行在内」的证据状态，放前面会
+    # 滞后一轮（post 轮的发布门禁证据就白写了）。失败不降级——指针是派生视图，其时效
+    # 已由 payload 的 evidence_stale 自证；结果只进本地日志（output/logs/，gitignored），
+    # 派生视图不进证据链。
+    if slot == "post":
+        try:
+            out, snap = audit_project_mod.refresh_current()
+            log(f"[aud ] 审计当前指针已刷新 → {out.name}（history: {snap.name}）")
+        except Exception as e:                      # noqa: BLE001
+            log(f"[warn] 审计当前指针刷新失败（不阻断本次运行，指针保持上一版）："
+                f"{type(e).__name__}: {e}")
+    return code
 
 
 def _run_shadow() -> dict:

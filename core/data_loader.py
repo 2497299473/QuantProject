@@ -32,6 +32,23 @@ NAV_FALLBACK_PREFIX = "cache:fallback"
 """全链失败降级读缓存的 `_source` 前缀（实际值形如 `cache:fallback(<异常摘要>)`）。"""
 
 
+FUND_STATUS_UNKNOWN = frozenset({"", "未知", "nan", "none"})
+"""``purchase_status`` / ``redeem_status`` 视为「不可得」的取值（小写比较，容错空值）。"""
+
+
+def is_fund_status_known(fund: dict) -> bool:
+    """申购/赎回状态是否可得（V4.2，2026-09-18：动作层前置门禁）。
+
+    ``lsjz`` 取数失败时 ``load_fund()`` 仍**正常返回**（对外签名不动，状态落「未知」并留
+    ``_lsjz_error``）。这件事必须能被下游读到：是否可申购/可赎回是动作能否执行的硬前提，
+    状态未知时绝不能输出加/减仓。与 ``is_nav_fallback`` 同属「三态之外的可得性谓词」，
+    独立成函数作单一事实源，避免 run / 决策 / 报告各写一套判定。
+    """
+    f = fund or {}
+    return all(str(f.get(k) or "").strip().lower() not in FUND_STATUS_UNKNOWN
+               for k in ("purchase_status", "redeem_status"))
+
+
 def is_nav_fallback(fund: dict) -> bool:
     """该基金本次是否走了「全链失败 → 退回旧缓存」降级路径（V4.1 ③）。
 

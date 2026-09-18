@@ -531,18 +531,115 @@ def check_legacy_archived(a: Audit) -> None:
           + ("" if n_legacy == 0 else f"；仍有 {n_legacy} 条 legacy 混在活跃流（可 --arch 归档）"))
 
 
-def check_run_manifest(a: Audit) -> None:
+MANIFEST_REQUIRED_KEYS = ("run_id", "slot", "status", "data", "lookthrough",
+                          "realtime", "degraded_reasons")
+"""最新清单必须齐备的键——缺任一即「监控瞎眼」，属契约破坏（FAIL）。"""
+
+MID_CUTOFF = (11, 30)
+"""午盘时点：早于此点，当日尚无「本应产出」的清单（11:30 mid 任务）。"""
+
+
+def _holidays() -> set[str]:
+    """data/holidays.json → 法定休市日集合（读不到 ⇒ 空集，退化为「只看周末」）。"""
+    try:
+        data = json.loads((DATA / "holidays.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    out: set[str] = set()
+    for _year, days in (data.get("years") or {}).items():
+        for dates in (days or {}).values():
+            out.update(dates or [])
+    return out
+
+
+def is_trading_day(d: datetime, holidays: set[str] | None = None) -> bool:
+    """周一~五且非法定休市日（审计侧独立实现：本脚本 stdlib-only，不 import run）。"""
+    if d.weekday() >= 5:
+        return False
+    return d.strftime("%Y-%m-%d") not in (_holidays() if holidays is None else holidays)
+
+
+def last_expected_run_date(now: datetime | None = None) -> str:
+    """最近一个「本应已产出运行清单」的交易日（V4.2 P1-7）。
+
+    规则：当天是交易日且已过 11:30 ⇒ 今天；否则回溯到上一个交易日。
+    于是周一 09:00 不会把周五的清单误判过期，周一 15:00 还停在周五就判过期。
+    """
+    now = now or datetime.now()
+    holidays = _holidays()
+    if is_trading_day(now, holidays) and (now.hour, now.minute) >= MID_CUTOFF:
+        return now.strftime("%Y-%m-%d")
+    d = now - timedelta(days=1)
+    while not is_trading_day(d, holidays):
+        d -= timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
+
+
+def check_run_manifest(a: Audit, now: datetime | None = None) -> None:
+    """P1-7（V4.2 收紧，2026-09-18）：证明「当前运行的证据完整」，而非「曾经跑过」。
+
+    旧实现只要求 output/run_manifest/ 里存在任意一个 JSON 就 PASS 且取 files[-1]：
+    于是「今天没正常运行、昨天留了一份 SUCCESS」照样 PASS。现按四问核验最新清单：
+
+    ① 自洽：文件名与 ``run_id`` 一致、run_id 日期可解析；
+    ② 齐备：``MANIFEST_REQUIRED_KEYS`` 全在，且 ``status`` 属于三态词表；
+    ③ 新鲜度：清单日期不得早于 ``last_expected_run_date()``（午盘时点判定，周末/假期不误报）；
+    ④ 掩码：逐基金字段不得残留 6 位代码（V4.1 ④ 契约；残留 ⇒ FAIL）。
+
+    结论写进 ``a.meta["run_manifest"]``，供 ``audit_payload`` 落 ``evidence_as_of`` /
+    ``evidence_stale``——「current 指针」自己得说清它描述的证据截至哪一天。
+    """
     txt = (BASE_DIR / "run.py").read_text(encoding="utf-8") if (BASE_DIR / "run.py").is_file() else ""
     tri = "DEGRADED" in txt and "return 2" in txt
     files = sorted(RUN_MANIFEST_DIR.glob("run_manifest_*.json")) if RUN_MANIFEST_DIR.is_dir() else []
+    now = now or datetime.now()
+    expect = last_expected_run_date(now)
     if not files:
+        a.meta["run_manifest"] = {"latest": None, "as_of": None,
+                                  "expected_as_of": expect, "stale": True, "n_files": 0}
         a.add("P1-7", "P1-证据链", "运行清单已实际产出",
               WARN if tri else FAIL,
               "三态退出码已实现但 output/run_manifest/ 无产物（证据链尚未兑现）")
         return
-    payload = load_json(files[-1]) or {}
-    a.add("P1-7", "P1-证据链", "运行清单已实际产出", PASS,
-          f"{len(files)} 份；最新 {files[-1].name} status={payload.get('status')}")
+
+    latest = files[-1]
+    payload = load_json(latest) or {}
+    rid = latest.name[len("run_manifest_"):-len(".json")]
+    problems: list[str] = []
+    if payload.get("run_id") != rid:
+        problems.append(f"run_id（{payload.get('run_id')}）与文件名不一致")
+    missing = [k for k in MANIFEST_REQUIRED_KEYS if k not in payload]
+    if missing:
+        problems.append(f"缺关键字段 {missing}（监控会瞎眼）")
+    if payload.get("status") not in ("SUCCESS", "DEGRADED"):
+        problems.append(f"status 非三态词表（{payload.get('status')!r}）")
+    try:
+        assert_no_fund_codes(payload)
+    except ValueError as exc:
+        problems.append(str(exc))
+    day = None
+    try:
+        day = datetime.strptime(rid[:8], "%Y%m%d")
+    except (ValueError, IndexError):
+        problems.append(f"文件名日期不可解析（{rid}）")
+
+    as_of = day.strftime("%Y-%m-%d") if day else None
+    stale = bool(as_of) and as_of < expect
+    a.meta["run_manifest"] = {"latest": latest.name, "run_id": payload.get("run_id"),
+                              "status": payload.get("status"), "as_of": as_of,
+                              "expected_as_of": expect, "stale": stale,
+                              "n_files": len(files)}
+    if problems:
+        a.add("P1-7", "P1-证据链", "运行清单已实际产出", FAIL,
+              f"最新清单 {latest.name} 不合格：" + "；".join(problems))
+    elif stale:
+        a.add("P1-7", "P1-证据链", "运行清单已实际产出", WARN,
+              f"{len(files)} 份，但最新 {latest.name} 停在 {as_of}，"
+              f"早于最近应产出交易日 {expect}（{now:%Y-%m-%d %H:%M} 时点判定）")
+    else:
+        a.add("P1-7", "P1-证据链", "运行清单已实际产出", PASS,
+              f"{len(files)} 份；最新 {latest.name} status={payload.get('status')}"
+              f" · 证据截至 {as_of}")
 
 
 # ---------------------------------------------------------- P1-9 发布资格门禁
@@ -785,6 +882,15 @@ def mask_fund_text(text, alias) -> str:
     return prefix + sep + ",".join(alias.get(t, t) for t in suffix.split(","))
 
 
+MANIFEST_FUND_FIELDS = tuple(GATE_FUND_KEYED.values()) + (("data", "status_unknown"),)
+"""清单里一切**逐基金代码列表**字段（掩码与泄漏自检的唯一清单）。
+
+= ``GATE_FUND_KEYED`` 覆盖的五处 + ``data.status_unknown``（V4.2：申购/赎回状态未知的
+基金；它不是降级项、不进发布门禁，但同样是逐基金代码列表，落盘必须掩码）。
+与 ``GATE_FUND_KEYED`` 分工：那张表管「降级项能否逐基金归因」，本表管「哪些字段带代码」。
+"""
+
+
 def mask_manifest_funds(payload: dict, pool) -> dict:
     """运行清单 → 掩码副本：逐基金字段与降级项代码段换成位置别名（V4.1 ④）。
 
@@ -795,7 +901,7 @@ def mask_manifest_funds(payload: dict, pool) -> dict:
     """
     alias = fund_alias(pool)
     out = copy.deepcopy(payload)
-    for _prefix, (section, key) in GATE_FUND_KEYED.items():
+    for section, key in MANIFEST_FUND_FIELDS:
         sec = out.get(section)
         if isinstance(sec, dict) and isinstance(sec.get(key), list):
             sec[key] = mask_fund_tokens(sec[key], alias)
@@ -818,7 +924,7 @@ def assert_no_fund_codes(payload) -> None:
     ``data_fingerprint._assert_acyclic`` 同一取舍：宁可炸，不产出坏证据。
     """
     bad: list[str] = []
-    for _prefix, (section, key) in GATE_FUND_KEYED.items():
+    for section, key in MANIFEST_FUND_FIELDS:
         sec = payload.get(section) if isinstance(payload, dict) else None
         if isinstance(sec, dict) and isinstance(sec.get(key), list):
             bad += [str(t) for t in sec[key] if _CODE_RE.fullmatch(str(t))]
@@ -1044,6 +1150,7 @@ def derive_states(a: Audit) -> dict:
 
 def audit_payload(a: Audit, n: dict, st: dict) -> dict:
     """审计 JSON 正文（单一来源，current 与 history 两份内容完全一致）。"""
+    rm = a.meta.get("run_manifest") or {}
     return {
         "schema_version": "2.0",
         "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -1058,6 +1165,12 @@ def audit_payload(a: Audit, n: dict, st: dict) -> dict:
         # 计数与掩码措辞（真实持仓代码不得进仓库，见 mask_fund_codes）。
         "publish_gate": ({k: v for k, v in a.meta["publish_gate"].items()
                          if k != "detail_real"} if a.meta.get("publish_gate") else None),
+        # V4.2（2026-09-18）：current 指针必须自证「描述的证据截至哪一天」。
+        # 旧版 generated_at 只说明本文件何时生成——文件可能天天重写而证据停在上一交易日。
+        "evidence_as_of": rm.get("as_of"),
+        "evidence_expected_as_of": rm.get("expected_as_of"),
+        "evidence_stale": bool(rm.get("stale")),
+        "evidence_latest_run": rm.get("latest"),
         # 兼容层（V4 不做 breaking change）：旧字段语义原样保留——只反映
         # 审计 FAIL 数，**不表达生产资格**；新的生产资格请读 production_status。
         "production": "BLOCKED" if n[FAIL] else "NOT BLOCKED",
@@ -1095,6 +1208,21 @@ def write_audit_json(a: Audit, n: dict, st: dict, out: Path | None = None,
     snap = hist / f"audit_{stamp}.json"
     snap.write_text(text, encoding="utf-8")
     return out, snap
+
+
+def refresh_current() -> tuple[Path, Path]:
+    """重跑审计并刷新「当前指针」（V4.2，2026-09-18）。
+
+    动因：README 写「所有人只看 audit_current.json」，但该文件只在人手动跑审计时才
+    更新——实况里它曾停在上一交易日，与「current」这个名字直接矛盾。run.py 在 post
+    收尾调用本函数，于是指针的时效由证据产出动作自己维持。
+
+    返回（current, history 快照）路径；调用方负责决定失败如何处理（run.py 只记
+    ``audit_refresh`` 不据此降级：指针是派生视图，过期与否已由 ``evidence_stale``
+    自证，不需要把生产运行拖成 DEGRADED）。
+    """
+    a = run_audit()
+    return write_audit_json(a, a.counts(), derive_states(a))
 
 
 # ---------------------------------------------------------------- 主流程

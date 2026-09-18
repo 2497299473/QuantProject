@@ -62,6 +62,7 @@ class DecisionInput:
     feat_1455: dict | None = None      # intraday_features 输出的 14:55 特征
     pool_est: dict | None = None       # {code: est_change_pct(%)} 池内所有基金实时估算
     account_state: dict | None = None  # {current_weight, max_weight, cost_nav, last_nav, consecutive_adds}
+    fund_status_known: bool = True     # V4.2：申购/赎回状态可得（False ⇒ 动作层强制 HOLD）
     state_ref: dict | None = None      # State Engine 只读参考（2026-08-27）：不参与评分
 
 
@@ -184,8 +185,16 @@ def _score_account(acct: dict | None) -> tuple[int, list[str]]:
     return int(_clamped(score, -10, 10)), reasons
 
 
-def _check_gates(dcfg: dict, feat: dict, acct: dict | None, candidate: str) -> list[str]:
-    """四道准入门槛（GPT 第十八节）→ 不满足则 invalid，动作强制 HOLD。"""
+def _check_gates(dcfg: dict, feat: dict, acct: dict | None, candidate: str,
+                 status_known: bool = True) -> list[str]:
+    """四道准入门槛（GPT 第十八节）+ 状态可得性门禁（V4.2）→ 不满足则 invalid，动作强制 HOLD。
+
+    V4.2（2026-09-18）：``_lsjz`` 取数失败时申购/赎回状态为「未知」，而 ``load_fund()``
+    照常返回——旧实现下这层信息不进任何状态机，未来动作层一旦打开，就可能输出一个
+    **执行不了**的加/减仓建议。故新增硬门禁：状态未知 ⇒ invalid（动作恒 HOLD）。
+    当前 ``history_validated=false`` 已使动作恒 HOLD，本门禁是「打开动作层之前必须解决」
+    的前置条件，早落地无害、晚落地要命。
+    """
     invalid: list[str] = []
     g = dcfg.get("gates", {})
     cov = feat.get("covered_pct") or 0.0
@@ -200,6 +209,8 @@ def _check_gates(dcfg: dict, feat: dict, acct: dict | None, candidate: str) -> l
             invalid.append(f"当前仓位 {w*100:.0f}% ≥ 最大允许 {g.get('max_position_pct', 0.8)*100:.0f}%")
     if not g.get("history_validated", False):
         invalid.append("动作阈值未经 backtest_action.py 历史验证（history_validated=false）")
+    if not status_known:
+        invalid.append("申购/赎回状态未知（_lsjz 取数失败）——动作层不得越过")
     return invalid
 
 
@@ -238,7 +249,8 @@ def evaluate(inp: DecisionInput) -> Decision:
     else:
         candidate = "HOLD"
 
-    invalid = _check_gates(dcfg, feat, inp.account_state, candidate)
+    invalid = _check_gates(dcfg, feat, inp.account_state, candidate,
+                           status_known=getattr(inp, "fund_status_known", True))
     if invalid:
         action, confidence = "HOLD", 0.3
     elif candidate == "ADD":

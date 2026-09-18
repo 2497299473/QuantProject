@@ -69,7 +69,7 @@ class TestMaskManifestFunds(unittest.TestCase):
         return {"run_id": "20260918_145500_post", "slot": "post",
                 "status": "DEGRADED",
                 "data": {"ok": False, "failed": ["002112"], "fallback": ["025687"],
-                         "n_funds": 4},
+                         "status_unknown": ["002207"], "n_funds": 4},
                 "lookthrough": {"ok": False, "missing": ["022853"]},
                 "realtime": {"ok": False, "failed": ["002207"],
                              "degraded": ["002112"], "n_funds": 3},
@@ -90,10 +90,18 @@ class TestMaskManifestFunds(unittest.TestCase):
         self.assertEqual(out["data"]["fallback"], ["F4"])
         self.assertEqual(out["lookthrough"]["missing"], ["F3"])
         self.assertEqual(out["realtime"]["failed"], ["F2"])
+        self.assertEqual(out["data"]["status_unknown"], ["F2"],
+                         "V4.2 的状态未知清单同样是逐基金代码列表，必须掩码")
         self.assertEqual(out["realtime"]["degraded"], ["F1"])
         # 全部 GATE_FUND_KEYED 字段都覆盖到（新加字段若漏掩码，这条会红）
         for _prefix, (section, key) in ap.GATE_FUND_KEYED.items():
             self.assertIn(key, out[section], f"{section}.{key} 未被掩码逻辑覆盖")
+
+    def test_manifest_fund_fields_cover_gate_vocabulary(self):
+        """掩码清单必须覆盖门禁词表，且额外含 status_unknown（新字段漏登记就会裸奔）。"""
+        for field in ap.GATE_FUND_KEYED.values():
+            self.assertIn(tuple(field), ap.MANIFEST_FUND_FIELDS)
+        self.assertIn(("data", "status_unknown"), ap.MANIFEST_FUND_FIELDS)
 
     def test_reasons_masked_but_prefix_kept(self):
         out = ap.mask_manifest_funds(self._payload(), POOL)
