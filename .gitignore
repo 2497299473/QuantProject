@@ -25,6 +25,9 @@ output/*.md
 !output/forecast_lab_prereg_*.md
 output/logs/
 output/backups/
+# 数据备份目录（本地刷新前的安全副本，可再生，绝不入库）
+output/backup_klines_*/
+output/backup_stock_klines_*/
 output/timesfm/*.tsv
 output/sina_nav/
 
