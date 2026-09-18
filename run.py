@@ -37,7 +37,8 @@ from core import intraday_feature_store as feat_store
 from core import forecast_engine
 from core import decision_engine
 from core import market_context
-from audit_project import publish_gate   # 发布资格单一来源（本文件只调不裁决）
+from audit_project import (assert_no_fund_codes, mask_manifest_funds,   # 清单掩码 + 发布资格
+                           publish_gate)                            # 单一来源（本文件只调不裁决）
 
 _LOG: list[str] = []
 
@@ -57,7 +58,7 @@ def _write_log(now: datetime) -> None:
         old.unlink(missing_ok=True)
 
 
-def _write_run_manifest(now: datetime, manifest: dict) -> bool:
+def _write_run_manifest(now: datetime, manifest: dict, fund_pool) -> bool:
     """机器可读运行清单（V4-A 证据底座，2026-09-16）。
 
     退出码只说「成 / 降级 / 败」，本文件说「哪几环证据链是坏的」——供 Windows
@@ -68,6 +69,11 @@ def _write_run_manifest(now: datetime, manifest: dict) -> bool:
     返回是否落盘成功；失败不阻断主流程，由调用方转成 DEGRADED（exit=2）。
     本函数不把自身失败写进清单——清单都没写成，收据无从自证；监控侧改以
     「exit=2 且本次 run_id 无对应清单」识别 ``run_manifest_write_failed``。
+
+    ``fund_pool``（V4.1 ④，2026-09-18）：别名基准表，**必传**。output/run_manifest/ 随
+    仓库跟踪，故落盘前把逐基金字段与降级项代码段统一换成位置别名（``F1``…），并在文件
+    里留基准表指纹供门禁反查；掩码后若仍残留 6 位代码则拒绝落盘（转 DEGRADED），
+    宁可少一份证据，也不写出一份泄露持仓的清单（P0-2）。
     """
     run_id = f"{now:%Y%m%d_%H%M%S}_{manifest.get('slot', 'na')}"
     out_dir = BASE_DIR / "output" / "run_manifest"
@@ -75,8 +81,10 @@ def _write_run_manifest(now: datetime, manifest: dict) -> bool:
     tmp = out_dir / f"{final.name}.tmp"
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
-        payload = {"run_id": run_id, "ts": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                   **manifest}
+        payload = mask_manifest_funds(
+            {"run_id": run_id, "ts": now.strftime("%Y-%m-%dT%H:%M:%S%z"), **manifest},
+            fund_pool)
+        assert_no_fund_codes(payload)
         tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
                        encoding="utf-8")
         os.replace(tmp, final)
@@ -101,14 +109,15 @@ def nav_fallback_funds(funds: dict) -> list[str]:
     return [str(c) for c, f in (funds or {}).items() if data_loader.is_nav_fallback(f)]
 
 
-def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str]) -> int:
+def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str],
+                 fund_pool) -> int:
     """落清单 + 定退出码（V4-A，2026-09-17）。
 
     清单写失败 ⇒ 本次不得声称「证据链完整」：改为追加 ``run_manifest_write_failed``
     并返回 2。清单本身不记录自身失败（文件都没写成，收据无从自证），监控侧以
-    「exit=2 且本次 run_id 无对应清单」识别。
+    「exit=2 且本次 run_id 无对应清单」识别。``fund_pool`` 同 ``_write_run_manifest``。
     """
-    if not _write_run_manifest(now, manifest_payload):
+    if not _write_run_manifest(now, manifest_payload, fund_pool):
         degraded.append("run_manifest_write_failed")
     if degraded:
         log(f"[exit] DEGRADED（{len(degraded)} 项降级：{'; '.join(degraded)}）")
@@ -465,8 +474,9 @@ def _run(args, now: datetime) -> int:
     # 发布资格门禁（V4-A，2026-09-17，方案 A 整批裁决）：本次内存证据 + 当日
     # 已落盘清单并集判定；任一只持有基金带降级 ⇒ 整批不推。用闭包延迟求值：
     # post 推送时本次清单尚未落盘，extra 必须带上当下 degraded，否则只审上午旧账。
-    # 注：论域由 audit_project 侧从 holdings.json 取（shares>0），此处不得把代码
-    # 写进清单——output/run_manifest/ 随仓库跟踪，写入即泄露持仓（P0-2）。
+    # 注：论域由 audit_project 侧从 holdings.json 取（shares>0）。门禁的**内存**侧用真实
+    # 代码归因；落盘清单统一掩码为位置别名（V4.1 ④）——output/run_manifest/ 随仓库
+    # 跟踪，直接写 6 位代码违反 P0-2。
     gate_structured = {
         "data": {"failed": fund_failures, "fallback": fund_fallbacks},
         "lookthrough": {"missing": lt_missing},
@@ -522,6 +532,7 @@ def _run(args, now: datetime) -> int:
         "slot": slot,
         # ok 语义保持不变（= 无抛异常型失败），fallback 单列：读侧若要判「数据可信」
         # 需同时看 ok 与 fallback，避免悄悄改写既有字段的含义。
+        # failed/fallback 为真实代码（内存态）；落盘时由 mask_manifest_funds 统一掩码。
         "data": {"ok": not fund_failures, "failed": fund_failures,
                  "fallback": fund_fallbacks, "n_funds": len(funds)},
         "lookthrough": {"ok": lookthrough is not None, "missing": lt_missing},
@@ -536,7 +547,7 @@ def _run(args, now: datetime) -> int:
         "degraded_reasons": degraded,
         "status": "DEGRADED" if degraded else "SUCCESS",
     }
-    return _finalize_run(now, manifest_payload, degraded)
+    return _finalize_run(now, manifest_payload, degraded, cfg["fund_pool"])
 
 
 def _run_shadow() -> dict:

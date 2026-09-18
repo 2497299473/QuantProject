@@ -18,6 +18,8 @@ sys.path.insert(0, str(BASE_DIR))
 
 import run                                              # noqa: E402
 
+POOL = ["002112", "002207", "022853", "025687"]      # V4.1 ④ 别名基准表（== config.fund_pool）
+
 
 class TestRunManifestWrite(unittest.TestCase):
     def setUp(self):
@@ -44,7 +46,7 @@ class TestRunManifestWrite(unittest.TestCase):
             "lookthrough": {"ok": True, "missing": []},
             "notification": {"ok": True, "reason": None},
             "shadow": {"ok": True, "reason": None},
-        })
+        }, POOL)
         path, payload = self._written()
         self.assertEqual(path.name, "run_manifest_20260916_183000_post.json")
         self.assertEqual(payload["run_id"], "20260916_183000_post")
@@ -60,7 +62,7 @@ class TestRunManifestWrite(unittest.TestCase):
             "slot": "post", "status": "DEGRADED",
             "degraded_reasons": ["feishu_push_failed", "shadow_failed:exit_1"],
             "notification": {"ok": False, "reason": "webhook_403"},
-        })
+        }, POOL)
         _, payload = self._written()
         self.assertEqual(payload["status"], "DEGRADED")
         self.assertEqual(payload["degraded_reasons"],
@@ -72,7 +74,7 @@ class TestRunManifestWrite(unittest.TestCase):
         run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
         try:
             run._write_run_manifest(datetime(2026, 9, 16, 18, 0, 0),
-                                    {"slot": "mid", "status": "SUCCESS"})
+                                    {"slot": "mid", "status": "SUCCESS"}, POOL)
         finally:
             run.BASE_DIR = self._orig
         self.assertTrue(any("运行清单写入失败" in ln for ln in run._LOG))
@@ -185,7 +187,7 @@ class TestManifestFailureContract(unittest.TestCase):
 
     def test_success_returns_true_and_leaves_no_tmp(self):
         ok = run._write_run_manifest(datetime(2026, 9, 17, 11, 30, 3),
-                                     {"slot": "mid", "status": "SUCCESS"})
+                                     {"slot": "mid", "status": "SUCCESS"}, POOL)
         self.assertTrue(ok)
         self.assertEqual(list(self._out().glob("*.tmp")), [], "原子写不得残留 tmp")
         self.assertEqual(len(list(self._out().glob("*.json"))), 1)
@@ -193,20 +195,20 @@ class TestManifestFailureContract(unittest.TestCase):
     def test_failure_returns_false(self):
         run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
         ok = run._write_run_manifest(datetime(2026, 9, 17, 11, 30, 3),
-                                     {"slot": "mid", "status": "SUCCESS"})
+                                     {"slot": "mid", "status": "SUCCESS"}, POOL)
         self.assertFalse(ok, "落盘失败必须返回 False 供调用方降级")
 
     def test_finalize_maps_manifest_failure_to_exit_2(self):
         run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
         degraded = []
         code = run._finalize_run(datetime(2026, 9, 17, 11, 30, 3),
-                                 {"slot": "mid", "status": "SUCCESS"}, degraded)
+                                 {"slot": "mid", "status": "SUCCESS"}, degraded, POOL)
         self.assertEqual(code, 2)
         self.assertIn("run_manifest_write_failed", degraded)
 
     def test_finalize_clean_run_is_exit_0(self):
         code = run._finalize_run(datetime(2026, 9, 17, 11, 30, 3),
-                                 {"slot": "mid", "status": "SUCCESS"}, [])
+                                 {"slot": "mid", "status": "SUCCESS"}, [], POOL)
         self.assertEqual(code, 0)
 
 

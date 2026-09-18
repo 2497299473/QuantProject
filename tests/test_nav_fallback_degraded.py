@@ -29,6 +29,7 @@ import run                                               # noqa: E402
 from core import data_loader                             # noqa: E402
 
 NOW = datetime(2026, 9, 18, 14, 56, 0)
+POOL = ["002112", "025687"]      # V4.1 ④ 别名基准表（升序 → 002112=F1、025687=F2）
 
 
 class TestFallbackPredicate(unittest.TestCase):
@@ -198,23 +199,27 @@ class TestManifestAndExitCode(unittest.TestCase):
             "slot": "post", "status": "DEGRADED",
             "data": {"ok": True, "failed": [], "fallback": ["002112"], "n_funds": 4},
             "degraded_reasons": ["fund_data_fallback:002112"],
-        })
+        }, POOL)
         self.assertTrue(ok)
         p = self._payload()
-        self.assertEqual(p["data"]["fallback"], ["002112"])
-        self.assertEqual(p["degraded_reasons"], ["fund_data_fallback:002112"])
+        # V4.1 ④：落盘侧只留位置别名（002112 = 基准表升序第 1 位），真实代码不进仓库
+        self.assertEqual(p["data"]["fallback"], ["F1"])
+        self.assertEqual(p["degraded_reasons"], ["fund_data_fallback:F1"])
+        self.assertEqual(p["fund_refs"]["pool_sha256_8"], ap.fund_pool_fingerprint(POOL))
+        for f in (self.root / "output" / "run_manifest").glob("*.json"):
+            self.assertNotIn("002112", f.read_text(encoding="utf-8"))
 
     def test_finalize_exit_two_when_only_fallback(self):
         # 只有 fallback 一项降级（无异常失败）：修复前这条路径会安静地返回 0
         code = run._finalize_run(
             NOW, {"slot": "post", "status": "DEGRADED",
                   "degraded_reasons": ["fund_data_fallback:002112"]},
-            ["fund_data_fallback:002112"])
+            ["fund_data_fallback:002112"], POOL)
         self.assertEqual(code, 2)
 
     def test_clean_run_exit_zero_unchanged(self):
         code = run._finalize_run(NOW, {"slot": "post", "status": "SUCCESS",
-                                       "degraded_reasons": []}, [])
+                                       "degraded_reasons": []}, [], POOL)
         self.assertEqual(code, 0)
 
 

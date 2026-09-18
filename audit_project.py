@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 import ast
 import bisect
+import copy
 import hashlib
 import json
 import os
@@ -570,25 +571,35 @@ def held_fund_codes() -> list[str]:
     return [str(c) for c, v in funds.items() if (v or {}).get("shares")]
 
 
-def attribute_degradations(reasons, structured, universe):
+def attribute_degradations(reasons, structured, universe, pool=None):
     """降级项分解 → (run_level 列表, per_fund 字典)。
 
-    - 前缀在 GATE_FUND_KEYED 且代码可归因（结构化字段 ∪ 后缀裸代码）⇒ 记到具体基金；
+    - 前缀在 GATE_FUND_KEYED 且代码可归因（结构化字段 ∪ 后缀裸代码/别名）⇒ 记到具体基金；
     - 其余（market_context_unavailable / shadow_failed:* / intraday_features_empty …）
       以及归因漂移（代码不在论域内、字段与后缀对不上）⇒ 运行级 ⇒ 污染全部基金。
+
+    V4.1 ④（2026-09-18）：清单的逐基金字段与降级项后缀已改写成位置别名（``F1``…），
+    本函数按同一张基准表反查（``resolve_fund_refs``，``pool`` 缺省取 config.fund_pool）。
+    反查不出来的（基准表缺失、指纹不一致、F 号越界）**不推断**，一律落到
+    「代码不在论域」的 fail-closed 分支。
     """
     run_level: list[str] = []
     per_fund: dict[str, list[str]] = {}
+    structured = structured if isinstance(structured, dict) else {}
+    pool = fund_pool() if pool is None else pool
+    fp = (structured.get("fund_refs") or {}).get("pool_sha256_8")
     for raw in reasons:
         r = str(raw)
         prefix, _, suffix = r.partition(":")
         codes: set[str] = set()
         if prefix in GATE_FUND_KEYED:
             section, key = GATE_FUND_KEYED[prefix]
-            sec = (structured or {}).get(section) or {}
+            sec = structured.get(section) or {}
             listed = sec.get(key) if isinstance(sec, dict) else None
-            codes |= {str(x) for x in (listed or [])}
-            codes |= {t for t in suffix.split(",") if t and _CODE_RE.fullmatch(t)}
+            toks = [str(x) for x in (listed or [])]
+            toks += [t for t in suffix.split(",")
+                     if t and (_CODE_RE.fullmatch(t) or FUND_REF_RE.fullmatch(t))]
+            codes |= set(resolve_fund_refs(toks, pool, fp))
             if codes and codes <= universe:
                 for c in sorted(codes):
                     per_fund.setdefault(c, []).append(r)
@@ -647,6 +658,7 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
         runs.append(([str(x) for x in (reasons or [])], dict(structured or {})))
 
     uni: set[str] = {str(c) for c in (universe or ())} | set(held_fund_codes())
+    pool = fund_pool()      # V4.1 ④：清单别名基准表（反查一次，全程复用）
 
     run_level: list[str] = []
     per_fund_union: dict[str, list[str]] = {}
@@ -655,7 +667,7 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
     for reasons, m in runs:
         kept = [r for r in reasons
                 if str(r).partition(":")[0] not in GATE_EXCLUDED_REASONS]
-        rl, pf = attribute_degradations(kept, m, uni)
+        rl, pf = attribute_degradations(kept, m, uni, pool)
         run_level += rl
         for c, rs in pf.items():
             per_fund_union.setdefault(c, []).extend(rs)
@@ -716,24 +728,121 @@ def publish_gate(now: datetime | None = None, universe=None, extra=()) -> dict:
             "detail": detail}
 
 
-def mask_fund_codes(codes):
+def fund_alias(base) -> dict:
+    """基准表 → {代码: 位置别名 F1/F2…}（按代码升序编号，位置即身份）。"""
+    return {c: f"F{i + 1}" for i, c in enumerate(sorted({str(x) for x in (base or [])}))}
+
+
+def mask_fund_codes(codes, base=None):
     """基金代码 → 位置别名（F1/F2…）。
 
     动因：``audit_current.json`` 是入库产物，而发布论域由 holdings.json 的
     shares>0 推出——直接写代码等于泄露「实际持有哪几只」，违反 P0-2 的
     持仓隔离口径。别名保留污染结构（哪只脏、脏在哪）却不暴露身份；
     真实明细只进控制台（本地）。
+
+    ``base``（V4.1 ④ 加）：别名基准表。给定时按**基准表升序位**编号——同一代码在
+    任何字段、任何清单里都是同一个 F 号，且可由基准表反查（运行清单掩码走这条）；
+    不给定时退化为「按本列表内位置编号」的旧口径（audit_current.json 单列表沿用）。
     """
-    alias = {}
-    for c in sorted(str(x) for x in codes):
-        alias[c] = f"F{len(alias) + 1}"
-    return alias
+    if base is None:
+        return fund_alias(codes)
+    full = fund_alias(base)
+    return {str(c): full[str(c)] for c in codes if str(c) in full}
+
+
+def fund_pool() -> list[str]:
+    """``config.fund_pool``——运行清单别名基准表（缺失/不可读 ⇒ 空表）。"""
+    return [str(x) for x in (_config().get("fund_pool") or [])]
+
+
+def fund_pool_fingerprint(pool) -> str:
+    """基准表指纹（8 位 hex）：别名只对同一张基准表有意义，落盘留指纹供复核。"""
+    joined = ",".join(sorted(str(x) for x in (pool or [])))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:8]
+
+
+FUND_REF_RE = re.compile(r"F\d+\Z")
+"""位置别名词法（``F1``/``F12``）。与 ``_CODE_RE`` 一起界定「基金 token」。"""
 
 
 def _mask_detail(detail: str, alias: dict) -> str:
     for code, name in sorted(alias.items(), key=lambda kv: -len(kv[0])):
         detail = detail.replace(code, name)
     return detail
+
+
+def mask_fund_tokens(tokens, alias) -> list[str]:
+    """逐 token 掩码（token 级，不做子串替换——避免误伤时间戳等其它数字）。"""
+    return [alias.get(str(t), str(t)) for t in (tokens or [])]
+
+
+def mask_fund_text(text, alias) -> str:
+    """``prefix:code,code`` 的代码段掩码；前缀原样保留（门禁靠前缀归类）。"""
+    prefix, sep, suffix = str(text).partition(":")
+    if not sep:
+        return str(text)
+    return prefix + sep + ",".join(alias.get(t, t) for t in suffix.split(","))
+
+
+def mask_manifest_funds(payload: dict, pool) -> dict:
+    """运行清单 → 掩码副本：逐基金字段与降级项代码段换成位置别名（V4.1 ④）。
+
+    动因：``output/run_manifest/`` 随仓库跟踪，而逐基金降级码 ⊆ ``config.fund_pool``；
+    ``run.py`` 的注释写着「清单不得写代码」，但 ``data.failed`` / ``data.fallback``
+    一直是真实 6 位码——契约与产物自相矛盾。掩码基准固定为基金池升序位，门禁侧
+    用同一张表反查（``resolve_fund_refs``），逐基金归因能力不变。
+    """
+    alias = fund_alias(pool)
+    out = copy.deepcopy(payload)
+    for _prefix, (section, key) in GATE_FUND_KEYED.items():
+        sec = out.get(section)
+        if isinstance(sec, dict) and isinstance(sec.get(key), list):
+            sec[key] = mask_fund_tokens(sec[key], alias)
+    reasons = out.get("degraded_reasons")
+    if isinstance(reasons, list):
+        out["degraded_reasons"] = [
+            mask_fund_text(r, alias) if str(r).partition(":")[0] in GATE_FUND_KEYED else r
+            for r in reasons]
+    out["fund_refs"] = {"scheme": "F<n> = config.fund_pool 升序第 n 位",
+                        "n_pool": len(alias),
+                        "pool_sha256_8": fund_pool_fingerprint(pool)}
+    return out
+
+
+def assert_no_fund_codes(payload) -> None:
+    """掩码后硬校验：逐基金字段与降级项后缀不得残留 6 位代码。
+
+    残留意味着基准表与本次运行不一致（例如出现池外代码）。此处**宁可拒绝落盘**
+    （run.py 转 DEGRADED，exit=2，监控看得见）也不写出泄露持仓的清单——与
+    ``data_fingerprint._assert_acyclic`` 同一取舍：宁可炸，不产出坏证据。
+    """
+    bad: list[str] = []
+    for _prefix, (section, key) in GATE_FUND_KEYED.items():
+        sec = payload.get(section) if isinstance(payload, dict) else None
+        if isinstance(sec, dict) and isinstance(sec.get(key), list):
+            bad += [str(t) for t in sec[key] if _CODE_RE.fullmatch(str(t))]
+    for r in ((payload or {}).get("degraded_reasons") or []):
+        prefix, sep, suffix = str(r).partition(":")
+        if sep and prefix in GATE_FUND_KEYED:
+            bad += [t for t in suffix.split(",") if _CODE_RE.fullmatch(t)]
+    if bad:
+        raise ValueError(f"清单掩码后仍残留基金代码 {sorted(set(bad))}"
+                         "（P0-2：run_manifest 随仓库跟踪，不得写代码）")
+
+
+def resolve_fund_refs(tokens, pool=None, fingerprint=None) -> list[str]:
+    """清单侧 ``F<n>`` 别名 → 真实代码（``mask_manifest_funds`` 的逆，V4.1 ④）。
+
+    - 6 位代码原样通过（09-18 及更早的旧清单是在档证据，不追改）；
+    - ``F<n>`` 按基准表升序位反查（指纹不一致即视为不可解析）；
+    - 解析不出来的 token 原样返回 ⇒ 由调用方的「不在论域」fail-closed 分支接住，
+      不会把无法判读的别名悄悄当成干净。
+    """
+    inv: dict[str, str] = {}
+    if pool and (fingerprint is None or fund_pool_fingerprint(pool) == fingerprint):
+        inv = {n: c for c, n in fund_alias(pool).items()}
+    return [inv.get(str(t), str(t)) for t in (tokens or [])]
 
 
 def check_publish_gate(a: Audit, now: datetime | None = None) -> None:
@@ -750,16 +859,18 @@ def check_publish_gate(a: Audit, now: datetime | None = None) -> None:
     clean-day 测例误判 WARN（2026-09-18 fast 全量实测抓到）。
     """
     g = publish_gate(now=now)
+    # V4.1 ④：checks[] 会整段写进 audit_current.json（入库），故此处也只用掩码措辞；
+    # 真实代码经 detail_real 走控制台（main 里的 PUBLISH_GATE 段）。
+    masked = _mask_detail(g["detail"], mask_fund_codes(g["universe"]))
     a.meta["publish_gate"] = {"ok": g["ok"], "reason": g["reason"],
                               "n_universe": len(g["universe"]),
                               "eligible": len(g["eligible"]),
                               "contaminated": len(g["contaminated"]),
-                              "detail": _mask_detail(g["detail"],
-                                                     mask_fund_codes(g["universe"])),
+                              "detail": masked,
                               # 仅内存使用（控制台打印），不进 payload
                               "detail_real": g["detail"]}
     a.add("P1-9", "P1-证据链", "飞书发布资格（当日逐基金证据干净）",
-          PASS if g["ok"] else WARN, g["detail"])
+          PASS if g["ok"] else WARN, masked)
 
 
 # ---------------------------------------------------------------- P2 工程卫生
