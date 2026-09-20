@@ -14,6 +14,15 @@ config.json / model_ready / 生产 .py，不写 data/。
   若捕获到 DegradedResponse / 缺年告警等降级或频控征兆 → 以退出码 1 结束并报告，
   由 Summer 决定是否补拉，禁止在本脚本外私自重试。
 
+  原子发布（2026-09-20，P0-2）：
+   三件套（jsonl / kfp / meta）一律先写 forecast_outputs/.staging/，降级/频控
+   检查**通过之后**才逐个 os.replace 进 canonical 名。降级 ⇒ staging 整体
+   rename 到 forecast_outputs/freeze_failed_<YYYYMMDD>_<HHMMSS>/ 留证并 exit 1，
+   canonical 三件保证一个都不存在——旧实现先写 canonical 再查 flags，exit 1 时
+   件已残留，no-clobber 闸门会把「降级残留」误当「当日已冻结」，挡住 09-26
+   季度重估预注册的「同日重试 1 次」。降级留证目录随 forecast_outputs/
+   整体不入库，不写 data/，不触碰既有 canonical 件。
+
 用法:
   python experiments/forecast_lab/freeze_samples.py
 """
@@ -22,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import warnings
 from datetime import datetime
@@ -46,6 +56,8 @@ def main(argv: list[str] | None = None) -> int:
 
     outdir = BASE_DIR / "forecast_outputs"
     outdir.mkdir(exist_ok=True)
+    # 原子发布 staging（2026-09-20 P0-2）：三件套先落这里，降级检查过了才发布。
+    staging_dir = outdir / ".staging"
 
     started = datetime.now()
     date_tag = started.strftime("%Y%m%d")
@@ -69,16 +81,64 @@ def main(argv: list[str] | None = None) -> int:
     # 生产路径，原样调用（含其 print 进度输出，便于后台日志观察是否卡频控）
     from backtest_spread import load_samples
 
+    # 降级/频控征兆捕获（2026-09-20 P0-2 补异常路径）：旧实现只查 warnings；
+    # 若生产路径以异常形式抛降级征兆（类名命中 RATE_MARKERS），会 traceback 裸奔
+    # 且不留留证。现：命中关键词的异常记入 flags 走同一降级分支；未命中的异常
+    # （含测试哨兵 AssertionError）**原样上抛**，既有行为不变。
+    warn_msgs: list[str] = []
+    flags: list[str] = []
+
+    def _capture(msg: object) -> None:
+        m = str(msg)
+        warn_msgs.append(m)
+        if any(k in m for k in RATE_MARKERS):
+            flags.append(m)
+
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        samples = load_samples()
-    warn_msgs = [str(x.message) for x in caught]
-    flags = [m for m in warn_msgs if any(k in m for k in RATE_MARKERS)]
+        try:
+            samples = load_samples()
+        except Exception as exc:          # noqa: BLE001 只拦降级征兆，其余上抛
+            name = type(exc).__name__
+            if any(k in name for k in RATE_MARKERS):
+                _capture(f"{name}: {exc}")
+                samples = []
+            else:
+                raise
+    for x in caught:
+        _capture(x.message)
 
-    # ---- 落盘 JSONL（canonical：sort_keys 保证 sha256 可复现）----
+    # ---- 降级/频控征兆 ⇒ 停手留证，canonical 三件一个都不写（P0-2 原子性）----
+    # 判定必须先于任何 canonical 落盘：旧实现写完 jsonl 才查 flags，exit 1 时件已
+    # 残留，no-clobber 把「降级残留」误当「当日已冻结」，09-26「同日重试 1 次」失效。
+    if flags:
+        stamp = started.strftime("%H%M%S")
+        quar = outdir / f"freeze_failed_{date_tag}_{stamp}"
+        if quar.exists():
+            quar = outdir / f"freeze_failed_{date_tag}_{stamp}_{os.getpid()}"
+        quar.mkdir(parents=True)
+        (quar / "failed_flags.json").write_text(
+            json.dumps({"kind": "forecast_lab_freeze_failed",
+                        "created_at": started.isoformat(timespec="seconds"),
+                        "degraded_or_ratelimit_flags": flags},
+                       ensure_ascii=False, indent=1), encoding="utf-8")
+        (quar / "stdout_note.txt").write_text(
+            "降级/频控征兆停手：本次未发布任何 canonical 冻结件。\n"
+            "处置：由 Summer 决定是否补拉（禁止私自重试）；留证目录随 "
+            "forecast_outputs/ 整体不入库。\n", encoding="utf-8")
+        print("\n[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：")
+        for m in flags:
+            print(f"    ! {m[:300]}")
+        print(f"        留证目录 : {quar}")
+        return 1
+
+    # ---- staging 落盘（与旧口径逐字节一致：write_text 同参 ⇒ sha 可复现不变）----
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    st_jsonl = staging_dir / out_jsonl.name
+
     lines = [json.dumps(s, ensure_ascii=False, sort_keys=True) for s in samples]
     body = "".join(ln + "\n" for ln in lines)
-    out_jsonl.write_text(body, encoding="utf-8")
+    st_jsonl.write_text(body, encoding="utf-8")
     file_sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
 
     # ---- 分布与区间 ----
@@ -92,8 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     # 样本没变、语义变了。冻结时必须连 (date, close) 序列指纹一起落盘，
     # 否则两次「同 sha256 冻结」并不等价（P1 附带发现，报告 §六）。
     kfp = build_fingerprint()
-    out_kfp.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
-                       encoding="utf-8")
+    st_kfp = staging_dir / out_kfp.name
+    st_kfp.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
+                      encoding="utf-8")
 
     meta = {
         "kind": "forecast_lab_samples_freeze",
@@ -115,8 +176,30 @@ def main(argv: list[str] | None = None) -> int:
         "kline_fingerprint_file": out_kfp.name,
         "kline_fingerprint_counts": {"stock": kfp["n_stock"], "fund": kfp["n_fund"],
                                      "unreadable": kfp["unreadable"]},
+        "publish": {"mode": "atomic_staging", "staging_dir": ".staging"},
     }
-    out_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    st_meta = staging_dir / out_meta.name
+    st_meta.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # ---- 原子发布：staging -> canonical，逐个 os.replace（P0-2）----
+    # 中途崩溃最坏留下「部分三件套」：此时 jsonl 已存在，no-clobber 按
+    # 「当日已冻结」拒绝静默重采（fail-closed，不冒充完整件），处置走 --force。
+    try:
+        for st, final in ((st_jsonl, out_jsonl), (st_kfp, out_kfp), (st_meta, out_meta)):
+            os.replace(st, final)
+    except OSError as exc:
+        quar = outdir / f"freeze_failed_{date_tag}_{started.strftime('%H%M%S')}_publish"
+        try:
+            if not quar.exists():
+                os.replace(staging_dir, quar)
+        except OSError:
+            pass
+        print(f"\n[ABORT] 发布阶段落盘失败（{exc}）；staging 已转留证：{quar}")
+        return 1
+    try:
+        staging_dir.rmdir()
+    except OSError:
+        print(f"  note: staging 目录残留（非空），可手动清理：{staging_dir}")
 
     print("\n== P1-① 样本冻结结果 ==")
     print(f"  样本数     : {len(samples)}  （预期 ~3343）")
@@ -129,11 +212,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  文件       : {out_jsonl}")
     print(f"  meta       : {out_meta}")
     print(f"  告警数     : {len(warn_msgs)}   用时 {meta['elapsed_sec']}s")
-    if flags:
-        print("  ⚠️ 捕获降级/频控征兆 —— 立即停手，勿重试：")
-        for m in flags:
-            print(f"    ! {m[:300]}")
-        return 1
     for m in warn_msgs:
         print(f"  note: {m[:200]}")
     return 0

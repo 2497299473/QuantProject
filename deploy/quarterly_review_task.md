@@ -111,6 +111,11 @@ sha256 → 聚合总指纹；`freeze_samples.py` 已接入）。记录：样本�
 ⚠️ 若当日冻结件已存在，`freeze_samples.py` 会 **exit 2 拒绝重采**（no-clobber，2026-09-18 加）：
 直接复用既有件，**不要 `--force`**。
 
+⚠️ 若 `freeze_samples.py` **exit 1**（降级/频控征兆；2026-09-20 P0-2 原子发布后语义）：
+**canonical 三件套保证一个都不存在**（留证在 `forecast_outputs/freeze_failed_*/`）——
+不得把 exit 1 误当「已有冻结件」复用；按本任务纪律停手、记录、等 Summer 决定是否补拉。
+同日重跑不会被 no-clobber 误挡（该闸门只挡已发布的当日件）。
+
 ### 阶段 1.5 — 输入三件套校验（强制，见上节）
 
 跑 `freeze_verify_tool.py verify`；`exit 3/4` 一律中止整条管线。此步零网络、约 5 秒。

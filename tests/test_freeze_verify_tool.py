@@ -15,6 +15,7 @@ import sys
 import tempfile
 import types
 import unittest
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -220,6 +221,110 @@ class TestFreezeNoClobber(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.fs.main(["--force"])
         self.assertEqual(self.called, 1)
+
+
+class TestFreezeAtomicPublish(unittest.TestCase):
+    """freeze_samples 原子发布（2026-09-20 P0-2）：degraded → exit 1 → canonical 不存在 → 同日可重试。
+
+    钉死旧实现的真实病灶：旧版先写 canonical jsonl、查完 flags 才退出，
+    exit 1 时件已残留 ⇒ no-clobber 把「降级残留」误当「当日已冻结」，
+    09-26 季度重估预注册的「同日重试 1 次」失效。
+    1. 降级/频控征兆 ⇒ exit 1，canonical 三件套一个都不存在，留证进
+       forecast_outputs/freeze_failed_*/（随该目录整体不入库），不写 data/。
+    2. 降级后同日重跑不被 no-clobber 误挡（闸门只挡已发布的当日件）。
+    3. 干净运行 ⇒ exit 0，canonical 三件套齐全，meta sha = LF 归一口径，
+       staging 目录不残留。
+    4. 非降级异常（含测试哨兵）原样上抛，且不留 canonical。
+    """
+
+    SAMPLES = [{"fund": "002112", "date": "2020-04-27", "est_chg": 0.1},
+               {"fund": "002207", "date": "2020-04-28", "est_chg": -0.2}]
+    KFP = {"aggregate_sha256": "f5a2f607" + "0" * 56,
+           "n_stock": 2, "n_fund": 2, "unreadable": []}
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        (self.root / "forecast_outputs").mkdir()
+        sys.path.insert(0, str(BASE_DIR / "experiments" / "forecast_lab"))
+        import freeze_samples as fs
+        self.fs = fs
+        self._orig_base = fs.BASE_DIR
+        fs.BASE_DIR = self.root
+        self._orig_kfp = fs.build_fingerprint
+        fs.build_fingerprint = lambda: dict(self.KFP)
+        self._orig_mod = sys.modules.get("backtest_spread")
+
+    def tearDown(self):
+        self.fs.BASE_DIR = self._orig_base
+        self.fs.build_fingerprint = self._orig_kfp
+        if self._orig_mod is None:
+            sys.modules.pop("backtest_spread", None)
+        else:
+            sys.modules["backtest_spread"] = self._orig_mod
+        self._tmp.cleanup()
+
+    def _fake_load(self, warn: str | None = None,
+                   exc: Exception | None = None) -> None:
+        def _load_samples():
+            if warn:
+                warnings.warn(warn)
+            if exc is not None:
+                raise exc
+            return list(self.SAMPLES)
+        fake = types.ModuleType("backtest_spread")
+        fake.load_samples = _load_samples
+        sys.modules["backtest_spread"] = fake
+
+    def _canon(self, name: str) -> Path:
+        return self.root / "forecast_outputs" / name.format(tag=f"{datetime.now():%Y%m%d}")
+
+    def _canon_trio(self) -> list[Path]:
+        return [self._canon("samples_frozen_{tag}.jsonl"),
+                self._canon("samples_frozen_{tag}.meta.json"),
+                self._canon("kline_fingerprint_{tag}.json")]
+
+    def test_degraded_run_exit1_no_canonical_quarantine_kept(self):
+        """degraded → exit 1 → canonical 不存在 → 留证在 forecast_outputs/freeze_failed_*/。"""
+        self._fake_load(warn="SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败")
+        self.assertEqual(self.fs.main([]), 1)
+        for p in self._canon_trio():
+            self.assertFalse(p.exists(), f"降级后 canonical 不得残留：{p.name}")
+        quar = sorted((self.root / "forecast_outputs").glob("freeze_failed_*"))
+        self.assertEqual(len(quar), 1, "降级须留一份 freeze_failed_* 留证目录")
+        flags = json.loads((quar[0] / "failed_flags.json").read_text(encoding="utf-8"))
+        self.assertTrue(flags["degraded_or_ratelimit_flags"])
+        self.assertFalse((self.root / "data").exists(), "降级留证不得写 data/")
+
+    def test_same_day_retry_after_degraded_is_not_blocked(self):
+        """核心回归：降级 exit 1 后，同日重跑不得被 no-clobber 误挡。"""
+        self._fake_load(warn="SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败")
+        self.assertEqual(self.fs.main([]), 1)
+        self._fake_load()   # 同日第二次，干净
+        self.assertEqual(self.fs.main([]), 0)
+        self.assertTrue(self._canon("samples_frozen_{tag}.jsonl").exists())
+
+    def test_clean_run_publishes_canonical_with_lf_sha(self):
+        self._fake_load()
+        self.assertEqual(self.fs.main([]), 0)
+        j, m, k = self._canon_trio()
+        for p in (j, m, k):
+            self.assertTrue(p.exists(), f"干净运行必须发布：{p.name}")
+        meta = json.loads(m.read_text(encoding="utf-8"))
+        body = "".join(json.dumps(s, ensure_ascii=False, sort_keys=True) + "\n"
+                       for s in self.SAMPLES)
+        expected = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        self.assertEqual(meta["sha256"], expected)
+        self.assertEqual(tool.lf_normalized_sha256(j), expected,
+                         "落盘字节口径必须与 LF 归一 sha 一致（与旧口径逐字节相同）")
+        self.assertFalse((self.root / "forecast_outputs" / ".staging").exists())
+
+    def test_non_degraded_exception_still_raises_and_leaves_nothing(self):
+        self._fake_load(exc=AssertionError("sentinel"))
+        with self.assertRaises(AssertionError):
+            self.fs.main([])
+        for p in self._canon_trio():
+            self.assertFalse(p.exists(), f"异常路径不得留 canonical：{p.name}")
 
 
 if __name__ == "__main__":
