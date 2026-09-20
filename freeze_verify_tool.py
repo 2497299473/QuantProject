@@ -39,6 +39,17 @@ TTL 重取后**追溯改写历史 close**（240 只里 186 只 sha 变了）。
   并误中止整个重估任务。
 - 原始字节哈希仅作记录输出（`raw_bytes_sha256`），不参与判定。
 
+## V4.3 扩展（2026-09-20，GPT 评审 P0-2/P0-3）
+
+- **G-A 增 stock_data_failures 闸门**：meta 记录的 stock K-line 失败非空 ⇒
+  判失败。冻结侧数据质量门禁保证该字段要么缺（旧件）要么为空；旧件
+  （无字段）= 不判，字段存在且非空 = 失败。
+- **G-B scope-aware 重算**：留档 KFP 带 stock_codes_scope/cutoff（V4.3 冻结
+  件）时按同口径重算；09-20 前锚点件（无 scope 字段）仍无参全量口径。
+  混口径会改变 canonical 串 ⇒ 假漂移。
+- **判词**：G-A 失败区分 MISMATCH（sha/行数/降级征兆被改）与
+  SNAPSHOT_INVALID（结构性缺陷：stock_data_failures）；均 exit 3，必须中止。
+
 ## 用法
 
   # 单件校验（默认：LF 归一 sha + 同目录兄弟 meta/指纹回退）
@@ -120,14 +131,24 @@ def git_commit() -> str | None:
         return None
 
 
-def current_kline_fingerprint() -> dict | None:
-    """重算当前缓存指纹。口径与 freeze_samples.py 逐字一致：不带参数调用。
+def current_kline_fingerprint(recorded: dict | None = None) -> dict | None:
+    """重算当前缓存指纹（V4.3 P0-2：scope-aware，与留档同口径）。
 
-    带 fund_codes / include_sector 会改变 canonical 串 ⇒ 与留档不可比，
-    故此处刻意**不加参数**，并在报告中说明。
+    旧口径不带参数，与 freeze_samples.py 逐字一致。V4.3 冻结件改用
+    as-of + universe 口径（stock_codes + cutoff），混口径会改变 canonical
+    串 ⇒ 假漂移。故：留档指纹带 scope 字段则按同口径重算；09-20 前锚点件
+    （无 scope 字段）仍无参全量口径。include_sector 仍刻意不传（板块是
+    面板口径，与冻结件不可比）。
     """
     try:
         from kline_fingerprint import build_fingerprint   # noqa: PLC0415
+        if recorded:
+            scope = recorded.get("stock_codes_scope")
+            cutoff = recorded.get("cutoff")
+            if scope and scope != "all":
+                return build_fingerprint(stock_codes=list(scope), cutoff=cutoff)
+            if cutoff:
+                return build_fingerprint(cutoff=cutoff)
         return build_fingerprint()
     except Exception as exc:                              # noqa: BLE001
         print(f"[freeze] WARN: 当前 K 线指纹重算失败（G-B 跳过）：{exc}")
@@ -175,15 +196,22 @@ def cmd_verify(args: argparse.Namespace) -> int:
     if meta.get("degraded_or_ratelimit_flags"):
         print(f"[freeze] G-A 冻结时带降级/频控征兆 : {meta['degraded_or_ratelimit_flags']}")
         ga_ok = False
+    # V4.3 P0-3：冻结时记录的个股K线失败 ⇒ 快照结构性无效（数据质量门禁）。
+    # 旧件无此字段 = 不判；字段存在且非空 = 失败。
+    sdfs = meta.get("stock_data_failures")
+    struct_invalid = bool(sdfs)
+    if sdfs:
+        print(f"[freeze] G-A 冻结时带个股K线失败（{len(sdfs)} 码，数据质量门禁）: {sdfs[:3]}")
+        ga_ok = False
 
     # ---- G-B：跨版本可比性（软标记）----
-    kfp_now = current_kline_fingerprint()
     kfp_rec = None
     if kfp_p is not None:
         kfp_rec = json.loads(kfp_p.read_text(encoding="utf-8"))
     else:
         kfp_rec = {"aggregate_sha256": meta.get("kline_fingerprint_sha256"),
                    "file": meta.get("kline_fingerprint_file")}
+    kfp_now = current_kline_fingerprint(kfp_rec)   # V4.3 P0-2：与留档同口径重算
     kfp_rec_sha = str(kfp_rec.get("aggregate_sha256") or "")
     kfp_now_sha = str((kfp_now or {}).get("aggregate_sha256") or "")
     print(f"[freeze] kfp 留档 : {kfp_rec_sha or '(无)'}  <- "
@@ -226,7 +254,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
         print(f"[freeze] 三件套已落盘 : {out}")
 
     if not ga_ok:
-        print("[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算")
+        verdict = "SNAPSHOT_INVALID" if struct_invalid else "MISMATCH"
+        print(f"[freeze] VERDICT  : {verdict} —— G-A 失败，必须中止，不得继续复算")
         return EXIT_MISMATCH
     print(f"[freeze] VERDICT  : PASS（G-A 过；可比性 = {gb_state}）")
     return EXIT_PASS

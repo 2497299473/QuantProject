@@ -23,6 +23,17 @@ config.json / model_ready / 生产 .py，不写 data/。
    季度重估预注册的「同日重试 1 次」。降级留证目录随 forecast_outputs/
    整体不入库，不写 data/，不触碰既有 canonical 件。
 
+V4.3 P0-2/P0-3（2026-09-20）扩展 —— KFP as-of + universe 口径 + 数据质量门禁：
+   - KFP = build_fingerprint(stock_codes=<样本 universe>, cutoff=<冻结日>)：
+     冻结日之后新增行不改指纹（窗口滚动假漂移消除）；cutoff 前历史 close
+     追溯改写仍改指纹；scope 头使其与 09-20 前全量口径锚点不可混用。
+   - 三道 SNAPSHOT_INVALID 闸门（canonical 不发布、freeze_failed_* 留证、exit 1）：
+     ① 任一 stock K-line 拉取失败（数据质量门禁，不静默跳过）
+     ② KFP unreadable 非空（请求码缓存缺失 / 经 cutoff 滤空）
+     ③ code commit 取不到（三件套第①件断链）
+   meta 增 code_commit / stock_data_failures / kline_fingerprint_scope
+   （schema_version=2）；旧件（schema_version=1、无字段）verify 侧不判。
+
 用法:
   python experiments/forecast_lab/freeze_samples.py
 """
@@ -42,6 +53,7 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "experiments" / "forecast_lab"))
 
 from kline_fingerprint import build_fingerprint   # noqa: E402  数据层指纹（2026-09-10 拍板）
+from freeze_verify_tool import git_commit as _git_commit_at_freeze  # noqa: E402  三件套①
 
 # 降级/频控征兆关键词（来自 core/lookthrough 三态判定的告警文案与异常类名）
 RATE_MARKERS = ("DegradedResponse", "SUSPECT_DEGRADED", "PARSE_MISMATCH",
@@ -94,10 +106,14 @@ def main(argv: list[str] | None = None) -> int:
         if any(k in m for k in RATE_MARKERS):
             flags.append(m)
 
+    # V4.3 防御：降级异常路径只重赋 samples，若 universe/failures 未先初始化，
+    # 后续数据质量门禁读 stock_failures 会 NameError（现靠 flags 分支先 return
+    # 兜着，属脆弱依赖）——显式预初始化，异常路径也保证有值可查。
+    stock_universe, stock_failures = {}, []
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         try:
-            samples = load_samples()
+            samples, stock_universe, stock_failures = load_samples(return_universe=True)
         except Exception as exc:          # noqa: BLE001 只拦降级征兆，其余上抛
             name = type(exc).__name__
             if any(k in name for k in RATE_MARKERS):
@@ -132,6 +148,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"        留证目录 : {quar}")
         return 1
 
+    # ---- V4.3 P0-3 数据质量门禁：任一 stock K-line 拉取失败 ⇒ SNAPSHOT_INVALID ----
+    # 不完整样本不得冻结为完整（09-18 C2 根因教训：静默跳过使 covered_pct
+    # 靠不完整数据算、事后无迹可查）。与降级共用留证分支：canonical 不发布、
+    # 留证、exit 1，由 Summer 决定是否补拉（禁止私自重试）。
+    if stock_failures:
+        stamp = started.strftime("%H%M%S")
+        quar = outdir / f"freeze_failed_{date_tag}_{stamp}_stockfail"
+        if quar.exists():
+            quar = outdir / f"freeze_failed_{date_tag}_{stamp}_stockfail_{os.getpid()}"
+        quar.mkdir(parents=True)
+        (quar / "failed_flags.json").write_text(
+            json.dumps({"kind": "forecast_lab_freeze_failed",
+                        "verdict": "SNAPSHOT_INVALID",
+                        "reason": "stock_data_failures",
+                        "created_at": started.isoformat(timespec="seconds"),
+                        "stock_data_failures": stock_failures},
+                       ensure_ascii=False, indent=1), encoding="utf-8")
+        (quar / "stdout_note.txt").write_text(
+            "数据质量门禁：个股K线拉取失败，快照 INVALID，未发布任何 canonical 件。\n"
+            "处置：由 Summer 决定是否补拉（禁止私自重试）；留证目录随 "
+            "forecast_outputs/ 整体不入库。\n", encoding="utf-8")
+        print("\n[ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：")
+        for f_ in stock_failures:
+            print(f"    ! {f_['code']} ({f_['market']}): {f_['error'][:200]}")
+        print(f"        留证目录: {quar}")
+        return 1
+
     # ---- staging 落盘（与旧口径逐字节一致：write_text 同参 ⇒ sha 可复现不变）----
     staging_dir.mkdir(parents=True, exist_ok=True)
     st_jsonl = staging_dir / out_jsonl.name
@@ -151,14 +194,75 @@ def main(argv: list[str] | None = None) -> int:
     # 样本行 sha256 只锁行内容；缓存 TTL 到期重取会追溯改写历史 close，
     # 样本没变、语义变了。冻结时必须连 (date, close) 序列指纹一起落盘，
     # 否则两次「同 sha256 冻结」并不等价（P1 附带发现，报告 §六）。
-    kfp = build_fingerprint()
+    # V4.3 P0-2（2026-09-20）：as-of + universe 口径 —— stock_codes = 本次
+    # 样本 universe，cutoff = 冻结日。冻结日之后新增行不改指纹（窗口滚动
+    # 假漂移消除）；cutoff 前历史 close 追溯改写仍改指纹（对真问题的敏感度
+    # 不变）。scope 头使其与 09-20 前全量口径锚点不可混用（见
+    # kline_fingerprint 模块 docstring）。
+    cutoff = started.strftime("%Y-%m-%d")
+    kfp = build_fingerprint(stock_codes=sorted(stock_universe), cutoff=cutoff)
     st_kfp = staging_dir / out_kfp.name
     st_kfp.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
                       encoding="utf-8")
 
+    # ---- V4.3 P0-2：KFP 不完整（请求码缺失/滤空）⇒ SNAPSHOT_INVALID ----
+    # 不完整的数据指纹不得绑定冻结件——否则 G-B 比对有空洞（缺失码的漂移
+    # 不可见）。与降级共用留证分支：canonical 不发布、留证、exit 1。
+    if kfp["unreadable"]:
+        stamp = started.strftime("%H%M%S")
+        quar = outdir / f"freeze_failed_{date_tag}_{stamp}_kfp"
+        if quar.exists():
+            quar = outdir / f"freeze_failed_{date_tag}_{stamp}_kfp_{os.getpid()}"
+        quar.mkdir(parents=True)
+        (quar / "failed_flags.json").write_text(
+            json.dumps({"kind": "forecast_lab_freeze_failed",
+                        "verdict": "SNAPSHOT_INVALID",
+                        "reason": "kfp_unreadable",
+                        "created_at": started.isoformat(timespec="seconds"),
+                        "kfp_unreadable": kfp["unreadable"]},
+                       ensure_ascii=False, indent=1), encoding="utf-8")
+        for st in (st_jsonl, st_kfp):
+            if st.exists():
+                os.replace(st, quar / st.name)
+        (quar / "stdout_note.txt").write_text(
+            "数据质量门禁：K线指纹缺失请求码（缓存缺失或经 cutoff 滤空），"
+            "快照 INVALID，未发布任何 canonical 件。\n"
+            "处置：核对上方缺失码缓存，按铁律 7 四闸门补拉后重新冻结。\n",
+            encoding="utf-8")
+        print(f"\n[ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: {kfp['unreadable']}")
+        print(f"        留证目录: {quar}")
+        return 1
+
+    # ---- V4.3：code_commit（三件套①）fail-closed ----
+    # 冻结件必须能回答「样本基于哪个代码 commit 构建」；取不到（git 缺失/
+    # 非仓库）⇒ 三件套断链 ⇒ INVALID 不发布（P1：研究冻结缺 commit 必须
+    # fail-closed，不留无主件）。
+    code_commit = _git_commit_at_freeze()
+    if not code_commit:
+        stamp = started.strftime("%H%M%S")
+        quar = outdir / f"freeze_failed_{date_tag}_{stamp}_commit"
+        if quar.exists():
+            quar = outdir / f"freeze_failed_{date_tag}_{stamp}_commit_{os.getpid()}"
+        quar.mkdir(parents=True)
+        (quar / "failed_flags.json").write_text(
+            json.dumps({"kind": "forecast_lab_freeze_failed",
+                        "verdict": "SNAPSHOT_INVALID",
+                        "reason": "code_commit_missing",
+                        "created_at": started.isoformat(timespec="seconds")},
+                       ensure_ascii=False, indent=1), encoding="utf-8")
+        for st in (st_jsonl, st_kfp):
+            if st.exists():
+                os.replace(st, quar / st.name)
+        (quar / "stdout_note.txt").write_text(
+            "数据质量门禁：code commit 取不到，三件套断链，快照 INVALID，"
+            "未发布任何 canonical 件。\n", encoding="utf-8")
+        print("\n[ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）")
+        print(f"        留证目录: {quar}")
+        return 1
+
     meta = {
         "kind": "forecast_lab_samples_freeze",
-        "schema_version": "1",
+        "schema_version": "2",   # V4.3：+code_commit / stock_data_failures / kfp scope
         "producer": "experiments/forecast_lab/freeze_samples.py",
         "code_path": "backtest_spread.load_samples()  # 生产路径，三态加固已合入(0d3cc69)",
         "created_at": started.isoformat(timespec="seconds"),
@@ -176,6 +280,9 @@ def main(argv: list[str] | None = None) -> int:
         "kline_fingerprint_file": out_kfp.name,
         "kline_fingerprint_counts": {"stock": kfp["n_stock"], "fund": kfp["n_fund"],
                                      "unreadable": kfp["unreadable"]},
+        "kline_fingerprint_scope": {"stock_n": len(stock_universe), "cutoff": cutoff},
+        "stock_data_failures": [],   # V4.3 P0-3：非空会已 INVALID，故此处恒为空
+        "code_commit": code_commit,  # V4.3：三件套①，冻结时落盘（verify 侧重解析对照）
         "publish": {"mode": "atomic_staging", "staging_dir": ".staging"},
     }
     st_meta = staging_dir / out_meta.name
@@ -209,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  sha256     : {file_sha}")
     print(f"  K线指纹    : {kfp['aggregate_sha256']}（stock={kfp['n_stock']} "
           f"fund={kfp['n_fund']} unreadable={len(kfp['unreadable'])}）-> {out_kfp.name}")
+    print(f"  KFP 口径   : universe={len(stock_universe)} 码, cutoff={cutoff}（as-of + universe）")
+    print(f"  commit     : {code_commit}")
     print(f"  文件       : {out_jsonl}")
     print(f"  meta       : {out_meta}")
     print(f"  告警数     : {len(warn_msgs)}   用时 {meta['elapsed_sec']}s")

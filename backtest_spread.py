@@ -16,7 +16,11 @@
 - H. 去缠论变体方向差 ≥ 原版（缠论无增量贡献则去掉更简洁）
 E+F+G 全过 → 够格当弱参考（措辞偏加/不动/偏减）；H 决定是否保留缠论。
 
-用法：python3 backtest_spread.py
+用法：python3 backtest_spread.py [--snapshot PATH | --fresh]
+
+V4.3 P0-1（2026-09-20）：样本入口统一走 frozen_dataset.resolve_samples ——
+默认自动选最新冻结件（G-A 硬 / G-B 软），无冻结件且非 --fresh ⇒ exit 4
+fail-closed；--fresh 显式活拉（报告标 FRESH，数字与冻结基线不可比）。
 """
 import json
 import random
@@ -31,6 +35,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from core import data_loader, lookthrough, stock_data
 from core.signal_engine import macd_hist, factor_pool_rank_20d
+from frozen_dataset import resolve_samples
 
 FWD_LIST = (5, 10, 20)
 # v5 多周期预测补充标签：fwd1/2/3 是 forecast_engine 的 T+1/T+3/T+5 训练标签
@@ -61,8 +66,43 @@ def _nav_state_at(i: int, navs: list, r20_win: int, dd_win: int) -> dict:
     return {"macd": k, "r20": r20, "dd": dd}
 
 
-def load_samples() -> list[dict]:
-    """复用 backtest_fusion 的数据加载逻辑，返回逐日样本。"""
+def fetch_stock_klines(stock_universe: dict, lt_cfg: dict) -> tuple[dict, dict, list[dict]]:
+    """拉取全部个股K线（含缓存）→ (series_map, close_map, failures)。
+
+    V4.3 P0-3 失败契约（2026-09-20，GPT 评审 P0-3，逐行核实）：旧实现
+    `except Exception: pass` 静默跳过——不完整样本被当成完整样本冻结，
+    covered_pct 靠不完整数据算，事后无迹可查。现每次失败都记入
+    {code, market, error}（fetch_stock_kline 的 ValueError 已逐源列因）
+    并返回给调用方做门禁：
+
+    - freeze_samples.py：任一失败 ⇒ 快照 SNAPSHOT_INVALID（隔离，不发布 canonical）；
+    - 回测/报告层：打印失败清单（数据质量门禁），报告必须记录。
+
+    成功路径行为零变更（series_map/close_map 口径与旧实现逐字一致）。
+    """
+    series_map, close_map, failures = {}, {}, []
+    for i, (scode, mkt) in enumerate(sorted(stock_universe.items()), 1):
+        try:
+            k = stock_data.fetch_stock_kline(scode, mkt)
+            series_map[scode] = lookthrough.stock_signal_series(k["klines"], lt_cfg)
+            dates = [r[0] for r in k["klines"]]
+            closes = [float(r[2]) for r in k["klines"]]
+            close_map[scode] = (dates, closes)
+        except Exception as exc:  # noqa: BLE001
+            failures.append({"code": scode, "market": mkt,
+                             "error": f"{type(exc).__name__}: {exc}"})
+        if i % 40 == 0:
+            print(f"  进度 {i}/{len(stock_universe)}")
+    return series_map, close_map, failures
+
+
+def load_samples(return_universe: bool = False):
+    """复用 backtest_fusion 的数据加载逻辑，返回逐日样本。
+
+    V4.3 P0-1/P0-3（2026-09-20）：return_universe=True →
+    (samples, stock_universe, stock_failures)，供 freeze_samples.py 的
+    as-of KFP universe 口径与数据质量门禁。既有调用方（无参）行为不变。
+    """
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     fcfg = cfg["signal"]["factors"]
     lt_cfg = cfg["lookthrough"]
@@ -80,19 +120,12 @@ def load_samples() -> list[dict]:
         fund_data[code] = (fund, history)
         print(f"  {code}: 净值 {len(fund['navs'])} 条，持仓快照 {len(history)} 期")
 
-    print(f"== [2] 拉取 {len(stock_universe)} 只个股K线（含缓存）==")
-    series_map, close_map = {}, {}
-    for i, (scode, mkt) in enumerate(sorted(stock_universe.items()), 1):
-        try:
-            k = stock_data.fetch_stock_kline(scode, mkt)
-            series_map[scode] = lookthrough.stock_signal_series(k["klines"], lt_cfg)
-            dates = [r[0] for r in k["klines"]]
-            closes = [float(r[2]) for r in k["klines"]]
-            close_map[scode] = (dates, closes)
-        except Exception:
-            pass
-        if i % 40 == 0:
-            print(f"  进度 {i}/{len(stock_universe)}")
+    print(f"== [2] 拉取 {len(stock_universe)} 只个股K线（含缓存；V4.3 失败契约：不静默跳过）==")
+    series_map, close_map, stock_failures = fetch_stock_klines(stock_universe, lt_cfg)
+    if stock_failures:
+        print(f"  [数据质量门禁] {len(stock_failures)} 只个股K线拉取失败（已记录；冻结将因这些码 INVALID）：")
+        for f_ in stock_failures:
+            print(f"    ! {f_['code']} ({f_['market']}): {f_['error'][:160]}")
 
     print("== [3] 构建三因子 + 逐日重放（PIT 口径：特征只用 ≤14:55 可得信息）==")
     dd_cfg = fcfg["drawdown_from_60d_high"]
@@ -214,6 +247,8 @@ def load_samples() -> list[dict]:
             if s["fund"] == c:
                 s["excess10"] = s["fwd10"] - base
     print(f"  总样本: {len(samples)}")
+    if return_universe:
+        return samples, stock_universe, stock_failures
     return samples
 
 
@@ -274,7 +309,16 @@ def bootstrap_spread(rows, dec_fn, n_boot=5000) -> tuple[float, float]:
 
 
 def main() -> int:
-    samples = load_samples()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
+    args = ap.parse_args()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     if not samples:
         print("[fail] 无样本"); return 1
 
@@ -284,6 +328,7 @@ def main() -> int:
 
     lines = [
         "# 方向差细分回测：加 vs 减 稳定性验证", "",
+        snap_info["report_line"],
         f"> 生成：{datetime.now():%Y-%m-%d %H:%M} · 总样本 {len(samples)} · "
         f"后半段（≥{SPLIT_DATE}）{len(post)} 样本 · 基金 {len(funds)} 只", "",
         "## 〇、判定标准（事先写死）", "",

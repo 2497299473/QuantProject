@@ -66,7 +66,7 @@ class _Base(unittest.TestCase):
                                  "aggregate_sha256": agg}), encoding="utf-8")
 
     def _stub_kfp(self, agg: str) -> None:
-        tool.current_kline_fingerprint = lambda: {"aggregate_sha256": agg}
+        tool.current_kline_fingerprint = lambda _rec=None: {"aggregate_sha256": agg}
 
     def _verify(self, *extra: str) -> int:
         return tool.main(["verify", "--jsonl", str(self.jsonl), *extra])
@@ -128,7 +128,7 @@ class TestGateBComparability(_Base):
         self.assertEqual(t["gate_internal"], "PASS")
 
     def test_kfp_recompute_failure_is_unknown_not_fatal(self):
-        tool.current_kline_fingerprint = lambda: None
+        tool.current_kline_fingerprint = lambda _rec=None: None
         self.assertEqual(self._verify(), tool.EXIT_PASS)
 
     def test_triple_records_code_commit_and_both_shas(self):
@@ -192,7 +192,7 @@ class TestFreezeNoClobber(unittest.TestCase):
         self.called = 0
         fake = types.ModuleType("backtest_spread")
 
-        def _load_samples():
+        def _load_samples(**_kw):
             self.called += 1
             raise AssertionError("load_samples 被调用 —— 闸门没能在网络之前拦住")
         fake.load_samples = _load_samples
@@ -252,12 +252,15 @@ class TestFreezeAtomicPublish(unittest.TestCase):
         self._orig_base = fs.BASE_DIR
         fs.BASE_DIR = self.root
         self._orig_kfp = fs.build_fingerprint
-        fs.build_fingerprint = lambda: dict(self.KFP)
+        fs.build_fingerprint = lambda **_kw: dict(self.KFP)   # V4.3：带 stock_codes/cutoff 调用
+        self._orig_commit = fs._git_commit_at_freeze
+        fs._git_commit_at_freeze = lambda: "deadbeef" * 5
         self._orig_mod = sys.modules.get("backtest_spread")
 
     def tearDown(self):
         self.fs.BASE_DIR = self._orig_base
         self.fs.build_fingerprint = self._orig_kfp
+        self.fs._git_commit_at_freeze = self._orig_commit
         if self._orig_mod is None:
             sys.modules.pop("backtest_spread", None)
         else:
@@ -265,13 +268,14 @@ class TestFreezeAtomicPublish(unittest.TestCase):
         self._tmp.cleanup()
 
     def _fake_load(self, warn: str | None = None,
-                   exc: Exception | None = None) -> None:
-        def _load_samples():
+                   exc: Exception | None = None,
+                   failures: list | None = None) -> None:
+        def _load_samples(**_kw):
             if warn:
                 warnings.warn(warn)
             if exc is not None:
                 raise exc
-            return list(self.SAMPLES)
+            return list(self.SAMPLES), {"000001": "0"}, list(failures or [])
         fake = types.ModuleType("backtest_spread")
         fake.load_samples = _load_samples
         sys.modules["backtest_spread"] = fake
@@ -325,6 +329,116 @@ class TestFreezeAtomicPublish(unittest.TestCase):
             self.fs.main([])
         for p in self._canon_trio():
             self.assertFalse(p.exists(), f"异常路径不得留 canonical：{p.name}")
+
+
+class TestFreezeV43Gates(unittest.TestCase):
+    """freeze_samples V4.3（2026-09-20）：三道 SNAPSHOT_INVALID 门禁。
+
+    1. 任一 stock K-line 拉取失败 ⇒ exit 1，canonical 不发布，留证
+       verdict=SNAPSHOT_INVALID reason=stock_data_failures；
+    2. KFP unreadable 非空（请求码缺失/滤空）⇒ 同上，reason=kfp_unreadable；
+    3. code commit 取不到（三件套①断链）⇒ 同上，reason=code_commit_missing。
+    """
+
+    SAMPLES = [{"fund": "002112", "date": "2020-04-27", "est_chg": 0.1}]
+    KFP = {"aggregate_sha256": "f5a2f607" + "0" * 56,
+           "n_stock": 1, "n_fund": 1, "unreadable": []}
+    UNIVERSE = {"000001": "0"}
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        (self.root / "forecast_outputs").mkdir()
+        sys.path.insert(0, str(BASE_DIR / "experiments" / "forecast_lab"))
+        import freeze_samples as fs
+        self.fs = fs
+        self._orig_base = fs.BASE_DIR
+        fs.BASE_DIR = self.root
+        self._orig_kfp = fs.build_fingerprint
+        self._orig_commit = fs._git_commit_at_freeze
+        self._orig_mod = sys.modules.get("backtest_spread")
+
+    def tearDown(self):
+        self.fs.BASE_DIR = self._orig_base
+        self.fs.build_fingerprint = self._orig_kfp
+        self.fs._git_commit_at_freeze = self._orig_commit
+        if self._orig_mod is None:
+            sys.modules.pop("backtest_spread", None)
+        else:
+            sys.modules["backtest_spread"] = self._orig_mod
+        self._tmp.cleanup()
+
+    def _fake_load(self, failures: list | None = None) -> None:
+        def _load_samples(**_kw):
+            return list(self.SAMPLES), dict(self.UNIVERSE), list(failures or [])
+        fake = types.ModuleType("backtest_spread")
+        fake.load_samples = _load_samples
+        sys.modules["backtest_spread"] = fake
+
+    def _canon_trio(self) -> list[Path]:
+        tag = f"{datetime.now():%Y%m%d}"
+        return [self.root / "forecast_outputs" / f"samples_frozen_{tag}.jsonl",
+                self.root / "forecast_outputs" / f"samples_frozen_{tag}.meta.json",
+                self.root / "forecast_outputs" / f"kline_fingerprint_{tag}.json"]
+
+    def test_stock_failures_snapshot_invalid(self):
+        self.fs.build_fingerprint = lambda **_kw: dict(self.KFP)
+        self.fs._git_commit_at_freeze = lambda: "deadbeef" * 5
+        self._fake_load(failures=[{"code": "000001", "market": "0",
+                                   "error": "ValueError: 全部数据源失败"}])
+        self.assertEqual(self.fs.main([]), 1)
+        for p in self._canon_trio():
+            self.assertFalse(p.exists(), f"INVALID 后 canonical 不得残留：{p.name}")
+        quar = sorted((self.root / "forecast_outputs").glob("freeze_failed_*"))
+        self.assertEqual(len(quar), 1, "须留一份 freeze_failed_* 留证目录")
+        flags = json.loads((quar[0] / "failed_flags.json").read_text(encoding="utf-8"))
+        self.assertEqual(flags["verdict"], "SNAPSHOT_INVALID")
+        self.assertEqual(flags["reason"], "stock_data_failures")
+        self.assertTrue(flags["stock_data_failures"])
+
+    def test_kfp_unreadable_snapshot_invalid(self):
+        self.fs._git_commit_at_freeze = lambda: "deadbeef" * 5
+        self._fake_load()
+        self.fs.build_fingerprint = lambda **_kw: dict(
+            self.KFP, unreadable=["999999.json(stock:requested-missing)"])
+        self.assertEqual(self.fs.main([]), 1)
+        for p in self._canon_trio():
+            self.assertFalse(p.exists(), f"INVALID 后 canonical 不得残留：{p.name}")
+        quar = sorted((self.root / "forecast_outputs").glob("freeze_failed_*"))
+        flags = json.loads((quar[0] / "failed_flags.json").read_text(encoding="utf-8"))
+        self.assertEqual(flags["reason"], "kfp_unreadable")
+
+    def test_commit_missing_snapshot_invalid(self):
+        self.fs.build_fingerprint = lambda **_kw: dict(self.KFP)
+        self.fs._git_commit_at_freeze = lambda: None
+        self._fake_load()
+        self.assertEqual(self.fs.main([]), 1)
+        for p in self._canon_trio():
+            self.assertFalse(p.exists(), f"INVALID 后 canonical 不得残留：{p.name}")
+        quar = sorted((self.root / "forecast_outputs").glob("freeze_failed_*"))
+        flags = json.loads((quar[0] / "failed_flags.json").read_text(encoding="utf-8"))
+        self.assertEqual(flags["reason"], "code_commit_missing")
+
+    def test_clean_run_meta_carries_v43_fields(self):
+        """干净运行：meta 带 V4.3 字段（schema_version=2 / code_commit /
+        stock_data_failures 恒空 / kfp scope），且 KFP 调用带 universe + cutoff。"""
+        seen: dict = {}
+
+        def _kfp(**kw):
+            seen.update(kw)
+            return dict(self.KFP)
+        self.fs.build_fingerprint = _kfp
+        self.fs._git_commit_at_freeze = lambda: "deadbeef" * 5
+        self._fake_load()
+        self.assertEqual(self.fs.main([]), 0)
+        self.assertEqual(seen.get("stock_codes"), sorted(self.UNIVERSE))
+        self.assertTrue(seen.get("cutoff"), "cutoff 必须传入（as-of 口径）")
+        meta = json.loads(self._canon_trio()[1].read_text(encoding="utf-8"))
+        self.assertEqual(meta["schema_version"], "2")
+        self.assertEqual(meta["code_commit"], "deadbeef" * 5)
+        self.assertEqual(meta["stock_data_failures"], [])
+        self.assertEqual(meta["kline_fingerprint_scope"],
+                         {"stock_n": 1, "cutoff": seen["cutoff"]})
 
 
 if __name__ == "__main__":
