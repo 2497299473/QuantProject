@@ -20,6 +20,8 @@
   python experiments/forecast_lab/kline_fingerprint.py --write forecast_outputs/kfp_20260910.json
   # 追加板块指数扫描（面板成员全集，见下）：
   python experiments/forecast_lab/kline_fingerprint.py --write ... --with-sector
+  # as-of + universe 口径（2026-09-20 P0-3）：只哈希指定代码且 date ≤ cutoff 的数据：
+  python experiments/forecast_lab/kline_fingerprint.py --write ... --stocks 000001,600000 --cutoff 2026-09-10
   # 作为库（freeze_samples.py 接入）：
   from kline_fingerprint import build_fingerprint
 
@@ -30,6 +32,17 @@
   **默认 False → 09-10 起 freeze_samples / run_m0_power 的既有口径与 aggregate
   逐字节不变**（只扩清单，不改哈希算法与序列化格式）。开启时新增键
   `n_sector` / `sector_sha`、`schema_version` 记为 "2"，aggregate 与旧基线不可直接对比。
+
+as-of + universe 口径（2026-09-20 P0-3，回答「与冻结样本相关的历史输入是否相同」）：
+  - `stock_codes`：只哈希指定子集个股（universe 口径）；请求码缓存缺失或经
+    cutoff 后为空的，显式进 `unreadable`，不静默跳过。
+  - `cutoff`：只哈希 date ≤ cutoff 的 (date, close)（as-of 口径，冻结时点可见集，
+    对个股与基金净值序列同时生效）。消除「窗口滚动」假漂移（冻结日期之后新增
+    行不改变指纹）；cutoff 之前历史 close 被复权追溯改写仍会变指纹（对真问题
+    的敏感度不变）。
+  - 任一指定时输出新增 `stock_codes_scope` / `cutoff`，canonical 头部加
+    `#scope ...` 行 ⇒ aggregate 与全量口径不可混用；两者都不指定时 canonical、
+    输出键与 aggregate 与旧口径逐字节相同（09-10/09-16 锚点仍可比）。
 """
 from __future__ import annotations
 
@@ -83,18 +96,40 @@ def _nav_series(path: Path) -> list[tuple[str, float]] | None:
 
 
 def build_fingerprint(fund_codes: list[str] | None = None,
-                      include_sector: bool = False) -> dict:
+                      include_sector: bool = False,
+                      stock_codes: list[str] | None = None,
+                      cutoff: str | None = None) -> dict:
     """扫描两目录生成指纹。fund_codes=None 时收全部 data/klines/*.json。
 
     include_sector=False（默认）＝ 09-10 起的原口径，输出键与 aggregate 不变。
+    stock_codes / cutoff（2026-09-20 P0-3，as-of + universe 口径，见模块 docstring）：
+    两者都不指定时 canonical 与输出同旧口径逐字节一致。
     """
+    scoped = bool(stock_codes) or cutoff is not None
+
+    def _cutoff(pairs: list[tuple[str, float]]) -> list[tuple[str, float]]:
+        if cutoff is None:
+            return pairs
+        return [(d, c) for d, c in pairs if d <= cutoff]
+
     per_stock: dict[str, str] = {}
     bad: list[str] = []
     if STOCK_DIR.is_dir():
-        for p in sorted(STOCK_DIR.glob("*.json")):
+        if stock_codes:
+            cands = [STOCK_DIR / f"{c}.json" for c in sorted(set(stock_codes))]
+        else:
+            cands = sorted(STOCK_DIR.glob("*.json"))
+        for p in cands:
+            if not p.exists():
+                bad.append(f"{p.stem}.json(stock:requested-missing)")
+                continue
             s = _json_series(p, "klines")
             if s is None or not s:
                 bad.append(p.name)
+                continue
+            s = _cutoff(s)
+            if not s:
+                bad.append(f"{p.name}(cutoff-empty)")
             else:
                 per_stock[p.stem] = _seq_sha(s)
     funds = sorted(fund_codes) if fund_codes else \
@@ -105,7 +140,11 @@ def build_fingerprint(fund_codes: list[str] | None = None,
         if s is None or not s:
             bad.append(f"{c}.json(fund)")
         else:
-            per_fund[c] = _seq_sha(s)
+            s = _cutoff(s)
+            if not s:
+                bad.append(f"{c}.json(fund:cutoff-empty)")
+            else:
+                per_fund[c] = _seq_sha(s)
     per_sector: dict[str, str] = {}
     if include_sector:
         if not SECTOR_DIR.is_dir():
@@ -119,7 +158,14 @@ def build_fingerprint(fund_codes: list[str] | None = None,
                 per_sector[p.stem] = _seq_sha(s)
     if not per_stock and not per_fund:
         raise RuntimeError("stock_klines 与 klines 均无可用缓存——拒绝生成空指纹")
-    canonical = "\n".join(f"{k},{v}" for k, v in sorted(per_stock.items())) + \
+    # scope 头仅在 scoped 时加：默认（无新参）canonical 与旧口径逐字节一致，
+    # 保证 09-10/09-16 锚点仍可比。
+    scope_head = ""
+    if scoped:
+        scope = ",".join(sorted(set(stock_codes))) if stock_codes else "all"
+        scope_head = f"#scope stocks={scope};cutoff={cutoff or 'none'}\n"
+    canonical = scope_head + \
+        "\n".join(f"{k},{v}" for k, v in sorted(per_stock.items())) + \
         "\n#fund\n" + "\n".join(f"{k},{v}" for k, v in sorted(per_fund.items()))
     if include_sector:
         canonical += "\n#sector\n" + \
@@ -137,6 +183,9 @@ def build_fingerprint(fund_codes: list[str] | None = None,
     if include_sector:
         fp["n_sector"] = len(per_sector)
         fp["sector_sha"] = per_sector
+    if scoped:
+        fp["stock_codes_scope"] = sorted(set(stock_codes)) if stock_codes else "all"
+        fp["cutoff"] = cutoff
     return fp
 
 
@@ -213,6 +262,44 @@ def selftest() -> int:
             [["2020-01-01", 1, 2999.0], ["2020-01-02", 1, 3100.0]])), encoding="utf-8")
         check(kf.build_fingerprint(["002112"], include_sector=True)["aggregate_sha256"]
               != fp_sec["aggregate_sha256"], "板块历史close改写敏感")
+
+        # ---- 2026-09-20 P0-3：as-of cutoff + universe scoped，默认口径逐字节不变 ----
+        # 此刻 000001.json 为 01-01..01-03 三行（close 10/11/12），bad.json 仍在 unreadable。
+        fp_d0 = kf.build_fingerprint(["002112"])
+        check(fp_d0["aggregate_sha256"] == fp6["aggregate_sha256"], "加新参后默认口径逐字节不变")
+        (stk / "000001.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 10.0], ["2020-01-02", 1, 11.0], ["2020-01-03", 1, 12.0],
+             ["2020-01-04", 1, 13.0]])), encoding="utf-8")
+        fp_cut = kf.build_fingerprint(["002112"], cutoff="2020-01-03")
+        (stk / "000001.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 10.0], ["2020-01-02", 1, 11.0], ["2020-01-03", 1, 12.0],
+             ["2020-01-04", 1, 13.0], ["2020-01-05", 1, 14.0]])), encoding="utf-8")
+        check(kf.build_fingerprint(["002112"], cutoff="2020-01-03")["aggregate_sha256"]
+              == fp_cut["aggregate_sha256"], "cutoff 后新增行不改 as-of 指纹（窗口滚动假漂移消除）")
+        (stk / "000001.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 9.9], ["2020-01-02", 1, 11.0], ["2020-01-03", 1, 12.0],
+             ["2020-01-04", 1, 13.0], ["2020-01-05", 1, 14.0]])), encoding="utf-8")
+        check(kf.build_fingerprint(["002112"], cutoff="2020-01-03")["aggregate_sha256"]
+              != fp_cut["aggregate_sha256"], "cutoff 前历史 close 追溯改写仍敏感")
+        (stk / "000001.json").write_text(json.dumps(kline(
+            [["2020-01-01", 1, 10.0], ["2020-01-02", 1, 11.0], ["2020-01-03", 1, 12.0]])),
+            encoding="utf-8")
+        fp_uni = kf.build_fingerprint(["002112"], stock_codes=["000001"])
+        check(fp_uni["aggregate_sha256"] != fp6["aggregate_sha256"], "universe 口径改变聚合")
+        check(fp_uni["aggregate_sha256"]
+              == kf.build_fingerprint(["002112"], stock_codes=["000001"])["aggregate_sha256"],
+              "scoped 模式确定性")
+        check(fp_uni.get("stock_codes_scope") == ["000001"] and fp_uni.get("cutoff") is None,
+              "scoped 模式记录口径")
+        fp_miss = kf.build_fingerprint(["002112"], stock_codes=["000001", "999999"])
+        check(any("999999" in b for b in fp_miss["unreadable"]), "缺失 scoped 码显式列名")
+        check(fp_miss["n_stock"] == 1, "缺失码不计入")
+        raised = False
+        try:
+            kf.build_fingerprint(["002112"], stock_codes=["000001"], cutoff="2019-12-31")
+        except RuntimeError:
+            raised = True
+        check(raised, "cutoff 全滤空拒绝生成空指纹")
     print(f"[kline_fingerprint SELFTEST] {total - len(fails)} passed, {len(fails)} failed"
           + (f" -> {fails}" if fails else ""))
     return 1 if fails else 0
@@ -224,11 +311,17 @@ def main() -> int:
     ap.add_argument("--funds", default=None, help="逗号分隔基金码（默认全部 klines/*.json）")
     ap.add_argument("--with-sector", action="store_true",
                     help="追加扫描 data/sector_klines/（§五之三 面板成员扩清单；默认关）")
+    ap.add_argument("--stocks", default=None,
+                    help="逗号分隔个股码（P0-3 universe 口径；默认全部 stock_klines）")
+    ap.add_argument("--cutoff", default=None,
+                    help="as-of 日期 YYYY-MM-DD（P0-3：只哈希 date ≤ cutoff 的数据；默认不限）")
     args = ap.parse_args()
     if not args.write:
         return selftest()
     fp = build_fingerprint(args.funds.split(",") if args.funds else None,
-                           include_sector=args.with_sector)
+                           include_sector=args.with_sector,
+                           stock_codes=args.stocks.split(",") if args.stocks else None,
+                           cutoff=args.cutoff)
     out = Path(args.write)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(fp, ensure_ascii=False, indent=1, sort_keys=True),
@@ -236,7 +329,9 @@ def main() -> int:
     print(f"fingerprint -> {out}")
     print(f"  aggregate sha256 : {fp['aggregate_sha256']}")
     print(f"  stock={fp['n_stock']} fund={fp['n_fund']} unreadable={fp['unreadable'] or '无'}"
-          + (f" sector={fp['n_sector']}" if args.with_sector else ""))
+          + (f" sector={fp['n_sector']}" if args.with_sector else "")
+          + (f" scope=stocks:{fp['stock_codes_scope']};cutoff:{fp['cutoff']}"
+             if "cutoff" in fp else ""))
     return 0
 
 
