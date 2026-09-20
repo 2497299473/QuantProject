@@ -314,7 +314,7 @@ class TestGateStillAttributes(unittest.TestCase):
                          degraded_reasons=["fund_data_fallback:025687"],
                          notification={"ok": True, "reason": None}))
         a = ap.Audit()
-        ap.check_publish_gate(a)
+        ap.check_publish_gate(a, now=NOW)   # 注入固定日：不随墙钟跨日漂移（同 test_publish_gate.py:281 口径）
         check = [c for c in a.checks if c.cid == "P1-9"][0]
         self.assertNotIn("025687", check.detail)
         self.assertIn("F2", check.detail)      # 审计侧别名基准 = 论域(002112,025687)升序位
