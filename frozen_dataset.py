@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""FrozenResearchDataset（V4.3 P0-1，2026-09-20）：回测样本快照统一入口。
+
+背景（GPT 评审 P0-1，NeoHorse 逐行核实属实）：12 个回测/评估脚本各自直调
+`backtest_spread.load_samples()`，每跑一次都**活拉**当前缓存；前复权 TTL 重取
+会静默追溯改写历史 close（09-18 C2 特征非不变性根因）⇒ 两次「同代码、同日」
+跑出两套数字，历史报告无法对数复现。
+
+修复：所有回测**默认强制消费冻结快照**（G-A 硬 / G-B 软，闸门口径与
+freeze_verify_tool 完全一致，不另起炉灶）：
+
+- 默认 / --snapshot PATH：消费 canonical 冻结件（forecast_outputs/
+  samples_frozen_*.jsonl + meta 侧车 + kline_fingerprint_*.json 三件套）。
+  - MISSING（无冻结件且未 --fresh）⇒ fail-closed，调用方 exit 4，
+    **拒绝静默活拉兜底**（静默活拉正是本次要修的病灶）。
+  - INVALID（G-A 失败：sha/行数/降级征兆/个股K线失败任一不符）⇒ 同上。
+  - G-B DRIFTED/UNKNOWN ⇒ 软标记：样本照用，但 report_line 必须写进报告，
+    且该轮不得引用历史绝对值作门槛。
+- --fresh：显式活拉（live_loader()），report_line 标 FRESH，与冻结基线不可比。
+
+三件套契约（与 freeze_verify_tool 同源）：① code_commit ② samples_sha256
+（LF 归一，G-A 判定口径）③ K 线聚合指纹（G-B 可比性口径，V4.3 起 scope-aware）。
+
+用法（作为库，回测脚本）：
+    from frozen_dataset import resolve_samples
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4                       # fail-closed
+    ...
+    lines = [..., snap_info["report_line"], ...]   # 报告首行区必须记录样本快照
+
+零网络：本模块只读 forecast_outputs/ 与 data/ 缓存；活拉由调用方显式 --fresh
+触发（活拉本身的频控纪律由 load_samples 上游铁律 7/8 管辖，本模块不放宽）。
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+import freeze_verify_tool as _vt  # noqa: E402  复用三件套口径（G-A/G-B 判据、侧车发现、LF 归一）
+
+SNAPSHOT_DIRNAME = "forecast_outputs"
+SNAPSHOT_PREFIX = "samples_frozen_"
+
+
+def latest_frozen_samples(base_dir: Path) -> Path | None:
+    """选最新 canonical 冻结件：按文件名日期标签（YYYYMMDD），同标签按 mtime。
+
+    只认 8 位数字标签——`freeze_failed_*` 留证目录、临时件、非规范命名一律
+    不选（静默选错件比选不到更危险；选不到走 MISSING fail-closed）。
+    """
+    outdir = base_dir / SNAPSHOT_DIRNAME
+    if not outdir.is_dir():
+        return None
+    cands = []
+    for p in outdir.glob(f"{SNAPSHOT_PREFIX}*.jsonl"):
+        tag = p.stem.replace(SNAPSHOT_PREFIX, "")
+        if len(tag) == 8 and tag.isdigit():
+            cands.append((tag, p.stat().st_mtime, p))
+    if not cands:
+        return None
+    cands.sort(key=lambda t: (t[0], t[1]))
+    return cands[-1][2]
+
+
+def verify_internal(jsonl: Path) -> tuple[bool, str]:
+    """G-A 内部完整性（硬闸门）：sha256（LF 归一）+ 行数 + 降级征兆 + 个股K线失败。
+
+    口径复用 freeze_verify_tool（lf_normalized_sha256 / resolve_sidecar），
+    与 `freeze_verify_tool.py verify` 的 G-A 判据逐字一致——两处判定必须同义，
+    否则「verify 过但 resolve 拒」的夹缝会破坏三件套的可信度。
+    返回 (ok, detail)。
+    """
+    if not jsonl.exists():
+        return False, f"样本文件不存在: {jsonl}"
+    meta_p = _vt.resolve_sidecar(jsonl, None, "meta")
+    if meta_p is None:
+        return False, f"meta 侧车缺失，G-A 无法判定（fail-closed）: {jsonl.with_suffix('.meta.json')}"
+    meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    sha_lf = _vt.lf_normalized_sha256(jsonl)
+    rec = str(meta.get("sha256", ""))
+    if rec != sha_lf:
+        return False, f"样本 sha 不符（记录 {rec[:12]}… / 实际 {sha_lf[:12]}…）"
+    n_rows = sum(1 for ln in jsonl.read_text(encoding="utf-8").splitlines() if ln.strip())
+    if meta.get("n_samples") is not None and int(meta["n_samples"]) != n_rows:
+        return False, f"行数不符（meta={meta['n_samples']} / 实际={n_rows}）"
+    if meta.get("degraded_or_ratelimit_flags"):
+        return False, f"冻结时带降级/频控征兆: {meta['degraded_or_ratelimit_flags'][:2]}"
+    sdfs = meta.get("stock_data_failures")
+    if sdfs:
+        # V4.3 P0-3：冻结时记录的个股K线失败 ⇒ 快照结构性无效（数据质量门禁）。
+        # 冻结侧门禁保证该字段要么缺（旧件）要么为空；存在且非空 = 失败。
+        return False, f"冻结时带个股K线失败（{len(sdfs)} 码，数据质量门禁）: {sdfs[:3]}"
+    return True, f"PASS（sha={sha_lf[:12]}… n={n_rows}）"
+
+
+def verify_comparability(jsonl: Path) -> tuple[str, dict]:
+    """G-B 跨版本可比性（软标记）：按与留档**同口径**重算当前 K 线指纹。
+
+    返回 (state, kfp_rec)，state ∈ SAME / DRIFTED / UNKNOWN。
+    V4.3 P0-2：留档指纹带 stock_codes_scope / cutoff（as-of + universe 口径）
+    则按同口径重算；09-20 前锚点件（无 scope 字段）仍无参全量口径。
+    混口径会改变 canonical 串 ⇒ 假漂移（DRIFTED 会误报为结构性问题）。
+    """
+    kfp_p = _vt.resolve_sidecar(jsonl, None, "kfp")
+    if kfp_p is not None:
+        kfp_rec = json.loads(kfp_p.read_text(encoding="utf-8"))
+    else:
+        # 侧车断链回退：与 freeze_verify_tool 同口径——meta 的指纹字段兜底
+        # （09-10 实况：meta 生成早于指纹接入，靠日期标签找兄弟件；再找不着
+        # 才退 meta 字段）。scope 字段（V4.3 起）从 meta.kline_fingerprint_scope 兜底。
+        meta_p = _vt.resolve_sidecar(jsonl, None, "meta")
+        meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p else {}
+        kfp_rec = {
+            "aggregate_sha256": meta.get("kline_fingerprint_sha256"),
+            "file": meta.get("kline_fingerprint_file"),
+            "cutoff": (meta.get("kline_fingerprint_scope") or {}).get("cutoff"),
+            "stock_codes_scope": None,
+        }
+    kfp_now = _vt.current_kline_fingerprint(kfp_rec)
+    rec_sha = str(kfp_rec.get("aggregate_sha256") or "")
+    now_sha = str((kfp_now or {}).get("aggregate_sha256") or "")
+    if not rec_sha or not now_sha:
+        return "UNKNOWN", kfp_rec
+    return ("SAME" if rec_sha == now_sha else "DRIFTED"), kfp_rec
+
+
+def load_snapshot(jsonl: Path) -> list[dict]:
+    """读冻结 jsonl（一行一 JSON，sort_keys —— freeze_samples 的落盘口径）。"""
+    return [json.loads(ln) for ln in jsonl.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+
+def resolve_samples(snapshot: str | None, fresh: bool, base_dir: Path, live_loader) -> tuple[list[dict], dict]:
+    """统一样本入口（V4.3 P0-1）。返回 (samples, snap_info)。
+
+    snap_info 键：mode（FROZEN/FRESH/MISSING/INVALID）、file、gate_internal
+    （PASS/INVALID/N/A）、gate_comparability（SAME/DRIFTED/UNKNOWN/N/A）、
+    report_line（报告首行区必须原样记录；MISSING/INVALID 时为空串，调用方
+    已 fail-closed 不会走到报告）。
+
+    - fresh=True：显式活拉 live_loader()，标 FRESH（与冻结基线不可比）。
+    - 否则：消费 snapshot（显式路径）或 latest_frozen_samples()；
+      MISSING / INVALID ⇒ ([], info)，调用方 exit 4 fail-closed。
+    """
+    if fresh:
+        samples = live_loader()
+        return list(samples), {
+            "mode": "FRESH", "file": None,
+            "gate_internal": "N/A", "gate_comparability": "N/A",
+            "report_line": "> 样本快照: FRESH 活拉（--fresh 显式）——与冻结基线不可比，"
+                           "不得引用历史绝对值作门槛",
+        }
+
+    snap = Path(snapshot) if snapshot else None
+    if snap is not None and not snap.is_absolute() and not snap.exists():
+        cand = base_dir / snap
+        if cand.exists():
+            snap = cand
+    if snap is None:
+        snap = latest_frozen_samples(base_dir)
+    if snap is None or not snap.exists():
+        print("[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），"
+              "且未指定 --fresh。fail-closed：拒绝静默活拉兜底。")
+        print("          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，"
+              "或显式 --fresh 活拉（数字与冻结基线不可比）。")
+        return [], {"mode": "MISSING", "file": str(snap) if snap else None,
+                    "gate_internal": "N/A", "gate_comparability": "N/A", "report_line": ""}
+
+    print(f"[frozen] 消费冻结件: {snap.name}")
+    ok, detail = verify_internal(snap)
+    print(f"[frozen] G-A 内部完整性 : {'PASS' if ok else 'INVALID'}（{detail}）")
+    if not ok:
+        print("[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。")
+        return [], {"mode": "INVALID", "file": snap.name,
+                    "gate_internal": "INVALID", "gate_comparability": "N/A", "report_line": ""}
+
+    state, _kfp_rec = verify_comparability(snap)
+    if state == "DRIFTED":
+        print("[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，"
+              "报告必须原样记录且不得引用历史绝对值作门槛）")
+    else:
+        print(f"[frozen] G-B K线指纹    : {state}")
+
+    samples = load_snapshot(snap)
+    note = "" if state == "SAME" else f"；K线指纹 {state}，与历史锚点不可比"
+    return samples, {
+        "mode": "FROZEN", "file": snap.name,
+        "gate_internal": "PASS", "gate_comparability": state,
+        "report_line": f"> 样本快照: FROZEN `{snap.name}` · G-A PASS · G-B {state}{note}",
+    }

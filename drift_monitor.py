@@ -30,6 +30,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import split_date_oos
 from backtest_walk_forward import build_wf_folds
 from core.forecast_engine import FEATURE_KEYS
@@ -145,11 +146,17 @@ def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-days", type=int, default=63)
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     train_all, oos, oos_start = split_date_oos(samples_sorted)
     print(f"== [1] 冻结切分：train < {oos_start}（{len(train_all)}），"
@@ -181,6 +188,7 @@ def main() -> int:
     # ---- 报告 ----
     lines = [
         "# 特征/标签 Drift 监控（2026-09-01，观察层）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · {len(folds)} 折"
         f"（{args.window_days} 交易日/折，与 WF 同窗）· PSI 10 分位桶 · "
         f"预注册阈值：<0.10 稳定 / 0.10~0.25 中度 / >0.25 显著", "",

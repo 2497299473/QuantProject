@@ -40,6 +40,7 @@ import numpy as np
 
 from backtest_forecast import (split_date_oos, rank_ic, cluster_bootstrap_ci, date_group_cv_masks)
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from core import forecast_engine
 from core.forecast_engine import FEATURE_KEYS, ReturnQuantileModel
 
@@ -117,6 +118,10 @@ def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-boot", type=int, default=199)
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
 
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
@@ -126,7 +131,9 @@ def main() -> int:
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     print(f"  总样本 {len(samples_sorted)}")
 
@@ -286,6 +293,7 @@ def main() -> int:
 
     # 留档 md
     lines = ["# 分位数校准验证（2026-09-01，GPT 五审 P1-C）", "",
+             snap_info["report_line"],
              f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · train < {oos_start}（{len(train)}）"
              f" · OOS ≥ {oos_start} · bootstrap {args.n_boot} 次 · 预注册带宽 {COV_LO:.0%}~{COV_HI:.0%}", "",
              "| horizon | n | Coverage80 | 95% CI | 宽度 | Pinball 技能(Σ) | Q50 RankIC | 判定 |",

@@ -34,6 +34,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples, FWD_LIST, EXTRA_FWD
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from core import forecast_engine
 
 # 确定性种子
@@ -217,13 +218,23 @@ def build_xy(samples: list[dict], horizon: int, flat_margin: float):
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
+    args = ap.parse_args()
+
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     fc = cfg.get("forecast", {})
     horizons = fc.get("horizons", [1, 3, 5])
     flat_margin = fc.get("prob_flat_margin", 0.003)
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     print(f"  总样本 {len(samples)}")
     # 样本需按时间排序（load_samples 已是按日期循环构建，这里再显式排序）
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))

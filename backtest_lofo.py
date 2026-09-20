@@ -17,7 +17,8 @@ LOFO 逐基金留出验证回答这个问题。
    不作「判决」；大样本互测（002112↔002207，跨行业）是主证据。
 
 判定规则（跑前冻结，2026-08-30，不因结果回头改）：
-- 以 T+5（全池唯一显著周期）为该基金稳定性映射的主判据：
+- 以 T+5 为该基金稳定性映射的主判据（档案状态：2026-09-01 冻结时点为全池唯一显著周期；
+  09-18 C2 WF 部署式复算 ≈ -0.079，当前结论 UNRESOLVED，V4.3 P0-4）：
     n_oos >= 100 且 CI 下界 > 0 → 「泛化成立」    → 稳定性 0.85
     n_oos >= 100 且 CI 上界 < 0 → 「泛化不成立」  → 稳定性封顶 0.2
     n_oos >= 100 且 CI 跨零     → 「泛化证据不足」→ 稳定性 0.6
@@ -50,6 +51,7 @@ import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                brier_multiclass, calibration_curve,
                                cluster_bootstrap_ci)
@@ -87,13 +89,23 @@ def verdict_from_evidence(n_oos: int | None, ci_lo: float | None,
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
+    args = ap.parse_args()
+
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     fc = cfg.get("forecast", {})
     horizons = fc.get("horizons", [1, 3, 5])
     flat_margin = fc.get("prob_flat_margin", 0.003)
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     by_fund = defaultdict(int)
     for s in samples_sorted:
@@ -111,6 +123,7 @@ def main() -> int:
     evidence: dict[str, dict] = {}
     lines = [
         "# LOFO 跨基金泛化验证（v8 证据留档）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · 切分 OOS ≥ {oos_start} · "
         f"pooled 全池样本 {len(samples_sorted)} · 判定规则跑前冻结（docstring）", "",
         "| 留出基金 | OOS样本 | T+5 RankIC | T+5 CI(95%) | 判词 | 稳定性映射 |",

@@ -24,6 +24,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import split_date_oos, build_xy, rank_ic, brier_multiclass
 from core import forecast_engine as fe
 from core import state_engine as se
@@ -111,8 +112,17 @@ def run_variant(name: str, samples: list[dict], extra_keys: list[str],
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比）")
+    args = ap.parse_args()
     print("== [1] 加载样本（PIT 口径）==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     if not samples:
         print("[fail] 无样本")
         return 1

@@ -45,6 +45,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                brier_multiclass, cluster_bootstrap_ci)
 from core import forecast_engine
@@ -236,6 +237,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-days", type=int, default=63)
     ap.add_argument("--n-boot", type=int, default=199)
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
 
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
@@ -246,7 +251,9 @@ def main() -> int:
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     print(f"  总样本 {len(samples_sorted)}")
 
@@ -396,6 +403,7 @@ def main() -> int:
     # ---- 报告 ----
     lines = [
         "# Walk-Forward（expanding 重训）OOS 验证（2026-09-01，GPT 五审 P0 + Path-WF P1-②）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · WF {len(folds)} 折（{args.window_days} 交易日/折，"
         f"与 Rolling OOS 同窗）· 每折 expanding 重训 + label-end purge（max_horizon={max_h}）"
         f" · cluster bootstrap {args.n_boot} 次", "",

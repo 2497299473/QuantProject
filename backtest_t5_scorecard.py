@@ -38,6 +38,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                brier_multiclass, calibration_curve,
                                cluster_bootstrap_ci)
@@ -166,6 +167,10 @@ def main() -> int:
     ap.add_argument("--window-days", type=int, default=63)
     ap.add_argument("--force", action="store_true",
                     help="证据源晚于现有报告时仍强制生成（STALE_EVIDENCE 覆盖）")
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
 
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
@@ -174,7 +179,9 @@ def main() -> int:
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     print(f"  总样本 {len(samples_sorted)}")
 
@@ -276,6 +283,7 @@ def main() -> int:
     # 报告
     lines = [
         "# T+5 专项证据评分卡（2026-09-01，GPT 五审 ⑲）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · train < {oos_start}（{len(train)}）· "
         f"OOS ≥ {oos_start}（{len(oos)} / {len(set(dates_oo))} 日）· bootstrap {args.n_boot} 次", "",
         "**预注册裁决：`scorecard_verdict(lo, recent_ic)` — pooled CI 下界 >0 且最近窗 >0 → stable；"

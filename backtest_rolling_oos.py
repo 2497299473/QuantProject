@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Rolling OOS 验证：单一模型在 OOS 段的分窗 IC 轨迹（2026-08-31，GPT 四审 P0①落地）。
 
-回答：「T+5 的 +0.080 是一直稳定，还是最近才出现？」——把 OOS 段按交易日滚动
+回答：「T+5 的 +0.080 是一直稳定，还是最近才出现？」（+0.080 = 2026-09-01 pooled
+档案值；09-18 C2 WF 部署式复算 ≈ -0.079，当前结论 UNRESOLVED，V4.3 P0-4）——把 OOS 段按交易日滚动
 窗口切片，逐窗算 RankIC / Brier / CI，看证据的时间结构。单一切口只能给均值，
 分窗才能看出「什么时候开始失效」。
 
@@ -11,7 +12,8 @@
   → 所有窗共用同一模型 = 回答「这个模型在哪个时间段还有效」
 - 窗口：OOS 段按交易日等分（--window-days 控制窗宽，默认 63 ≈ 一季度）
 - 指标：每窗 RankIC + cluster bootstrap 95% CI（按日块重抽样）+ Brier
-- 主判据：T+5（当前唯一有证据的周期）；T+1/T+3 仅点估计参考
+- 主判据：T+5（「唯一有证据的周期」是 2026-09-01 档案时点判断，当前状态 UNRESOLVED）；
+  T+1/T+3 仅点估计参考
 
 输出：
 - output/backtest_rolling_oos_YYYYMMDD.md（人类可读）
@@ -31,6 +33,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                brier_multiclass, cluster_bootstrap_ci)
 from core import forecast_engine
@@ -70,6 +73,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-days", type=int, default=63)
     ap.add_argument("--n-boot", type=int, default=199)
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
 
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
@@ -79,7 +86,9 @@ def main() -> int:
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
     print(f"  总样本 {len(samples_sorted)}")
 
@@ -105,6 +114,7 @@ def main() -> int:
 
     lines = [
         "# Rolling OOS 分窗验证（2026-08-31，GPT 四审 P0①）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · 训练 < {oos_start}（{len(train_all)}）"
         f" · OOS 分 {len(windows)} 窗（{args.window_days} 交易日/窗）· bootstrap {args.n_boot} 次", "",
         "## 一、T+5 主判据：分窗 RankIC 轨迹", "",

@@ -28,6 +28,7 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_spread import load_samples
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                cluster_bootstrap_ci)
 from core import forecast_engine as fe
@@ -89,11 +90,17 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None,
                     help="输出文件名（默认 backtest_forecast_policy_YYYYMMDD.md）")
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
 
     t0 = time.time()
     print("== [1] 加载样本（PIT 口径）==")
-    samples = load_samples()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     if not samples:
         print("[fail] 无样本")
         return 1
@@ -169,6 +176,7 @@ def main() -> int:
     # ---- 报告 ----
     lines = [
         "# Forecast→Policy 联合回测（v7 证据留档）", "",
+        snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · OOS ≥ {oos_start} · "
         f"样本 {len(dates)}（{len(set(dates))} 日）· 政策 θ={POLICY_THR} · 只产证据不接下单", "",
         "**纪律**：本报告不改变 config.decision 任何门禁；动作层启用仍需"

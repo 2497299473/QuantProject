@@ -34,6 +34,7 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
 from backtest_spread import load_samples   # 复用样本构建（含缓存、防前视）
+from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from core import decision_engine
 
 
@@ -56,7 +57,16 @@ def fmt_b(b):
 
 
 def main() -> int:
-    samples = load_samples()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--snapshot", default=None,
+                    help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
+    ap.add_argument("--fresh", action="store_true",
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
+    args = ap.parse_args()
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    if snap_info["mode"] in ("MISSING", "INVALID"):
+        return 4
     if not samples:
         print("[fail] 无样本")
         return 1
@@ -139,6 +149,7 @@ def main() -> int:
 
     lines = [
         "# 动作收益回测：加仓/减仓/不动 vs 不动", "",
+        snap_info["report_line"],
         f"> 生成：{datetime.now():%Y-%m-%d %H:%M} · 样本（基金日）{len(rows)} · "
         f"区间 {rows[0]['date']} ~ {rows[-1]['date']} · 分段点 {mid}", "",
         "## 〇、口径（诚实声明）", "",
