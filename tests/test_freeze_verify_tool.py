@@ -143,6 +143,51 @@ class TestGateBComparability(_Base):
         self.assertEqual(t["kline_fingerprint_recorded"], "f5a2f607" + "0" * 56)
         self.assertEqual(t["kline_fingerprint_current"], "b5b25cd3" + "1" * 56)
 
+    # ---------------- V4.3.1 ①②：CLI 侧与库侧同义 ----------------
+
+    def test_scoped_sibling_absent_rejects_to_unknown(self):
+        """① CLI 复现：meta 带 scope（scoped 件）但侧车缺失 ⇒ UNKNOWN。
+
+        与 frozen_dataset 侧同名测例成对：库与 CLI 必须两路同义（同一
+        load_kfp_record 真源），不再一处带 cutoff、一处不带地各写 fallback。
+        G-B 仍是软标记 ⇒ exit 0（不能因不可比而中止任务）。
+        """
+        self.kfp.unlink()
+        self._write_meta(sha=self.sha, n=len(self.rows),
+                         extra={"kline_fingerprint_sha256": "cccc" + "0" * 60,
+                                "kline_fingerprint_scope":
+                                    {"stock_n": 3, "cutoff": "2026-09-10"}})
+        called = []
+        tool.current_kline_fingerprint = lambda _rec=None: called.append(1) or None
+        out = self.root / "triple.json"
+        self.assertEqual(self._verify("--triple-out", str(out)), tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN")
+        self.assertEqual(t["kline_fingerprint_recorded"], None)
+        self.assertEqual(called, [], "reject 后不得按退化口径重算")
+
+    def test_incomplete_sidecar_absent_unscoped_legacy_still_falls_back(self):
+        """反向保底：旧件（meta 无 scope）缺侧车仍按原路回退到 meta 字段。
+
+        上条的 scoped 判定不能把 09-10 锚点件一起打死——向后兼容必须可见。
+        """
+        self.kfp.unlink()
+        self._write_meta(sha=self.sha, n=len(self.rows),
+                         extra={"kline_fingerprint_sha256": "cccc" + "0" * 60})
+        self._stub_kfp("cccc" + "0" * 60)
+        self.assertEqual(self._verify(), tool.EXIT_PASS)
+
+    def test_unreadable_recompute_is_incomplete_not_fatal(self):
+        """② CLI 复现：重算 unreadable 非空 ⇒ INCOMPLETE，exit 仍 0。"""
+        tool.current_kline_fingerprint = lambda _rec=None: {
+            "aggregate_sha256": "f5a2f607" + "0" * 56,          # 与留档相等
+            "unreadable": ["000001.json(stock:requested-missing)"]}
+        out = self.root / "triple.json"
+        self.assertEqual(self._verify("--triple-out", str(out)), tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "INCOMPLETE")
+        self.assertIn("requested-missing", t["kline_fingerprint_state_detail"])
+
 
 class TestSidecarDiscovery(_Base):
     def test_finds_sibling_kfp_without_meta_field(self):

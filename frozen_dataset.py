@@ -14,8 +14,9 @@ freeze_verify_tool 完全一致，不另起炉灶）：
   - MISSING（无冻结件且未 --fresh）⇒ fail-closed，调用方 exit 4，
     **拒绝静默活拉兜底**（静默活拉正是本次要修的病灶）。
   - INVALID（G-A 失败：sha/行数/降级征兆/个股K线失败任一不符）⇒ 同上。
-  - G-B DRIFTED/UNKNOWN ⇒ 软标记：样本照用，但 report_line 必须写进报告，
-    且该轮不得引用历史绝对值作门槛。
+  - G-B DRIFTED/INCOMPLETE/UNKNOWN ⇒ 软标记：样本照用，但 report_line 必须写进报告，
+    且该轮不得引用历史绝对值作门槛。（V4.3.1：INCOMPLETE＝当前缓存缺/坏码，
+    聚合指纹有空洞，比对不成立；scoped 件缺侧车 fail-closed 到 UNKNOWN。）
 - --fresh：显式活拉（live_loader()），report_line 标 FRESH，与冻结基线不可比。
 
 三件套契约（与 freeze_verify_tool 同源）：① code_commit ② samples_sha256
@@ -102,32 +103,29 @@ def verify_internal(jsonl: Path) -> tuple[bool, str]:
 def verify_comparability(jsonl: Path) -> tuple[str, dict]:
     """G-B 跨版本可比性（软标记）：按与留档**同口径**重算当前 K 线指纹。
 
-    返回 (state, kfp_rec)，state ∈ SAME / DRIFTED / UNKNOWN。
-    V4.3 P0-2：留档指纹带 stock_codes_scope / cutoff（as-of + universe 口径）
-    则按同口径重算；09-20 前锚点件（无 scope 字段）仍无参全量口径。
-    混口径会改变 canonical 串 ⇒ 假漂移（DRIFTED 会误报为结构性问题）。
+    返回 (state, kfp_rec)，state ∈ SAME / DRIFTED / INCOMPLETE / UNKNOWN。
+    解析与判据 V4.3.1 起复用 freeze_verify_tool.load_kfp_record /
+    comparability_state（单一真源，与 CLI `verify` 逐字同义）：
+
+    - V4.3 P0-2：留档带 stock_codes_scope / cutoff 则按同口径重算；
+      09-20 前锚点件（无 scope 字段）仍无参全量口径。混口径会改变
+      canonical 串 ⇒ 假漂移。
+    - V4.3.1 ①：meta 标了 scope（scoped 件）但侧车断链 ⇒ reject，
+      fail-closed 判 UNKNOWN，不拿退化口径去猜。
+    - V4.3.1 ②：重算侧 unreadable 非空 ⇒ INCOMPLETE（聚合有空洞，
+      与留档不具可比性；SAME/DRIFTED 都不可声称）。
     """
-    kfp_p = _vt.resolve_sidecar(jsonl, None, "kfp")
-    if kfp_p is not None:
-        kfp_rec = json.loads(kfp_p.read_text(encoding="utf-8"))
-    else:
-        # 侧车断链回退：与 freeze_verify_tool 同口径——meta 的指纹字段兜底
-        # （09-10 实况：meta 生成早于指纹接入，靠日期标签找兄弟件；再找不着
-        # 才退 meta 字段）。scope 字段（V4.3 起）从 meta.kline_fingerprint_scope 兜底。
-        meta_p = _vt.resolve_sidecar(jsonl, None, "meta")
-        meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p else {}
-        kfp_rec = {
-            "aggregate_sha256": meta.get("kline_fingerprint_sha256"),
-            "file": meta.get("kline_fingerprint_file"),
-            "cutoff": (meta.get("kline_fingerprint_scope") or {}).get("cutoff"),
-            "stock_codes_scope": None,
-        }
-    kfp_now = _vt.current_kline_fingerprint(kfp_rec)
-    rec_sha = str(kfp_rec.get("aggregate_sha256") or "")
-    now_sha = str((kfp_now or {}).get("aggregate_sha256") or "")
-    if not rec_sha or not now_sha:
+    meta_p = _vt.resolve_sidecar(jsonl, None, "meta")
+    meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p else {}
+    kfp_rec, _kfp_p, reject = _vt.load_kfp_record(jsonl, meta, None)
+    if reject is not None:
+        print(f"[frozen] G-B kfp 留档 REJECT: {reject}")
         return "UNKNOWN", kfp_rec
-    return ("SAME" if rec_sha == now_sha else "DRIFTED"), kfp_rec
+    kfp_now = _vt.current_kline_fingerprint(kfp_rec)
+    state, detail = _vt.comparability_state(kfp_rec, kfp_now)
+    if detail:
+        print(f"[frozen] G-B {state}: {detail}")
+    return state, kfp_rec
 
 
 def load_snapshot(jsonl: Path) -> list[dict]:
@@ -139,7 +137,7 @@ def resolve_samples(snapshot: str | None, fresh: bool, base_dir: Path, live_load
     """统一样本入口（V4.3 P0-1）。返回 (samples, snap_info)。
 
     snap_info 键：mode（FROZEN/FRESH/MISSING/INVALID）、file、gate_internal
-    （PASS/INVALID/N/A）、gate_comparability（SAME/DRIFTED/UNKNOWN/N/A）、
+    （PASS/INVALID/N/A）、gate_comparability（SAME/DRIFTED/INCOMPLETE/UNKNOWN/N/A）、
     report_line（报告首行区必须原样记录；MISSING/INVALID 时为空串，调用方
     已 fail-closed 不会走到报告）。
 
@@ -180,8 +178,8 @@ def resolve_samples(snapshot: str | None, fresh: bool, base_dir: Path, live_load
                     "gate_internal": "INVALID", "gate_comparability": "N/A", "report_line": ""}
 
     state, _kfp_rec = verify_comparability(snap)
-    if state == "DRIFTED":
-        print("[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，"
+    if state in ("DRIFTED", "INCOMPLETE"):
+        print(f"[frozen] G-B K线指纹    : {state}（本轮数字与锚定历史轮次**不可比**，"
               "报告必须原样记录且不得引用历史绝对值作门槛）")
     else:
         print(f"[frozen] G-B K线指纹    : {state}")

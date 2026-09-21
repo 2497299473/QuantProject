@@ -202,6 +202,48 @@ class TestResolveSamples(unittest.TestCase):
         self.assertEqual(info["mode"], "FROZEN")
         self.assertEqual(info["gate_comparability"], "UNKNOWN")
 
+    # ---------------- V4.3.1 ①②：fail-closed 与 INCOMPLETE 最小复现 ----------------
+
+    def test_scoped_snapshot_without_sibling_kfp_is_unknown_not_guessed(self):
+        """① 复现：V4.3 scoped 件（meta 带 scope）但 kfp 侧车被删。
+
+        meta 只有 stock_n/cutoff，恢复不了 universe 码表；若照旧"退化回退"
+        拿 cutoff-only 口径去重算，改变 canonical 串 ⇒ 假 DRIFTED 或掩盖
+        真漂移。必须 fail-closed 判 UNKNOWN，且**不得**触发重算。
+        G-B 是软闸门：样本照用（mode=FROZEN），但报告行必须带 UNKNOWN。
+        """
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP,
+                          meta_extra={"kline_fingerprint_scope":
+                                      {"stock_n": 2, "cutoff": "2026-09-10"}})
+        kfp_p = self.root / "forecast_outputs" / "kline_fingerprint_20260910.json"
+        kfp_p.unlink()                       # 场景：scoped 缺侧车
+        self._stub_kfp(self.KFP)             # 若被调用则说明拿退化记录去猜了
+        samples, info = fd.resolve_samples(str(p), False, self.root,
+                                           lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "FROZEN", "G-B 软闸门不拦截")
+        self.assertEqual(info["gate_comparability"], "UNKNOWN")
+        self.assertIn("UNKNOWN", info["report_line"])
+        self.assertEqual(self._kfp_calls, [], "reject 后不得按退化口径重算")
+
+    def test_unreadable_recompute_is_incomplete_not_same(self):
+        """② 复现：重算侧 unreadable 有 1 只（缓存缺/坏码）。
+
+        即使聚合 sha 数值上与留档相等也不可声称 SAME——有空洞的比对不
+        成立（SAME 假安心 / DRIFTED 假归因都不行）。软标记：不拦截，
+        report_line 带 INCOMPLETE。
+        """
+        _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+
+        def _fake_with_hole(recorded=None):
+            self._kfp_calls.append(recorded)
+            return {"aggregate_sha256": self.KFP,          # 数值上与留档相等
+                    "unreadable": ["000001.json(stock:requested-missing)"]}
+        tool.current_kline_fingerprint = _fake_with_hole
+        samples, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "FROZEN", "INCOMPLETE 是软标记，不得拦截")
+        self.assertEqual(info["gate_comparability"], "INCOMPLETE")
+        self.assertIn("INCOMPLETE", info["report_line"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

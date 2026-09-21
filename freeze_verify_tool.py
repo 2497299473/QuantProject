@@ -50,6 +50,20 @@ TTL 重取后**追溯改写历史 close**（240 只里 186 只 sha 变了）。
 - **判词**：G-A 失败区分 MISMATCH（sha/行数/降级征兆被改）与
   SNAPSHOT_INVALID（结构性缺陷：stock_data_failures）；均 exit 3，必须中止。
 
+## V4.3.1 加固（2026-09-21，外部复审 ①/②）
+
+- **KFP 留档解析单一真源**（`load_kfp_record`）：CLI（cmd_verify）与库
+  （frozen_dataset.verify_comparability）共用同一份侧车发现 + meta 回退逻辑，
+  不再两处各写一遍（上轮两处 fallback 已经漂移：库带 cutoff/scope=None，
+  CLI 连 cutoff 都不带 ⇒ 同件两判）。
+- **scoped 侧车断链 fail-closed 到 UNKNOWN**：meta.kline_fingerprint_scope
+  表明是 V4.3 scoped 件而 `kline_fingerprint_*.json` 侧车缺失 ⇒ 拒算。
+  meta 只记 stock_n/cutoff，恢复不了 universe 码表；混口径重算要么假
+  DRIFTED、要么掩盖真漂移（正是 09-18 病灶形态），宁可 UNKNOWN。
+- **重算 unreadable 非空 ⇒ INCOMPLETE**：当前缓存缺码/坏码（unreadable）
+  ⇒ 聚合指纹有空洞，比对**不成立**：既不能声称 SAME 也不能归因 DRIFTED。
+  INCOMPLETE 与 DRIFTED 同级软标记（不改 exit 码），但必须原样写进报告。
+
 ## 用法
 
   # 单件校验（默认：LF 归一 sha + 同目录兄弟 meta/指纹回退）
@@ -121,6 +135,70 @@ def resolve_sidecar(jsonl: Path, explicit: Path | None, suffix: str) -> Path | N
     return cand if cand.exists() else None
 
 
+# ------------------------------------------------------------------ KFP 留档解析
+def load_kfp_record(jsonl: Path,
+                    meta: dict | None,
+                    explicit: Path | None = None) -> tuple[dict, Path | None, str | None]:
+    """解析冻结件的 KFP 留档记录（V4.3.1 单一真源：库与 CLI 共用）。
+
+    返回 (kfp_rec, kfp_path, reject_reason)；reject_reason 非 None ⇒ 该件
+    不可比、判 UNKNOWN（fail-closed），调用方不得再拿 kfp_rec 去重算比对。
+
+    正常路径：侧车 `kline_fingerprint_<tag>.json` 存在 ⇒ 直接消费（含
+    stock_codes_scope/cutoff 的 as-of + universe 口径字段）。
+
+    断链回退（09-10 实况：meta 生成早于指纹接入）：侧车缺失时退 meta 的
+    kline_fingerprint_sha256 / kline_fingerprint_file 字段。但 meta 的
+    kline_fingerprint_scope（V4.3 起冻结件才有）只能恢复 cutoff、**恢复不了
+    universe 码表**——scoped 件缺侧车却按退化口径重算，改变 canonical 串 ⇒
+    要么假 DRIFTED、要么掩盖真漂移。故 scoped 件缺侧车 ⇒ reject（fail-closed
+    到 UNKNOWN），不猜口径；未 scoped 的旧件（全量口径）仍按原路回退。
+    """
+    kfp_p = resolve_sidecar(jsonl, explicit, "kfp")
+    if kfp_p is not None:
+        return json.loads(kfp_p.read_text(encoding="utf-8")), kfp_p, None
+    meta = meta or {}
+    if meta.get("kline_fingerprint_scope"):
+        return ({"aggregate_sha256": None, "file": None}, None,
+                "V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 "
+                "universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，"
+                "请补回侧车或重新冻结")
+    return ({"aggregate_sha256": meta.get("kline_fingerprint_sha256"),
+             "file": meta.get("kline_fingerprint_file"),
+             "cutoff": (meta.get("kline_fingerprint_scope") or {}).get("cutoff"),
+             "stock_codes_scope": None}, None, None)
+
+
+def comparability_state(recorded: dict | None,
+                        current: dict | None) -> tuple[str, str]:
+    """G-B 状态判据（V4.3.1 单一真源）。返回 (state, detail)，
+    state ∈ SAME / DRIFTED / INCOMPLETE / UNKNOWN。
+
+    - UNKNOWN：任一侧缺聚合 sha（无留档 / 重算失败 / 留档被 reject）。
+    - INCOMPLETE：重算侧 unreadable 非空——当前缓存缺码/坏码，聚合有空洞，
+      与留档**不具可比性**：SAME 不可声称，DRIFTED 也不可归因（差值可能
+      全部来自缓存空洞而非数据改写）。软标记，不拦截。
+    - 其余按 sha 相等性判 SAME / DRIFTED。
+
+    留档侧 unreadable 不参与判定：冻结侧门禁（P0-3）已保证 canonical 件的
+    unreadable 为空（非空即 SNAPSHOT_INVALID 不发布），读到非空必是 quarantine
+    留证件，不该走到这里。
+    """
+    rec_sha = str((recorded or {}).get("aggregate_sha256") or "")
+    now = current or {}
+    now_sha = str(now.get("aggregate_sha256") or "")
+    if not rec_sha or not now_sha:
+        return "UNKNOWN", "缺留档或重算聚合 sha"
+    unreadable = now.get("unreadable") or []
+    if unreadable:
+        return ("INCOMPLETE",
+                f"当前缓存缺/坏码 {len(unreadable)} 项，聚合指纹有空洞，比对不成立: "
+                f"{unreadable[:3]}")
+    if rec_sha == now_sha:
+        return "SAME", ""
+    return "DRIFTED", ""
+
+
 def git_commit() -> str | None:
     """当前代码 commit（三件套第①件）。取不到就返回 None，不阻塞判定。"""
     try:
@@ -170,7 +248,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         return EXIT_MISSING
 
     meta_p = resolve_sidecar(jsonl, Path(args.meta) if args.meta else None, "meta")
-    kfp_p = resolve_sidecar(jsonl, Path(args.kfp) if args.kfp else None, "kfp")
+    explicit_kfp = Path(args.kfp) if args.kfp else None
 
     # ---- G-A：样本内部完整性（硬中止）----
     sha_lf = lf_normalized_sha256(jsonl)
@@ -204,29 +282,24 @@ def cmd_verify(args: argparse.Namespace) -> int:
         print(f"[freeze] G-A 冻结时带个股K线失败（{len(sdfs)} 码，数据质量门禁）: {sdfs[:3]}")
         ga_ok = False
 
-    # ---- G-B：跨版本可比性（软标记）----
-    kfp_rec = None
-    if kfp_p is not None:
-        kfp_rec = json.loads(kfp_p.read_text(encoding="utf-8"))
-    else:
-        kfp_rec = {"aggregate_sha256": meta.get("kline_fingerprint_sha256"),
-                   "file": meta.get("kline_fingerprint_file")}
-    kfp_now = current_kline_fingerprint(kfp_rec)   # V4.3 P0-2：与留档同口径重算
+    # ---- G-B：跨版本可比性（软标记；V4.3.1 与库共用同一判据）----
+    kfp_rec, kfp_p, reject = load_kfp_record(jsonl, meta, explicit_kfp)
     kfp_rec_sha = str(kfp_rec.get("aggregate_sha256") or "")
+    if reject is not None:
+        kfp_now = None
+        print(f"[freeze] kfp 留档 : REJECT —— {reject}")
+    else:
+        kfp_now = current_kline_fingerprint(kfp_rec)   # V4.3 P0-2：与留档同口径重算
     kfp_now_sha = str((kfp_now or {}).get("aggregate_sha256") or "")
+    gb_state, gb_detail = comparability_state(kfp_rec, kfp_now)
     print(f"[freeze] kfp 留档 : {kfp_rec_sha or '(无)'}  <- "
           f"{kfp_p.name if kfp_p else meta.get('kline_fingerprint_file') or '(无)'}")
     print(f"[freeze] kfp 当前 : {kfp_now_sha or '(未取到)'}")
-    if not kfp_now_sha or not kfp_rec_sha:
-        gb_state = "UNKNOWN"
-    elif kfp_now_sha == kfp_rec_sha:
-        gb_state = "SAME"
-    else:
-        gb_state = "DRIFTED"
     print(f"[freeze] G-B K线指纹 : {gb_state}"
+          + (f"（{gb_detail}）" if gb_detail else "")
           + ("（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，"
              "报告必须原样记录且不得引用历史绝对值作门槛）"
-             if gb_state == "DRIFTED" else ""))
+             if gb_state in ("DRIFTED", "INCOMPLETE") else ""))
 
     triple = {
         "code_commit": git_commit(),
@@ -240,6 +313,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         "kline_fingerprint_recorded": kfp_rec_sha or None,
         "kline_fingerprint_current": kfp_now_sha or None,
         "kline_fingerprint_state": gb_state,
+        "kline_fingerprint_state_detail": gb_detail or None,
         "gate_internal": "PASS" if ga_ok else "MISMATCH",
         "gate_comparability": gb_state,
     }
