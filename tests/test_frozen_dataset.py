@@ -244,6 +244,32 @@ class TestResolveSamples(unittest.TestCase):
         self.assertEqual(info["gate_comparability"], "INCOMPLETE")
         self.assertIn("INCOMPLETE", info["report_line"])
 
+    def test_snapshot_provenance_assembled_on_frozen(self):
+        """③ 复现：FROZEN 路径 snap_info 带全三元组（不论 G-B 状态）。
+
+        留档 sha 与重算 sha 不等（DRIFTED）时也必须写全——provenance 描述
+        "实际消费的是什么"，闸门状态只是其中一个字段。
+        """
+        _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._stub_kfp("dddd" + "0" * 60)     # 不同聚合 ⇒ DRIFTED
+        _, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        prov = info["snapshot_provenance"]
+        self.assertEqual(prov["snapshot_file"], "samples_frozen_20260910.jsonl")
+        self.assertEqual(len(prov["samples_sha256_lf"]), 64)
+        self.assertEqual(prov["kfp_recorded_sha256"], self.KFP)
+        self.assertEqual(prov["kfp_current_sha256"], "dddd" + "0" * 60)
+        self.assertEqual(prov["kfp_comparability"], "DRIFTED")
+
+    def test_snapshot_provenance_honest_none_on_fresh_missing(self):
+        """③ 反向：FRESH / MISSING 的 provenance 键齐全但全 None（活拉没留档）。"""
+        _, info = fd.resolve_samples(None, True, self.root, lambda: list(self.ROWS))
+        prov = info["snapshot_provenance"]
+        self.assertEqual(set(prov), set(fd.PROVENANCE_KEYS))
+        self.assertTrue(all(v is None for v in prov.values()))
+        _, info2 = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info2["mode"], "MISSING")
+        self.assertTrue(all(v is None for v in info2["snapshot_provenance"].values()))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

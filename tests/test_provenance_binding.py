@@ -77,6 +77,38 @@ class TestRegisterBindsProvenance(unittest.TestCase):
         if head:
             self.assertEqual(entry["git_commit"], head)
 
+    def test_snapshot_provenance_passthrough_and_honest_absence(self):
+        """V4.3.1 ③：冻结件三元组透传进条目；未提供 ⇒ 键在但全 None（不伪造）。"""
+        pkl = self.tmp / "_snap_prov.pkl"
+        pkl.write_bytes(b"snap-prov")
+        triple = {"snapshot_file": "samples_frozen_20260910.jsonl",
+                  "samples_sha256_lf": "ab" * 32,
+                  "kfp_recorded_sha256": "cd" * 32,
+                  "kfp_current_sha256": "ef" * 32,
+                  "kfp_comparability": "UNKNOWN"}     # 不论闸门状态照写全
+        self.assertIsNotNone(model_registry.register_model(
+            pkl, meta={"n_train": 2}, snapshot_provenance=triple))
+        got = model_registry.load_registry()["models"][pkl.name]["snapshot_provenance"]
+        self.assertEqual(got["snapshot_file"], triple["snapshot_file"])
+        self.assertEqual(got["samples_sha256_lf"], triple["samples_sha256_lf"])
+        self.assertEqual(got["kfp_comparability"], "UNKNOWN")
+
+        pkl2 = self.tmp / "_snap_absent.pkl"
+        pkl2.write_bytes(b"absent")
+        model_registry.register_model(pkl2, meta={})
+        got2 = model_registry.load_registry()["models"][pkl2.name]["snapshot_provenance"]
+        self.assertEqual(set(got2), set(triple), "空 provenance 也必须键齐全（防缺键漂移）")
+        self.assertTrue(all(v is None for v in got2.values()),
+                        "未提供 = 诚实 None，绝不伪造")
+
+        # 白名单：脏键不得入条目
+        pkl3 = self.tmp / "_snap_dirty.pkl"
+        pkl3.write_bytes(b"dirty")
+        model_registry.register_model(
+            pkl3, meta={}, snapshot_provenance={**triple, "evil_key": "x"})
+        got3 = model_registry.load_registry()["models"][pkl3.name]["snapshot_provenance"]
+        self.assertNotIn("evil_key", got3)
+
 
 class TestAttestationGate(unittest.TestCase):
     """回填的证据闸门：无独立在场证明 ⇒ 拒绝绑定。"""

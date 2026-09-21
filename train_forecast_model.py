@@ -65,7 +65,10 @@ def main() -> int:
         return 1
 
     eng.trained_oos_start = oos_start
-    path = eng.save_models()
+    # V4.3.1 ③：把训练实际消费的冻结件三元组（snapshot_file + samples_sha256_lf
+    # + kfp 留档/重算/状态）透传进 registry——回答"这个模型基于哪份冻结样本
+    # + 哪套 K 线指纹训练"。FRESH 模式下各键为 None（活拉没有留档，不伪造）。
+    path = eng.save_models(snapshot_provenance=snap_info.get("snapshot_provenance"))
     if path is None:
         print("[fail] save_models 返回 None（不应发生，fit 已成功）")
         return 1

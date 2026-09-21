@@ -292,8 +292,13 @@ class ForecastEngine:
         return self._fit_ok
 
     # ---------- 持久化（fit → save → load 闭环） ----------
-    def save_models(self) -> Path | None:
-        """全部 horizon 的分类器/回归器原子写入 data/models/。未训练成功返回 None。"""
+    def save_models(self, snapshot_provenance: dict | None = None) -> Path | None:
+        """全部 horizon 的分类器/回归器原子写入 data/models/。未训练成功返回 None。
+
+        snapshot_provenance（V4.3.1 ③）：resolve_samples() 的冻结件三元组，
+        原样透传给 register_model 绑定进 registry；缺省 None ⇒ 条目三字段为
+        None（诚实留痕，不伪造）。
+        """
         if not self._fit_ok:
             return None
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -325,7 +330,7 @@ class ForecastEngine:
             "trained_at": payload["trained_at"],
             "oos_start": payload["oos_start"],
             "n_train": int(getattr(self, "last_fit_n", 0)),
-        })
+        }, snapshot_provenance=snapshot_provenance)
         if digest is None:
             print(f"[warn] pkl 已落盘但 registry 登记失败：{path}（load 将拒绝加载直到重新登记）")
         else:

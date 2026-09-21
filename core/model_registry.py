@@ -90,7 +90,8 @@ def capture_provenance() -> dict:
     return out
 
 
-def register_model(pkl_path: Path, meta: dict) -> str | None:
+def register_model(pkl_path: Path, meta: dict,
+                   snapshot_provenance: dict | None = None) -> str | None:
     """把 pkl 登记进注册表，返回 sha256（失败返回 None）。
 
     meta: {model_version, feature_keys, horizons, flat_margin,
@@ -98,6 +99,16 @@ def register_model(pkl_path: Path, meta: dict) -> str | None:
 
     P1-8（2026-09-16）：登记时自动绑定数据快照指纹 + 代码版本，使**新**条目天然可审计；
     历史条目的回填走 ``bind_provenance.py``。
+
+    V4.3.1 ③（2026-09-21，外部复审）：``snapshot_provenance`` 透传训练实际
+    消费的冻结件三元组（snapshot_file + samples_sha256_lf + kfp 留档/重算/
+    状态）。此前 registry 只记泛化 manifest sha，回答不了"这个模型是基于
+    哪份冻结样本+哪套 K 线指纹训练的"。语义（GPT 复审约定）：
+    - **照写全，不论 PASS**：G-B 为 UNKNOWN/INCOMPLETE/DRIFTED 时字段同样
+      记录——指纹描述"实际消费的是什么"，不是"闸门过了才记"。
+    - FRESH / 未提供 ⇒ 三字段诚实为 None：缺失留痕优于伪造值；**绝不**
+      拿重算值冒充留档值（活拉没有留档）。
+    - 键按白名单过滤（防调用方塞脏键），None 之外的值统一 str 化。
     """
     if not pkl_path.exists():
         return None
@@ -105,6 +116,7 @@ def register_model(pkl_path: Path, meta: dict) -> str | None:
     reg = load_registry()
     key = pkl_path.name
     prov = capture_provenance()
+    sp = snapshot_provenance or {}
     entry = {
         "path": str(pkl_path),
         "sha256": digest,
@@ -113,7 +125,19 @@ def register_model(pkl_path: Path, meta: dict) -> str | None:
         "meta": meta,
         "data_manifest_sha256": prov["data_manifest_sha256"],
         "git_commit": prov["git_commit"],
+        "snapshot_provenance": {
+            "snapshot_file": None,
+            "samples_sha256_lf": None,
+            "kfp_recorded_sha256": None,
+            "kfp_current_sha256": None,
+            "kfp_comparability": None,
+        },
     }
+    for k in ("snapshot_file", "samples_sha256_lf",
+              "kfp_recorded_sha256", "kfp_current_sha256", "kfp_comparability"):
+        v = sp.get(k)
+        if v is not None:
+            entry["snapshot_provenance"][k] = str(v)
     reg["models"][key] = entry
     return digest if _save_registry(reg) else None
 
