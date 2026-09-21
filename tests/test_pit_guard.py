@@ -74,6 +74,12 @@ class TestCheckPitVerdict(unittest.TestCase):
     """判据输出：当前仓库源码应判 PASS。"""
 
     def test_current_source_passes(self):
+        # bundle 环境可能不带运行时行情缓存（data/stock_klines/510300.json）。
+        # 日历缺失时 check_pit 诚实降级为 WARN（下界无法核验），不是回归——
+        # 与 test_real_repo_lags_satisfy_floor 同款 skip guard（2026-09-21 评审第 6 条）。
+        if ap.pit_trading_days() is None:
+            self.skipTest("本地交易日历缺失（运行时缓存不随包分发），"
+                          "check_pit 诚实降为 WARN，PASS 断言不适用")
         a = ap.Audit()
         ap.check_pit(a)
         self.assertEqual(len(a.checks), 1)

@@ -123,6 +123,8 @@ def main() -> int:
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
+    # V4.3.1 ④：报告首行区必须原样记录样本快照（stdout 即报告主体）
+    print(snap_info["report_line"])
     if not samples:
         print("[fail] 无样本")
         return 1

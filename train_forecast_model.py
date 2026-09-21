@@ -39,6 +39,9 @@ def main() -> int:
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
+    # V4.3.1 ④：训练日志首行区必须记录样本快照——模型基于哪份冻结件训练，
+    # 与 registry snapshot_provenance（③）互为印证；重训对数时先看这一行。
+    print(snap_info["report_line"])
     if not samples:
         print("[fail] 无样本")
         return 1

@@ -235,6 +235,9 @@ def main() -> int:
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
+    # V4.3.1 ④：报告首行区必须原样记录样本快照（DRIFTED/INCOMPLETE/UNKNOWN/FRESH
+    # 均在此可见；stdout 即本报告主体，与其他 9 个入口的 report_line 纪律同款）
+    print(snap_info["report_line"])
     print(f"  总样本 {len(samples)}")
     # 样本需按时间排序（load_samples 已是按日期循环构建，这里再显式排序）
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
