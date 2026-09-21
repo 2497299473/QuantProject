@@ -1,0 +1,52 @@
+{
+  "run_id": "20260921_145510_post",
+  "ts": "2026-09-21T14:55:10",
+  "slot": "post",
+  "data": {
+    "ok": true,
+    "failed": [],
+    "fallback": [],
+    "status_unknown": [],
+    "n_funds": 4
+  },
+  "lookthrough": {
+    "ok": true,
+    "missing": []
+  },
+  "realtime": {
+    "ok": true,
+    "failed": [],
+    "degraded": [],
+    "n_funds": 4
+  },
+  "intraday_features": {
+    "ok": true,
+    "n_funds": 4
+  },
+  "market_context": {
+    "ok": true
+  },
+  "report": {
+    "ok": true,
+    "path": "output/report_20260921_post.md"
+  },
+  "notification": {
+    "ok": true,
+    "reason": null,
+    "gate": {
+      "ok": true,
+      "reason": null
+    }
+  },
+  "shadow": {
+    "ok": true,
+    "reason": null
+  },
+  "degraded_reasons": [],
+  "status": "SUCCESS",
+  "fund_refs": {
+    "scheme": "F<n> = config.fund_pool 升序第 n 位",
+    "n_pool": 4,
+    "pool_sha256_8": "f19f8e7d"
+  }
+}
