@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import run                                    # noqa: E402  （2026-09-22 评审修复①：build_forecast_meta 纯函数）
 from core import intraday_features as ifx
 from core.decision_engine import DecisionInput, evaluate
 
@@ -117,6 +118,82 @@ class TestDecisionEngine(unittest.TestCase):
         self.assertEqual(merged["breadth"], 0.7)
         self.assertEqual(merged["covered_pct"], 88.0)
         self.assertEqual(merged["holdings_age_days"], 30)
+
+
+class TestAccountUnavailableSemantics(unittest.TestCase):
+    """2026-09-22 评审修复（②）：None = 账户维不可用（无幽灵 +4）；{} = 显式空仓（语义不变）。"""
+
+    def _inp(self, feat, ts=1, pool=None, acct="__default__"):
+        kw = {} if acct == "__default__" else {"account_state": acct}
+        return DecisionInput(code="002112", name="测试基金", slot="post",
+                             technical_score=ts, feat_1455=feat,
+                             pool_est=pool, **kw)
+
+    @staticmethod
+    def _hot_feat():
+        return {"est_return": 9.9, "breadth": 1.0, "concentration": 0.3,
+                "covered_pct": 90.0, "holdings_age_days": 10, "n_up": 10, "n_down": 0}
+
+    def test_none_participates_neither_sum_nor_denominator(self):
+        pool = {"002112": 9.9, "025687": -3.0}
+        d_none = evaluate(self._inp(self._hot_feat(), ts=3, pool=pool))
+        d_empty = evaluate(self._inp(self._hot_feat(), ts=3, pool=pool, acct={}))
+        self.assertEqual(d_none.raw["s_account"], 0)
+        self.assertFalse(any("仓位较低" in r for r in d_none.reasons), "不得有幽灵 +4")
+        self.assertGreater(d_empty.raw["s_account"], 0, "显式空仓保持 +4")
+        # 分母移除（24.5→23.5）：同样市场侧子分下 None 口径倾向分更高
+        self.assertGreater(d_none.score, d_empty.score)
+
+    def test_none_add_gate_fail_closed(self):
+        """仓位未知 ⇒ ADD 仓位门不可过（fail-closed），不再当 0% 仓位。"""
+        pool = {"002112": 9.9, "025687": -3.0}
+        d = evaluate(self._inp(self._hot_feat(), ts=3, pool=pool))
+        self.assertEqual(d.candidate, "ADD")
+        self.assertTrue(any("仓位未知" in c for c in d.invalid_conditions),
+                        d.invalid_conditions)
+
+    def test_explicit_account_keeps_original_gate(self):
+        pool = {"002112": 9.9, "025687": -3.0}
+        d = evaluate(self._inp(self._hot_feat(), ts=3, pool=pool,
+                               acct={"current_weight": 0.9, "max_weight": 0.8}))
+        self.assertTrue(any("当前仓位" in c for c in d.invalid_conditions),
+                        d.invalid_conditions)
+
+
+class TestForecastMetaB1(unittest.TestCase):
+    """2026-09-22 评审修复（①）：live 预测特征 缺失 = None（B1 mask），不强制零化。"""
+
+    def test_missing_fields_are_none_not_zero(self):
+        meta = run.build_forecast_meta(
+            "002112",
+            {"est_return": None, "breadth": 0.5, "concentration": 0.2, "covered_pct": 70.0},
+            lookthrough=None, signals={})
+        self.assertIsNone(meta["est_chg"])
+        self.assertIsNone(meta["est_sign"])
+        self.assertIsNone(meta["composite"])
+        self.assertIsNone(meta["score"])
+        self.assertEqual(meta["breadth"], 0.5)
+
+    def test_present_fields_keep_real_values(self):
+        meta = run.build_forecast_meta(
+            "002112",
+            {"est_return": 0.0, "breadth": -0.5},
+            lookthrough={"002112": {"composite": 0}},
+            signals={"002112": {"score": 0}})
+        self.assertEqual(meta["est_chg"], 0.0)
+        self.assertEqual(meta["est_sign"], 0)      # 真 0 是合法值，不是缺失
+        self.assertEqual(meta["composite"], 0)     # 中性是合法值
+        self.assertEqual(meta["score"], 0)
+
+    def test_fallback_features_none_passthrough(self):
+        """decision_engine 回退路径（无 feature_meta）同属 B1：缺失 → None。"""
+        from core.decision_engine import _forecast_features
+        inp = DecisionInput(code="002112", name="t", slot="post",
+                            feat_1455={"est_return": None, "breadth": 0.5})
+        f = _forecast_features(inp, None)
+        self.assertIsNone(f["est_chg"])
+        self.assertIsNone(f["est_sign"])
+        self.assertIsNone(f["composite"])
 
 
 if __name__ == "__main__":

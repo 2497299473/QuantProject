@@ -299,6 +299,31 @@ def build_account_states(account: dict) -> dict[str, dict]:
     return states
 
 
+def build_forecast_meta(code: str, f_rt: dict, lookthrough: dict | None,
+                        signals: dict) -> dict:
+    """v5 预测特征字典（B1 协议：缺失 = None，不强制零化；纯函数，可零网络测例）。
+
+    2026-09-22 评审修复（①）：旧实现（_run 内联）三处缺失强制 0——
+    ``est_sign``（est 缺失 → 0，破坏 B1 mask）、``composite``（穿透缺失 → 0，而 0
+    是合法业务值「中性」）、``score``（signals 缺失 → 0）。训练侧（forecast_engine）
+    对缺失做 (值, missing_mask) 双列，live 侧却把「缺失」写成「真 0」喂给模型。
+    现：有值 → 原值；缺失 → None，由 ForecastEngine.predict() 统一打 mask
+    （训练/推理协议真正对齐）。
+    """
+    est = f_rt.get("est_return")
+    lt = (lookthrough or {}).get(code)
+    sig = signals.get(code)
+    return {
+        "est_chg": est,
+        "est_sign": (1 if est > 0 else (-1 if est < 0 else 0)) if est is not None else None,
+        "breadth": f_rt.get("breadth"),
+        "concentration": f_rt.get("concentration"),
+        "covered_pct": f_rt.get("covered_pct"),
+        "composite": lt.get("composite") if isinstance(lt, dict) else None,
+        "score": sig.get("score") if isinstance(sig, dict) else None,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="基金日频参谋 v4（盘中决策辅助系统）")
     parser.add_argument("--slot", choices=["pre", "mid", "post"], help="时点（缺省按时钟自动判断）")
@@ -455,17 +480,8 @@ def _run(args, now: datetime) -> int:
             # v5 多周期预测特征：由实时日内特征合成（est_chg/breadth/composite/score）
             feat_meta = None
             if code in feats:
-                f_rt = feats[code]
-                feat_meta = {
-                    "est_chg": f_rt.get("est_return"),
-                    "est_sign": 1 if (f_rt.get("est_return") or 0) > 0
-                                else (-1 if (f_rt.get("est_return") or 0) < 0 else 0),
-                    "breadth": f_rt.get("breadth"),
-                    "concentration": f_rt.get("concentration"),
-                    "covered_pct": f_rt.get("covered_pct"),
-                    "composite": (lookthrough or {}).get(code, {}).get("composite", 0),
-                    "score": signals.get(code, {}).get("score", 0),
-                }
+                # 2026-09-22 评审修复（①）：缺失 = None（B1 mask），不强制零化（旧三处强制 0 已废除）
+                feat_meta = build_forecast_meta(code, feats[code], lookthrough, signals)
             d = decision_engine.evaluate_with_forecast(decision_engine.DecisionInput(
                 code=code, name=signals.get(code, {}).get("name", code), slot=slot,
                 technical_score=signals.get(code, {}).get("score", 0),
@@ -502,20 +518,13 @@ def _run(args, now: datetime) -> int:
                 log(f"[stat] {code} 结构态 {sr['state']}｜历史T+1↑{p1_txt}｜全周期稳定 {tag}")
                 _append_state_ref_history(now, slot, code, sr)
 
-    report = report_generator.generate_report(slot, signals, account, lookthrough, rot,
-                                              realtime, decisions, market_context=mc_snap,
-                                              lt_missing=lt_missing)
-    log(f"[repo] 报告已生成 → output/report_{now:%Y%m%d}_{slot}.md")
-
-    if append_obsidian_log(slot, signals, account, now):
-        log(f"[obs ] 盘后信号已追加 → Obsidian 信号流水")
-
-    # 发布资格门禁（V4-A，2026-09-17，方案 A 整批裁决）：本次内存证据 + 当日
-    # 已落盘清单并集判定；任一只持有基金带降级 ⇒ 整批不推。用闭包延迟求值：
-    # post 推送时本次清单尚未落盘，extra 必须带上当下 degraded，否则只审上午旧账。
-    # 注：论域由 audit_project 侧从 holdings.json 取（shares>0）。门禁的**内存**侧用真实
-    # 代码归因；落盘清单统一掩码为位置别名（V4.1 ④）——output/run_manifest/ 随仓库
-    # 跟踪，直接写 6 位代码违反 P0-2。
+    # 发布资格门禁（V4-A 论域 A，2026-09-22）：报告生成**之前**评估，报告/卡片才能
+    # 标注「观察基金降级·仅标注不拦」；推送阶段再评估一次（degraded 其后可能新增
+    # 项目，以推送阶段那次为拦截裁决依据）。用闭包延迟求值：post 推送时本次清单尚未
+    # 落盘，extra 必须带上当下 degraded，否则只审上午旧账。
+    # 注：论域由 audit_project 侧从 config.fund_pool ∪ holdings.json 取（论域 A：全池
+    # 受审）。门禁的**内存**侧用真实代码归因；落盘清单统一掩码为位置别名（V4.1 ④）
+    # ——output/run_manifest/ 随仓库跟踪，直接写 6 位代码违反 P0-2。
     gate_structured = {
         "data": {"failed": fund_failures, "fallback": fund_fallbacks},
         "lookthrough": {"missing": lt_missing},
@@ -525,6 +534,16 @@ def _run(args, now: datetime) -> int:
     def gate_eval():
         current = [r for r in degraded if r != "feishu_push_failed"]
         return publish_gate(now, extra=[(current, gate_structured)])
+
+    gate_report = gate_eval()
+
+    report = report_generator.generate_report(slot, signals, account, lookthrough, rot,
+                                              realtime, decisions, market_context=mc_snap,
+                                              lt_missing=lt_missing, gate=gate_report)
+    log(f"[repo] 报告已生成 → output/report_{now:%Y%m%d}_{slot}.md")
+
+    if append_obsidian_log(slot, signals, account, now):
+        log(f"[obs ] 盘后信号已追加 → Obsidian 信号流水")
 
     if args.no_push:
         log("[push] --no-push 指定，跳过飞书推送")
@@ -546,7 +565,7 @@ def _run(args, now: datetime) -> int:
                                     "n_universe": len(gate["universe"])}}
             degraded.append(f"publish_gate_blocked:{gate['reason']}")
         else:
-            result = notify.push_feishu(slot, signals, account, realtime, decisions)
+            result = notify.push_feishu(slot, signals, account, realtime, decisions, gate=gate)
             if result.get("ok"):
                 log("[push] 飞书推送成功")
                 push_status = {"ok": True, "reason": None,

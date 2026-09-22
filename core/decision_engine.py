@@ -15,6 +15,12 @@
 倾向分口径：五维加权和 → 归一化到 -100 ~ +100。
 子分范围：日内趋势 ±40 / 重仓一致性 ±20 / 池内相对 ±15 / 中期趋势 ±15 / 账户 ±10。
 
+账户维不可用语义（2026-09-22 评审修复②）：``account_state=None`` = 账户维不可用——
+不参与加权和、并从归一化分母移除（默认权重下 24.5→23.5）；``account_state={}`` =
+显式空仓（参与评分，低仓 +4 语义不变）。旧实现 ``acct or {}`` 把 None 当空仓 →
+所有无账户状态的样本被注入幽灵 +4（≈+1.63 倾向分，恒定偏移：不改相对排序，
+但影响 ±60 穿越与桶归属）。
+
 输入各维度（可解释、可回测）：
 - 日内趋势 35%：14:55 估算涨跌（tanh 映射 ±30）+ 午盘→尾盘变化（tanh 映射 ±10）
 - 重仓一致性 25%：前十大同向度（±15）+ 集中度惩罚（-8）
@@ -157,7 +163,12 @@ def _score_technical(ts: int) -> tuple[int, list[str]]:
 
 
 def _score_account(acct: dict | None) -> tuple[int, list[str]]:
-    """账户约束 ±10：仓位余量 / 成本保护 / 连续加仓限制（GPT 第十三节）。"""
+    """账户约束 ±10：仓位余量 / 成本保护 / 连续加仓限制（GPT 第十三节）。
+
+    2026-09-22 评审修复（②）：None 不再经此函数（evaluate 侧改走「不可用」分支，
+    不参与加权和）；空 dict = 显式空仓（低仓 +4 语义不变）。防御性 ``acct or {}``
+    仅为直接调用保留。
+    """
     acct = acct or {}
     score = 0.0
     reasons: list[str] = []
@@ -204,9 +215,14 @@ def _check_gates(dcfg: dict, feat: dict, acct: dict | None, candidate: str,
     if age > g.get("max_snapshot_age_days", 120):
         invalid.append(f"持仓披露过旧 {age} 天 > {g.get('max_snapshot_age_days', 120)} 天")
     if candidate == "ADD":
-        w = (acct or {}).get("current_weight", 0.0) or 0.0
-        if w > g.get("max_position_pct", 0.8):
-            invalid.append(f"当前仓位 {w*100:.0f}% ≥ 最大允许 {g.get('max_position_pct', 0.8)*100:.0f}%")
+        if acct is None:
+            # 2026-09-22 评审修复（②）：仓位未知 ≠ 仓位 0%。旧实现 `(acct or {})`
+            # 把 None 当 0% 仓位 → ADD 门永远过。现 fail-closed：仓位未知 ⇒ 仓位门不可过。
+            invalid.append("仓位未知（账户维不可用）——ADD 仓位门不可过")
+        else:
+            w = acct.get("current_weight", 0.0) or 0.0
+            if w > g.get("max_position_pct", 0.8):
+                invalid.append(f"当前仓位 {w*100:.0f}% ≥ 最大允许 {g.get('max_position_pct', 0.8)*100:.0f}%")
     if not g.get("history_validated", False):
         invalid.append("动作阈值未经 backtest_action.py 历史验证（history_validated=false）")
     if not status_known:
@@ -227,16 +243,26 @@ def evaluate(inp: DecisionInput) -> Decision:
     s2, r2 = _score_breadth(feat)
     s3, r3 = _score_relative(feat, inp.pool_est, inp.code)
     s4, r4 = _score_technical(inp.technical_score)
-    s5, r5 = _score_account(inp.account_state)
+    # 2026-09-22 评审修复（②）：None = 账户维不可用（不参与加权和、分母移除）；
+    # {} = 显式空仓（参与评分，+4 语义不变）。旧实现 `acct or {}` 把 None 当空仓
+    # → 历史样本全部吃了幽灵 +4（≈+1.63 倾向分）。
+    acct_available = inp.account_state is not None
+    if acct_available:
+        s5, r5 = _score_account(inp.account_state)
+    else:
+        s5, r5 = 0, ["账户维不可用（不参与评分）"]
 
     raw_score = (s1 * weights.get("intraday_trend", 0.35)
                  + s2 * weights.get("breadth", 0.25)
                  + s3 * weights.get("relative_pool", 0.15)
                  + s4 * weights.get("mid_trend", 0.15)
-                 + s5 * weights.get("account", 0.10))
+                 + (s5 * weights.get("account", 0.10) if acct_available else 0.0))
 
-    # 归一化到 -100 ~ +100（除以理论最大加权和）
-    max_possible = sum(_MAX_BY_DIM[k] * weights.get(k, 0.0) for k in _MAX_BY_DIM)
+    # 归一化到 -100 ~ +100（除以理论最大加权和）；
+    # 账户维不可用 → 该维从分母移除（默认权重 24.5 → 23.5）
+    dims = _MAX_BY_DIM if acct_available else \
+        {k: v for k, v in _MAX_BY_DIM.items() if k != "account"}
+    max_possible = sum(dims[k] * weights.get(k, 0.0) for k in dims)
     if max_possible <= 0:
         max_possible = 1.0
     score = int(_clamped(raw_score / max_possible * 100.0, -100, 100))
@@ -268,6 +294,7 @@ def evaluate(inp: DecisionInput) -> Decision:
         raw={
             "weights": weights, "s_intraday": s1, "s_breadth": s2,
             "s_relative": s3, "s_technical": s4, "s_account": s5,
+            "account_available": acct_available,
             "features": feat, "est_1130": _est_of(inp.feat_1130),
             "est_1455": _est_of(inp.feat_1455),
         },
@@ -326,14 +353,17 @@ def _forecast_features(inp: DecisionInput, feature_meta: dict | None) -> dict | 
     feat = inp.feat_1455 or {}
     if not feat:
         return None
+    est = feat.get("est_return")
     return {
-        "est_chg": feat.get("est_return"),
-        "est_sign": 1 if (feat.get("est_return") or 0) > 0 else (-1 if (feat.get("est_return") or 0) < 0 else 0),
+        "est_chg": est,
+        # 2026-09-22 评审修复（①）：缺失 → None（B1 mask），不强制 0——旧实现
+        # `(est or 0)` 把「缺失」与「真 0」变成模型的同一输入
+        "est_sign": (1 if est > 0 else (-1 if est < 0 else 0)) if est is not None else None,
         "breadth": feat.get("breadth"),
         "concentration": feat.get("concentration"),
         "covered_pct": feat.get("covered_pct"),
-        "composite": 0,             # live 无 composite 时放 0（穿透引擎输出在别处）
-        "score": inp.technical_score,
+        "composite": None,          # live 回退无穿透源 → 诚实 None（B1 mask；0 是合法「中性」）
+        "score": inp.technical_score,  # DecisionInput 无「缺失」态（0 为合法默认值），保持
     }
 
 
