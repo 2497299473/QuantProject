@@ -23,6 +23,27 @@
     fwd_from_1455(h) = navs[T+h] / nav_hat_1455(T) - 1
 其中 est_chg_fraction 为「T 日重仓加权涨跌」的小数量纲（如 -0.0123 = -1.23%），
 navs[T-1] 是 14:55 时点最后一个「已公布」净值（= T 的前一交易日 NAV）。
+
+⚠️ 本契约的已知副作用（V4.4-步3 验收矩阵实证，2026-09-22，务必读）：
+est_chg 既是模型**输入特征**，又出现在 label **分母**里 ⇒ 二者机械耦合。
+精确式（a_T = T 日真实涨跌 = navs[T]/navs[T-1] - 1，与旧 label 关系）：
+    1 + fwd_from_1455 = (1 + fwd_old) · (1 + a_T) / (1 + est_chg)
+    ⇒ ∂fwd_from_1455 / ∂est_chg = -(1 + fwd_from_1455) / (1 + est_chg) < 0
+即 est_chg 偏大 1 分，1455 label 就机械偏小约 (1+fwd)/(1+est_chg) 分。
+（实测 h∈{1,3,5} 全池 10113 行：(fwd_1455 − fwd_old) 与 (a_T − est_chg) 的
+ Spearman = +0.9998 ⇒ label 位移几乎完全由「est_chg 估偏了多少」驱动；
+ 精确恒等式残差 max 5e-7（= 落盘 round 6 位的舍入级）。
+ 一阶近似「fwd_1455 − fwd_old ≈ a_T − est_chg」残差 mean 2.4e-3 / max 8.6e-3
+ ⇒ 只能当直觉，引用时须用上面的精确式。）
+后果：用 1455 label 训练/评估时，**零成本公式「预测分 = −est_chg」的池级
+OOS RankIC 就有 +0.1278（T+1，n=923）**，而它对 old label 只有 +0.013
+⇒ 这 +0.1278 几乎全是算术耦合，不含未来信息。
+    ⇒ 任何 1455 口径的排序能力裁决，基线必须是「−est_chg」而不是 0；
+      与 0 比会把算术耦合误读成模型能力（步3 的 B 轨即为此例：
+      1455 IC +0.1139 看着不错，超额 = −0.0139，不及零成本公式）。
+复现与逐格数字：backtest_pit1455_matrix.py 第 1c 节。
+本契约不因此改式子——分母含 est_chg 正是「14:55 可观测状态」的定义所在；
+此段只钉死**消费纪律**。
 """
 from __future__ import annotations
 
