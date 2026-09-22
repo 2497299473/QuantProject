@@ -242,7 +242,9 @@ def _forecast_section(decisions: dict | None) -> str:
         confidence = f.get("overall_confidence", 0)
         ready = bool(f.get("model_ready"))
         evid = f.get("fund_evidence") or {}
-        trust = (f" · 模型可信度 {evid.get('stability', 0.5):.2f}（{evid.get('verdict', '无判词')}）"
+        # 2026-09-22（LOFO STALE）：可信度尾随陈旧标记——静默信任过期证据 = 实验/线上口径不一致风险
+        stale_tag = " · ⚠证据陈旧" if evid.get("stale") else ""
+        trust = (f" · 模型可信度 {evid.get('stability', 0.5):.2f}（{evid.get('verdict', '无判词')}）{stale_tag}"
                  if evid else " · 模型可信度 —（无 LOFO 证据）")
         lines += [f"**{code}** 状态 `{state}` · 综合置信 {confidence if ready else 0.0:.2f}{trust}", ""]
         # 表头（v8：Q50 列恢复——quantile 回归真条件分位；Q10/Q50/Q90 均非正态近似）

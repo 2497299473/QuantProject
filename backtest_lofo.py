@@ -36,6 +36,11 @@ LOFO 逐基金留出验证回答这个问题。
 输出：data/model_registry/lofo_evidence.json（供 confidence 消费）
       + output/backtest_lofo_20260830.md（人类可读报告）
 
+2026-09-22（LOFO STALE，V4.3.1）：证据文件写 status + valid_for（code_commit /
+samples_file / samples_sha256_lf / kfp_comparability）。FRESH = 对本冻结三件套有效；
+08-30 存量件已就地标 STALE（见文件内 stale_reason）。消费端（forecast_engine /
+scorecard）以 status 作陈旧展示依据，confidence 行为不变。
+
 用法：python3 backtest_lofo.py
 """
 import json
@@ -52,6 +57,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 
 from backtest_spread import load_samples
 from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
+import freeze_verify_tool as _vt             # 2026-09-22 LOFO STALE：复用三件套口径（code_commit），不另起炉灶
 from backtest_forecast import (split_date_oos, build_xy, rank_ic,
                                brier_multiclass, calibration_curve,
                                cluster_bootstrap_ci)
@@ -59,6 +65,15 @@ from core import forecast_engine
 
 RNG_SEED = 42
 MIN_N_OOS_POWER = 100          # 功效门槛：低于此只当警示信号
+
+
+def _code_commit_short() -> str:
+    """三件套第①件的短显示（取不到 → 'unknown'）。
+
+    2026-09-22：`str(None)[:12]` 会印出 "None" 而非诚实的 unknown，故先判空再截。
+    """
+    cm = _vt.git_commit()
+    return f"{cm[:12]}…" if cm else "unknown"
 
 
 def stability_from_evidence(n_oos: int | None, ci_lo: float | None,
@@ -126,6 +141,8 @@ def main() -> int:
         snap_info["report_line"],
         f"> 生成：{time.strftime('%Y-%m-%d %H:%M')} · 切分 OOS ≥ {oos_start} · "
         f"pooled 全池样本 {len(samples_sorted)} · 判定规则跑前冻结（docstring）", "",
+        f"> 有效性（valid_for，2026-09-22）：code_commit={_code_commit_short()} · "
+        f"samples={snap_info['file'] or '活拉（无冻结件）'} · kfp={snap_info['gate_comparability']} · status=FRESH", "",
         "| 留出基金 | OOS样本 | T+5 RankIC | T+5 CI(95%) | 判词 | 稳定性映射 |",
         "|---|---:|---:|---|---:|---:|",
     ]
@@ -189,13 +206,25 @@ def main() -> int:
         print(f"  → {F} 稳定性映射 {stab}（{verdict}）")
 
     # 写证据文件（confidence 消费）
+    # 2026-09-22（LOFO STALE）：status + valid_for 四元组——本证据只对这套冻结三件套
+    # + 代码点有效；重冻结后未重跑即视为 STALE（消费端展示，confidence 行为不变）。
     ev_path = BASE_DIR / "data" / "model_registry" / "lofo_evidence.json"
     ev_path.parent.mkdir(parents=True, exist_ok=True)
+    prov = snap_info.get("snapshot_provenance") or {}
     payload = {"generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                "oos_start": oos_start, "rule": "frozen 2026-08-30, T+5 主判据",
+               "status": "FRESH",
+               "valid_for": {
+                   "code_commit": _vt.git_commit(),
+                   "samples_file": prov.get("snapshot_file"),
+                   "samples_sha256_lf": prov.get("samples_sha256_lf"),
+                   "kfp_comparability": prov.get("kfp_comparability"),
+               },
                "funds": evidence}
     ev_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\n[ok] 证据 → {ev_path}")
+    vf = payload["valid_for"]
+    print(f"\n[ok] 证据 → {ev_path}（status=FRESH valid_for: code={_code_commit_short()} "
+          f"samples={vf['samples_file'] or '活拉（无冻结件）'} kfp={vf['kfp_comparability']}）")
 
     # 人类可读报告
     lines += ["", "<sub>功效说明：OOS 样本 < 100 的基金（025687: 27）CI 宽，仅作警示信号；"

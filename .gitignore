@@ -28,6 +28,8 @@ output/backups/
 # 数据备份目录（本地刷新前的安全副本，可再生，绝不入库）
 output/backup_klines_*/
 output/backup_stock_klines_*/
+# 就地改写前的单文件回滚副本（前版本已在 git 历史，副本纯冗余）
+*.bak-[0-9]*
 output/timesfm/*.tsv
 output/sina_nav/
 

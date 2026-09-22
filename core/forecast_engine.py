@@ -60,15 +60,20 @@ except Exception:  # pragma: no cover
 LOFO_EVIDENCE_PATH = BASE_DIR / "data" / "model_registry" / "lofo_evidence.json"
 
 
-def _load_fund_evidence() -> dict:
-    """加载 LOFO 证据；缺失/损坏返回空 dict（诚实降级：无证据 → 中性 0.5）。"""
+def _load_fund_evidence() -> tuple[dict, str]:
+    """加载 LOFO 证据 → (funds, status)。
+
+    2026-09-22（LOFO STALE）：返回文件声明的 status（FRESH/STALE）；文件缺失/
+    损坏/字段缺失 → "unknown"（诚实未判定，消费端如实展示）。缺失/损坏仍返回
+    空 dict（诚实降级：无证据 → 中性 0.5，行为不变）。
+    """
     try:
         if LOFO_EVIDENCE_PATH.exists():
             data = json.loads(LOFO_EVIDENCE_PATH.read_text(encoding="utf-8"))
-            return data.get("funds", {}) or {}
+            return data.get("funds", {}) or {}, str(data.get("status", "unknown"))
     except (OSError, json.JSONDecodeError):
         pass
-    return {}
+    return {}, "unknown"
 
 
 @dataclass
@@ -281,7 +286,8 @@ class ForecastEngine:
         self.last_fit_n: int = 0        # 最近一次 fit 的样本数（registry 留档用）
         self.load_error: str | None = None    # v7：load 拒绝原因（hash_mismatch 等），None=正常
         # v8（2026-08-30）：LOFO 跨基金泛化证据 → 逐基金 stability（缺失=中性 0.5）
-        self._fund_evidence = _load_fund_evidence()
+        # 2026-09-22（LOFO STALE）：同读文件 status（FRESH/STALE/unknown）供陈旧展示；confidence 行为不变
+        self._fund_evidence, self._lofo_status = _load_fund_evidence()
 
     # ---------- 训练 / 评估 ----------
     def fit(self, samples: list[dict]) -> bool:
@@ -516,9 +522,12 @@ class ForecastEngine:
         ev = self._fund_evidence.get(fund_code)
         if not ev:
             return None
+        st = getattr(self, "_lofo_status", "unknown")
         return {"stability": float(ev.get("stability", 0.5)),
                 "verdict": ev.get("verdict", "无判词"),
-                "n_oos": (ev.get("horizons") or {}).get("5", {}).get("n_oos")}
+                "n_oos": (ev.get("horizons") or {}).get("5", {}).get("n_oos"),
+                "status": st,              # 2026-09-22 LOFO STALE：陈旧标记随证据出（纯增量键）
+                "stale": st == "STALE"}
 
     # ---------- 轻量状态 / 路径（State+Scenario 轻量版，不铺重型 engine） ----------
     def _infer_state(self, hf_list: list[HorizonForecast]) -> str:

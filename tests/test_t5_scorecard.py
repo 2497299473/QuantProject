@@ -9,7 +9,8 @@ sys.path.insert(0, str(BASE_DIR))
 import numpy as np
 
 from backtest_t5_scorecard import (scorecard_verdict, _economic_value,
-                                   _window_slices, _parse_md_table_row)
+                                   _window_slices, _parse_md_table_row,
+                                   _read_wf_evidence)
 
 
 class TestScorecardVerdict(unittest.TestCase):
@@ -51,6 +52,41 @@ class TestWindowSlices(unittest.TestCase):
 class TestParseMdRow(unittest.TestCase):
     def test_basic(self):
         self.assertEqual(_parse_md_table_row("| a | b | c |"), ["a", "b", "c"])
+
+
+class TestWfEvidenceColumnGuard(unittest.TestCase):
+    """2026-09-22 离线冒烟抽到的真崩溃：WF md 四张表里 `| T+5 |` / `| 4 |`
+    前缀跨表重复，解析器必须按列数认表，不得把覆盖率 / μ・σ 当 IC。"""
+
+    MD = "\n".join([
+        "| 口径 | RankIC | 95% CI | 样本 |", "|---|---:|---:|---:|",
+        "| **WF pooled（部署式）** | +0.080 | [+0.020, +0.140] | 907 / 305 日 |", "",
+        "| 折 | 测试窗 | n_train | WF T+5 IC | frozen T+5 IC | Δ |",
+        "| 4 | 2026-04-13 ~ 2026-08-03 | 3069 | -0.035 | -0.012 | -0.023 |", "",
+        "| 周期 | WF pooled IC | 95% CI | 最近折 IC |",
+        "| T+5 | +0.080 | [+0.020, +0.140] | -0.035 |", "",
+        # 干扰项：CQR 覆盖率表（7 列，cells[1] 带 %）+ Path-WF 折表（11 列）
+        "| 周期 | pooled cov（外扩后） | raw cov | 名义 | qhat 均值 | qhat 范围 | 折数 |",
+        "| T+5 | 84.2% | 53.1% | 80% | 0.0537 | [0.0493, 0.0577] | 4 |", "",
+        "| 折 | 测试窗 | n_train | μ | σ | n_test | MC mdd_q10 | 真 mdd P10 "
+        "| hit mdd10 | hit mdd50 | hit mfe50 |",
+        "| 4 | 2026-04-13 ~ 2026-08-03 | 3069 | +0.00104 | 0.03212 | 259 "
+        "| -0.1057 | -0.1307 | 17.8% | 61.0% | 31.3% |",
+    ])
+
+    def test_parses_ic_not_percent(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "wf.md"
+            p.write_text(self.MD, encoding="utf-8")
+            out = _read_wf_evidence(p)
+        self.assertAlmostEqual(out["pooled_ic"], 0.080)
+        self.assertEqual(out["pooled_ci"], (0.020, 0.140))
+        self.assertEqual(len(out["folds"]), 1)          # Path-WF 的 | 4 | 行不入折表
+        self.assertAlmostEqual(out["folds"][0]["wf_ic"], -0.035)
+        self.assertAlmostEqual(out["folds"][0]["frozen_ic"], -0.012)
+        # 本文件属 fast 层（不碰真实 output/）：真实 09-01 留档件的同形态由
+        # 2026-09-22 离线冒烟验证（backtest_t5_scorecard.py --force，exit=0）。
 
 
 if __name__ == "__main__":

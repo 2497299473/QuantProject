@@ -97,6 +97,105 @@ class TestReportTrustDisplay(unittest.TestCase):
         text = report_generator._forecast_section({"002112": self._fc(None)})
         self.assertIn("无 LOFO 证据", text)
 
+    def test_trust_line_marks_stale_evidence(self):
+        """2026-09-22（LOFO STALE）：陈旧证据的可信度不得静默展示。"""
+        from core import report_generator
+        stale = {"stability": 0.85, "verdict": "跨基金泛化成立", "n_oos": 268,
+                 "status": "STALE", "stale": True}
+        text = report_generator._forecast_section({"022853": self._fc(stale)})
+        self.assertIn("证据陈旧", text)
+        fresh = dict(stale, status="FRESH", stale=False)
+        self.assertNotIn("证据陈旧",
+                         report_generator._forecast_section({"022853": self._fc(fresh)}))
+
+
+class TestEvidenceStaleness(unittest.TestCase):
+    """2026-09-22（LOFO STALE）：证据文件 status + valid_for 随证据出。
+
+    契约：confidence 数值行为一字不变（陈旧标记只作展示），缺失/损坏 →
+    status="unknown"（诚实未判定），funds 仍空 dict → 中性 0.5。
+    """
+
+    def _write(self, tmp: Path, payload: dict | None) -> Path:
+        p = tmp / "lofo_evidence.json"
+        if payload is None:
+            p.write_text("{ not json", encoding="utf-8")
+        else:
+            import json
+            p.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        return p
+
+    def test_load_returns_status(self):
+        import tempfile
+        from core.forecast_engine import _load_fund_evidence
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(Path(td), {
+                "status": "STALE",
+                "funds": {"002112": {"stability": 0.6, "verdict": "x", "horizons": {}}}})
+            old = fe.LOFO_EVIDENCE_PATH
+            try:
+                fe.LOFO_EVIDENCE_PATH = p
+                funds, status = _load_fund_evidence()
+            finally:
+                fe.LOFO_EVIDENCE_PATH = old
+            self.assertEqual(status, "STALE")
+            self.assertIn("002112", funds)
+
+    def test_missing_and_corrupt_are_unknown(self):
+        import tempfile
+        from core.forecast_engine import _load_fund_evidence
+        with tempfile.TemporaryDirectory() as td:
+            old = fe.LOFO_EVIDENCE_PATH
+            try:
+                fe.LOFO_EVIDENCE_PATH = Path(td) / "nope.json"
+                self.assertEqual(_load_fund_evidence(), ({}, "unknown"))
+                fe.LOFO_EVIDENCE_PATH = self._write(Path(td), None)
+                self.assertEqual(_load_fund_evidence(), ({}, "unknown"))
+                # 有 funds 无 status 字段 → 诚实 unknown（不猜 FRESH）
+                fe.LOFO_EVIDENCE_PATH = self._write(Path(td), {"funds": {"1": {}}})
+                self.assertEqual(_load_fund_evidence()[1], "unknown")
+            finally:
+                fe.LOFO_EVIDENCE_PATH = old
+
+    def test_get_fund_evidence_carries_stale_flag(self):
+        eng = fe.ForecastEngine(cfg={"forecast": {"model_ready": True}})
+        eng._fund_evidence = {"002112": {"stability": 0.6, "verdict": "v",
+                                         "horizons": {"5": {"n_oos": 268}}}}
+        for st, expected in (("STALE", True), ("FRESH", False), ("unknown", False)):
+            eng._lofo_status = st
+            ev = eng.get_fund_evidence("002112")
+            self.assertEqual(ev["status"], st)
+            self.assertEqual(ev["stale"], expected)
+            self.assertEqual(ev["n_oos"], 268)
+
+    def test_staleness_does_not_move_confidence(self):
+        """核心回归闸门：陈旧标记纯展示，confidence 数值必须与标记无关。"""
+        base = None
+        for st in ("STALE", "FRESH", "unknown"):
+            eng = fe.ForecastEngine(cfg={"forecast": {"model_ready": True}})
+            eng._fit_ok = True
+            eng.model_approved = True
+            eng._fund_evidence = {"002112": {"stability": 0.85, "verdict": "x",
+                                             "horizons": {}}}
+            eng._lofo_status = st
+            c = eng._confidence(1.0, None, 0.6, 0.01,
+                                data_quality={"coverage": 80.0}, fund_code="002112")
+            if base is None:
+                base = c
+            self.assertAlmostEqual(c, base, places=12)
+
+    def test_code_commit_short_honest_when_unavailable(self):
+        """str(None)[:12] 会印 "None" 而非 "unknown" —— 本批修掉的显示缺陷。"""
+        import backtest_lofo as bl
+        real = bl._vt.git_commit
+        try:
+            bl._vt.git_commit = lambda: None
+            self.assertEqual(bl._code_commit_short(), "unknown")
+            bl._vt.git_commit = lambda: "abcdef1234567890"
+            self.assertEqual(bl._code_commit_short(), "abcdef123456…")
+        finally:
+            bl._vt.git_commit = real
+
 
 if __name__ == "__main__":
     unittest.main()

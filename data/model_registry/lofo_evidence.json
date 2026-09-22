@@ -2,6 +2,16 @@
   "generated_at": "2026-08-30T11:27:47",
   "oos_start": "2025-04-30",
   "rule": "frozen 2026-08-30, T+5 主判据",
+  "status": "STALE",
+  "stale_marked_at": "2026-09-22",
+  "stale_reason": "09-10 冻结样本重冻结（samples_frozen_20260910.jsonl）+ 09-18 C2 特征非时点不变（est_chg 81.7% 漂移 / 个股K线 sha 186/240 变）⇒ 本件历史可比性失效。09-26 前须以 backtest_lofo.py 重跑生成 FRESH 件；本件 stability 数值仅作历史参照，不得与 09-10 后轮次直接对比。",
+  "valid_for": {
+    "code_commit": null,
+    "samples_file": null,
+    "samples_sha256_lf": null,
+    "kfp_comparability": null,
+    "note": "本件生成于冻结样本机制（V4.3 P0-1，2026-09-20）之前，当时消费活缓存，无三件套可回填；code_commit 未回填：2026-09-22 实测 git rev-list --before 2026-08-30T11:27:47+08:00 返回空（仓库历史不追溯该时点），诚实置 null"
+  },
   "funds": {
     "002112": {
       "stability": 0.6,

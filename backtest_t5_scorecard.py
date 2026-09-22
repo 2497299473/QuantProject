@@ -91,11 +91,19 @@ def _parse_md_table_row(line: str) -> list[str]:
 
 
 def _read_wf_evidence(md_path: Path) -> dict:
-    """从 walk_forward md 解析 pooled WF + 逐折。"""
+    """从 walk_forward md 解析 pooled WF + 逐折。
+
+    2026-09-22 列数守卫（离线冒烟抽到）：WF md 现含四张表，`| T+5 |` 与 `| 4 |`
+    两个前缀在**不同表里重复出现**——只按前缀匹配会把 CQR 覆盖率行（cells[1]=
+    "84.2%"）当 IC 行直接 ValueError 崩卡，也会把 Path-WF 折行（11 列）的 μ/σ
+    当成 wf_ic/frozen_ic 静默错解析。改按列数认表（与 _read_calib_evidence 同风格）。
+    """
     out = {"pooled_ic": None, "pooled_ci": None, "folds": []}
     for line in md_path.read_text(encoding="utf-8").splitlines():
         if line.startswith("| T+5 |"):
             cells = _parse_md_table_row(line)
+            if len(cells) != 4:
+                continue        # 主判据表 4 列；CQR 覆盖率表 7 列同前缀 → 跳过
             # | T+5 | +0.080 | [+0.020, +0.140] | -0.035 |
             out["pooled_ic"] = float(cells[1])
             m = re.search(r"\[([+-]?[\d.]+),\s*\+?([\d.]+)\]", cells[2])
@@ -103,8 +111,8 @@ def _read_wf_evidence(md_path: Path) -> dict:
                 out["pooled_ci"] = (float(m.group(1)), float(m.group(2)))
         if line.startswith("| 4 |"):
             cells = _parse_md_table_row(line)
-            if len(cells) < 5:
-                continue
+            if len(cells) != 6:
+                continue        # 逐折表 6 列；Path-WF 折表 11 列同前缀 → 跳过
             # | 4 | 2026-04-13 ~ 2026-08-03 | 3069 | -0.035 | -0.012 | -0.023 |
             out["folds"].append({"fold": 4, "window": cells[1],
                                  "wf_ic": float(cells[3]), "frozen_ic": float(cells[4])})
@@ -271,6 +279,7 @@ def main() -> int:
                       .read_text(encoding="utf-8"))
     funds = lofo.get("funds", {})
     lofo_stab = {k: v.get("stability") for k, v in funds.items()}
+    lofo_status = str(lofo.get("status", "unknown"))   # 2026-09-22 LOFO STALE
     print(f"  WF pooled IC={wf['pooled_ic']}  CI={wf['pooled_ci']}  "
           f"fold4 WF={[f['wf_ic'] for f in wf['folds']]}")
     print(f"  Coverage80={cal['coverage80']}%  mdd_q10_hit={cal['mdd_q10_hit']}%  "
@@ -309,7 +318,7 @@ def main() -> int:
         f"| ⑧ | 路径 MDD/MFE 校准 | mdd_q10 命中 {cal['mdd_q10_hit']}% / mfe_q50 命中 {cal['mfe_q50_hit']}% "
         f"（期望 10%/50%） | ⚠️ 两端低估 | calib md |",
         f"| ⑨ | LOFO stability | {json.dumps(lofo_stab, ensure_ascii=False)} | "
-        f"{'⚠️ 未全池稳定' if any(v and v < 0.7 for v in lofo_stab.values()) else '✅'} | lofo json |",
+        f"{'⚠️ STALE（09-26 须重跑）' if lofo_status == 'STALE' else ('⚠️ 未全池稳定' if any(v and v < 0.7 for v in lofo_stab.values()) else '✅')} | lofo json (status={lofo_status}) |",
         "| ⑩ | Drift（PSI/KS） | 待 09-26 重估 | — | — |", "",
         "## 证据新鲜度（STALE_EVIDENCE 门禁）", "",
         "| 来源 | 生成时间 | sha256(前12) |",
