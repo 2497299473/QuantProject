@@ -133,7 +133,7 @@ def _eval(clf, test: list[dict], h: int, flat_margin: float):
 def _path_eval_for_fold(f: dict) -> dict | None:
     """Path-WF（2026-09-01，P1-②）：部署式路径层校准。
 
-    用 fold-train 重估基金级 μ/σ（path_forecast v1.3：逐基金最近 20 交易日，
+    用 fold-train 重估池级 μ/σ（path_forecast v1.3：σ 窗口逐基金最近 20 交易日、
     RECENT_WINDOW 自 v1.3 冻结，每折原样复用——不允许折级调窗）→ 无条件 MC →
     对 fold-test 真 mdd5/mfe5 算命中率（期望 10%/50%/50%，与 calib 同口径）。
     返回 None = fold-train 数据不足或 fold-test 真标签缺失。
@@ -307,7 +307,7 @@ def main() -> int:
             r = _eval(frozen[h], f["test"], h, flat_margin)
             if r is not None:
                 row["frozen"][h] = r[3]
-        # Path-WF（P1-②）：每折 fold-train 重估基金级 μ/σ（v1.3 冻结窗口）→ 路径层校准
+        # Path-WF（P1-②）：每折 fold-train 重估池级 μ/σ（v1.3 冻结窗口，σ 窗口逐基金）→ 路径层校准
         path_r = _path_eval_for_fold(f) if 5 in horizons else None
         if path_r is None:
             print("  Path-WF T+5：fold-train 数据不足或真标签缺失 → 跳过")
@@ -456,7 +456,7 @@ def main() -> int:
     lines.append("")
 
     lines += ["## 四、Path-WF：部署式逐折路径校准（T+5，观察层）", "",
-              "每折用 train_k 重估基金级 μ/σ（path_forecast v1.3：逐基金最近 20 交易日，"
+              "每折用 train_k 重估池级 μ/σ（path_forecast v1.3：σ 窗口逐基金最近 20 交易日、"
               "RECENT_WINDOW 自 v1.3 冻结，逐折不允许调窗）→ 无条件 MC → 对 fold-test 真 mdd5/mfe5 命中率。", ""]
     if pooled_path is not None:
         lines += ["| 折 | 测试窗 | n_train | μ | σ | n_test | MC mdd_q10 | 真 mdd P10 | hit mdd10 | hit mdd50 | hit mfe50 |",
@@ -503,7 +503,7 @@ def main() -> int:
               "模型超参同 backtest_forecast（HGB max_iter=200/lr=0.08/depth=3）。"
               "WF 与冻结 OOS 是不同问题协议：冻结 OOS 仍是「单一模型 OOS」的正式口径，"
               "WF 回答「部署式重训能否保持优势」，两者并列不互相替代。"
-              "Path-WF（P1-②）：每折 fold-train 重估基金级 μ/σ（v1.3 冻结窗口）做路径层校准，"
+              "Path-WF（P1-②）：每折 fold-train 重估池级 μ/σ（v1.3 冻结窗口，σ 窗口逐基金）做路径层校准，"
               "观察层证据，不改变 T+5 verdict。"
               "逐折 CQR（P1-③）：折内 split-conformal（calib holdout 占 fold-train "
               "尾部 20%），部署时点协议。</sub>", ""]
