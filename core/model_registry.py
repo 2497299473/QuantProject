@@ -199,8 +199,10 @@ def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
 def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]:
     """验证模型是否具备对外展示资格（不包含 config 人工开关）。
 
-    artifact hash、特征协议、validation 报告与 promotion 必须同时通过；调用方
-    再与 ``config.forecast.model_ready`` 取 AND，形成最终原子授权。
+    artifact hash、特征协议、validation 报告、promotion 与冻结 provenance 必须
+    同时通过（V4.3.1-⑤：``snapshot_provenance`` 五键齐全 = FROZEN 训练件；
+    FRESH/历史无此块的条目 → research-only，不得对外展示）；调用方再与
+    ``config.forecast.model_ready`` 取 AND，形成最终原子授权。
     """
     ok, reason = verify_model(pkl_path)
     if not ok:
@@ -217,6 +219,17 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
         return False, "promotion_not_approved"
     if derive_promotion(entry.get("validation")).get("status") != "approved":
         return False, "promotion_evidence_inconsistent"
+    # V4.3.1-⑤（2026-09-22，外部复审）冻结 provenance 门禁：生产授权要求训练
+    # 实际消费的冻结件（FROZEN）五键齐全。FRESH（全 None）/ 历史无此块的
+    # 条目 → 拒绝（research-only）。门禁只在本授权入口：--fresh 训练路径
+    # 不经过 verify_approval，不受影响；derive_promotion 是五审契约纯函数，
+    # 其判据不受本门禁改变。
+    sp = entry.get("snapshot_provenance") or {}
+    missing = [k for k in ("snapshot_file", "samples_sha256_lf",
+                           "kfp_recorded_sha256", "kfp_current_sha256",
+                           "kfp_comparability") if sp.get(k) in (None, "")]
+    if missing:
+        return False, "snapshot_provenance_incomplete:" + ",".join(missing)
     return True, "ok"
 
 

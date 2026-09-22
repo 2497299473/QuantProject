@@ -125,9 +125,20 @@ class TestModelRegistry(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(reason, "validation_report_hash_mismatch")
 
+    # V4.3.1-⑤（2026-09-22，外部复审）：生产授权新契约——FROZEN provenance
+    # 五键齐全才可对外展示；本测例按新契约带完整五键注册（正例）。
+    FROZEN_PROV = {
+        "snapshot_file": "samples_frozen_20260910.jsonl",
+        "samples_sha256_lf": "be8e" + "0" * 60,
+        "kfp_recorded_sha256": "f5a2" + "0" * 60,
+        "kfp_current_sha256": "f5a2" + "0" * 60,
+        "kfp_comparability": "SAME",
+    }
+
     def test_approval_requires_model_protocol_validation_and_promotion(self):
         self.test_pkl.write_bytes(b"approved-model")
-        model_registry.register_model(self.test_pkl, meta={})
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
         proto = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
@@ -145,6 +156,44 @@ class TestModelRegistry(unittest.TestCase):
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertFalse(ok)
         self.assertEqual(reason, "promotion_not_approved")
+
+    # ---------- V4.3.1-⑤（2026-09-22，外部复审）：冻结 provenance 门禁 ----------
+    def _bind_full_evidence(self, prov=None):
+        """注册全证据链（协议 + 三周期全过 validation）；prov=None 模拟 FRESH（五键 None）。"""
+        self.test_pkl.write_bytes(b"approval-provenance-bytes")
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=prov)
+        proto = model_registry.make_feature_protocol(
+            ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
+        self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
+        self.test_report.write_text("approved evidence", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+        metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
+                   for h in (1, 3, 5)}
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        return proto
+
+    def test_approval_rejects_fresh_provenance(self):
+        """全证据但 FRESH（provenance 五键 None）→ 拒（research-only，不得对外展示）。"""
+        proto = self._bind_full_evidence(prov=None)
+        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
+        self.assertFalse(ok)
+        self.assertTrue(reason.startswith("snapshot_provenance_incomplete:"), reason)
+        self.assertIn("snapshot_file", reason)
+
+    def test_approval_rejects_legacy_entry_without_provenance_block(self):
+        """历史条目（registry 无 snapshot_provenance 块）→ 同拒（不回补、不宽容）。"""
+        proto = self._bind_full_evidence(prov=self.FROZEN_PROV)
+        reg = model_registry.load_registry()
+        reg["models"][self.test_pkl.name].pop("snapshot_provenance", None)
+        self.assertTrue(model_registry._save_registry(reg))
+        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
+        self.assertFalse(ok)
+        self.assertEqual(
+            reason, "snapshot_provenance_incomplete:"
+                    "snapshot_file,samples_sha256_lf,kfp_recorded_sha256,"
+                    "kfp_current_sha256,kfp_comparability")
 
     # ---------- v3（2026-09-01，GPT 五审）：feature_protocol ----------
     def test_feature_protocol_make_and_bind_roundtrip(self):
