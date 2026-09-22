@@ -34,6 +34,12 @@ V4.3 P0-2/P0-3（2026-09-20）扩展 —— KFP as-of + universe 口径 + 数据
    meta 增 code_commit / stock_data_failures / kline_fingerprint_scope
    （schema_version=2）；旧件（schema_version=1、无字段）verify 侧不判。
 
+V4.3.1-⑤（2026-09-22，外部复审）：KFP fund 侧 scope ——
+   build_fingerprint 另传 fund_codes=<样本基金排序去重>：基金侧只哈希样本
+   实际出现的基金，无关基金缓存变化（扩池/新基金引入/净值 TTL 改写）
+   不改冻结指纹。09-10 锚点的 data/klines 恰只含 4 只样本基金 ⇒
+   canonical 逐字节不变，既有锚点数字不回归。
+
 用法:
   python experiments/forecast_lab/freeze_samples.py
 """
@@ -200,7 +206,10 @@ def main(argv: list[str] | None = None) -> int:
     # 不变）。scope 头使其与 09-20 前全量口径锚点不可混用（见
     # kline_fingerprint 模块 docstring）。
     cutoff = started.strftime("%Y-%m-%d")
-    kfp = build_fingerprint(stock_codes=sorted(stock_universe), cutoff=cutoff)
+    # V4.3.1-⑤：fund 侧同样 scope 到样本基金（见模块 docstring）——无关基金
+    # 缓存变化不改冻结指纹；09-10 锚点 data/klines 恰为 4 只样本基金，口径逐字节不变。
+    kfp = build_fingerprint(stock_codes=sorted(stock_universe), cutoff=cutoff,
+                            fund_codes=sorted({s["fund"] for s in samples}))
     st_kfp = staging_dir / out_kfp.name
     st_kfp.write_text(json.dumps(kfp, ensure_ascii=False, indent=1, sort_keys=True),
                       encoding="utf-8")

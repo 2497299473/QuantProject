@@ -64,6 +64,17 @@ TTL 重取后**追溯改写历史 close**（240 只里 186 只 sha 变了）。
   ⇒ 聚合指纹有空洞，比对**不成立**：既不能声称 SAME 也不能归因 DRIFTED。
   INCOMPLETE 与 DRIFTED 同级软标记（不改 exit 码），但必须原样写进报告。
 
+## V4.3.1-⑤（2026-09-22，外部复审）：显式 --kfp 严格化
+
+- `--kfp` 显式指定 ⇒ 严格模式：文件不存在 / 不可解析（JSONDecodeError →
+  UNKNOWN，不再裸 traceback）/ 文件名日期标签与样本不符 / meta 是 scoped
+  件而侧车 cutoff/stock_n 与 meta scope 不符 ⇒ 一律判 UNKNOWN，拒绝回退
+  同目录兄弟 / meta 字段（显式指定意味着调用方已知该用哪份；回退会静默
+  校验另一份文件 ⇒ 假 PASS / 假 DRIFTED）。
+- 自动发现（不传 --kfp）路径不变：日期标签兄弟 → meta 回退（含 V4.3.1 ①
+  scoped 缺侧车 fail-closed）。
+- G-B 仍是软标记：UNKNOWN 不改 exit 码，必须原样写进报告。
+
 ## 用法
 
   # 单件校验（默认：LF 归一 sha + 同目录兄弟 meta/指纹回退）
@@ -153,10 +164,54 @@ def load_kfp_record(jsonl: Path,
     universe 码表**——scoped 件缺侧车却按退化口径重算，改变 canonical 串 ⇒
     要么假 DRIFTED、要么掩盖真漂移。故 scoped 件缺侧车 ⇒ reject（fail-closed
     到 UNKNOWN），不猜口径；未 scoped 的旧件（全量口径）仍按原路回退。
+
+    V4.3.1-⑤（显式 --kfp 严格化，仅 CLI 路径）：explicit 非 None ⇒ 不存在 /
+    不可解析 / 文件名标签不符 / meta scope（cutoff/stock_n）与侧车不符
+    一律 fail-closed 判 UNKNOWN，绝不回退兄弟 / meta 字段。库路径
+    （frozen_dataset.verify_comparability）传 explicit=None，走原自动发现分支。
     """
-    kfp_p = resolve_sidecar(jsonl, explicit, "kfp")
+    if explicit is not None:
+        if not explicit.exists():
+            return ({"aggregate_sha256": None, "file": None}, None,
+                    f"显式 --kfp 侧车不存在：{explicit.name} —— fail-closed 判 UNKNOWN"
+                    "（拒绝回退同目录兄弟/meta 字段：显式指定意味着调用方已知该用哪份）")
+        try:
+            rec = json.loads(explicit.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return ({"aggregate_sha256": None, "file": None}, None,
+                    f"显式 --kfp 侧车不可解析（{type(exc).__name__}）—— fail-closed 判 UNKNOWN"
+                    "（坏文件比缺失更危险：半读的聚合会静默改变比对口径）")
+        # 一致性检查：文件名日期标签必须匹配样本；meta 是 scoped 件时，侧车
+        # cutoff/stock_n 必须与 meta scope 一致（否则按混口径重算 ⇒ 假漂移）。
+        tag = jsonl.stem.replace("samples_frozen_", "")
+        if tag not in explicit.name:
+            return ({"aggregate_sha256": None, "file": None}, None,
+                    f"显式 --kfp 与样本日期标签不符（{explicit.name} vs {jsonl.stem}）"
+                    "—— 判 UNKNOWN")
+        scope = (meta or {}).get("kline_fingerprint_scope") or {}
+        if scope:
+            cutoff = scope.get("cutoff")
+            if rec.get("cutoff") != cutoff:
+                return ({"aggregate_sha256": None, "file": None}, None,
+                        f"显式 --kfp cutoff 不符（侧车={rec.get('cutoff')!r} / "
+                        f"meta scope={cutoff!r}）—— 判 UNKNOWN")
+            stock_n = scope.get("stock_n")
+            codes = rec.get("stock_codes_scope")
+            if stock_n is not None and (
+                    not isinstance(codes, list) or len(codes) != int(stock_n)):
+                have = f"{len(codes)} 码" if isinstance(codes, list) else str(codes)
+                return ({"aggregate_sha256": None, "file": None}, None,
+                        f"显式 --kfp stock_n 不符（meta={stock_n} / 侧车={have}）"
+                        "—— 判 UNKNOWN")
+        return rec, explicit, None
+    kfp_p = resolve_sidecar(jsonl, None, "kfp")
     if kfp_p is not None:
-        return json.loads(kfp_p.read_text(encoding="utf-8")), kfp_p, None
+        try:
+            return json.loads(kfp_p.read_text(encoding="utf-8")), kfp_p, None
+        except (OSError, json.JSONDecodeError) as exc:
+            return ({"aggregate_sha256": None, "file": None}, None,
+                    f"kfp 侧车不可解析（{kfp_p.name}，{type(exc).__name__}）"
+                    "—— fail-closed 判 UNKNOWN")
     meta = meta or {}
     if meta.get("kline_fingerprint_scope"):
         return ({"aggregate_sha256": None, "file": None}, None,
@@ -342,7 +397,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("verify", help="校验冻结样本三件套（零网络、只读）")
     p.add_argument("--jsonl", required=True, help="samples_frozen_*.jsonl")
     p.add_argument("--meta", default=None, help="meta 侧车（默认同目录自动发现）")
-    p.add_argument("--kfp", default=None, help="留档 K 线指纹（默认按日期标签发现）")
+    p.add_argument("--kfp", default=None,
+                   help="留档 K 线指纹（默认按日期标签发现；显式指定 = 严格模式："
+                        "不存在/不可解析/口径不符一律 fail-closed 判 UNKNOWN，不回退）")
     p.add_argument("--triple-out", default=None, help="把三件套 JSON 写到该路径")
     p.set_defaults(fn=cmd_verify)
     args = ap.parse_args(argv)

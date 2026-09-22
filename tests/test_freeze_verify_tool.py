@@ -60,10 +60,12 @@ class _Base(unittest.TestCase):
         m.update(extra or {})
         self.meta.write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
 
-    def _write_kfp(self, agg: str, name: str | None = None) -> None:
+    def _write_kfp(self, agg: str, name: str | None = None,
+                   extra: dict | None = None) -> None:
+        doc = {"kind": "forecast_lab_kline_fingerprint", "aggregate_sha256": agg}
+        doc.update(extra or {})
         p = self.root / name if name else self.kfp
-        p.write_text(json.dumps({"kind": "forecast_lab_kline_fingerprint",
-                                 "aggregate_sha256": agg}), encoding="utf-8")
+        p.write_text(json.dumps(doc), encoding="utf-8")
 
     def _stub_kfp(self, agg: str) -> None:
         tool.current_kline_fingerprint = lambda _rec=None: {"aggregate_sha256": agg}
@@ -187,6 +189,92 @@ class TestGateBComparability(_Base):
         t = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(t["gate_comparability"], "INCOMPLETE")
         self.assertIn("requested-missing", t["kline_fingerprint_state_detail"])
+
+
+class TestExplicitKfpStrict(_Base):
+    """V4.3.1-⑤：显式 --kfp 严格化 —— 不存在 / 不可解析 / 口径不符 ⇒ UNKNOWN，不回退。
+
+    显式指定意味着调用方已知该用哪份文件；回退兄弟 / meta 字段会静默校验
+    另一份文件（假 PASS / 假 DRIFTED，09-18 教训形态）。G-B 仍是软标记 ⇒
+    exit 0 不变；reject 路径不得重算。
+    """
+
+    def test_explicit_missing_rejects_no_fallback_to_sibling(self):
+        """显式侧车不存在 ⇒ UNKNOWN；兄弟文件在场也不得静默改用（假 PASS 防线）。"""
+        tool.current_kline_fingerprint = lambda _rec=None: None
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(self.root / "kline_fingerprint_20260910.bak.json"),
+                          "--triple-out", str(out))
+        self.assertTrue(self.kfp.exists(), "前置：兄弟侧车在场（证明未被静默改用）")
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN")
+        self.assertEqual(t["kline_fingerprint_recorded"], None)
+
+    def test_explicit_unparseable_is_unknown_not_crash(self):
+        """显式侧车 JSON 损坏 ⇒ UNKNOWN（P2-②：不再裸 JSONDecodeError traceback）。"""
+        bad = self.root / "kline_fingerprint_20260910_bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(bad), "--triple-out", str(out))
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN")
+
+    def test_explicit_tag_mismatch_is_unknown(self):
+        """文件名日期标签与样本不符 ⇒ UNKNOWN（别日的指纹不与本样本配对）。"""
+        self._write_kfp("f5a2f607" + "0" * 56, name="kline_fingerprint_20260101.json")
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(self.root / "kline_fingerprint_20260101.json"),
+                          "--triple-out", str(out))
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN")
+
+    def _scope_meta_and_kfp(self, extra_kfp: dict) -> None:
+        self._write_meta(sha=self.sha, n=len(self.rows),
+                         extra={"kline_fingerprint_scope":
+                                {"stock_n": 3, "cutoff": "2026-09-10"}})
+        self._write_kfp("f5a2f607" + "0" * 56,
+                        name="kline_fingerprint_20260910_explicit.json",
+                        extra=extra_kfp)
+
+    def test_explicit_scope_cutoff_mismatch_is_unknown(self):
+        """meta 是 scoped 件、侧车无 cutoff 键（口径漂移）⇒ UNKNOWN。"""
+        self._scope_meta_and_kfp({"stock_codes_scope":
+                                  ["000001", "000002", "000003"]})
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(self.root / "kline_fingerprint_20260910_explicit.json"),
+                          "--triple-out", str(out))
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN", "无 cutoff 键 = 口径漂移，必须拒")
+
+    def test_explicit_scope_stock_n_mismatch_is_unknown(self):
+        """meta scope stock_n=3 vs 侧车全量口径（"all"）⇒ UNKNOWN。"""
+        self._scope_meta_and_kfp({"cutoff": "2026-09-10", "stock_codes_scope": "all"})
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(self.root / "kline_fingerprint_20260910_explicit.json"),
+                          "--triple-out", str(out))
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "UNKNOWN")
+
+    def test_explicit_scope_consistent_passes(self):
+        """显式侧车与 meta scope 全符（tag/cutoff/stock_n）⇒ 正常进 G-B 判定。"""
+        self._scope_meta_and_kfp({"cutoff": "2026-09-10",
+                                  "stock_codes_scope":
+                                      ["000001", "000002", "000003"]})
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        out = self.root / "triple.json"
+        rc = self._verify("--kfp", str(self.root / "kline_fingerprint_20260910_explicit.json"),
+                          "--triple-out", str(out))
+        self.assertEqual(rc, tool.EXIT_PASS)
+        t = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(t["gate_comparability"], "SAME")
+        self.assertEqual(t["kline_fingerprint_file"],
+                         "kline_fingerprint_20260910_explicit.json")
+        self.assertEqual(t["kline_fingerprint_recorded"], "f5a2f607" + "0" * 56)
 
 
 class TestSidecarDiscovery(_Base):
@@ -484,6 +572,20 @@ class TestFreezeV43Gates(unittest.TestCase):
         self.assertEqual(meta["stock_data_failures"], [])
         self.assertEqual(meta["kline_fingerprint_scope"],
                          {"stock_n": 1, "cutoff": seen["cutoff"]})
+
+    def test_fund_codes_scoped_to_sample_funds(self):
+        """V4.3.1-⑤：fund 侧传样本基金（排序去重）——无关基金缓存变化不改冻结指纹。"""
+        seen: dict = {}
+
+        def _kfp(**kw):
+            seen.update(kw)
+            return dict(self.KFP)
+        self.fs.build_fingerprint = _kfp
+        self.fs._git_commit_at_freeze = lambda: "deadbeef" * 5
+        self._fake_load()
+        self.assertEqual(self.fs.main([]), 0)
+        self.assertEqual(seen.get("fund_codes"), ["002112"],
+                         "fund 侧必须 scope 到样本基金，不得收全量 klines/*.json")
 
 
 if __name__ == "__main__":

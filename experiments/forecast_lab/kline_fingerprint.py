@@ -300,6 +300,29 @@ def selftest() -> int:
         except RuntimeError:
             raised = True
         check(raised, "cutoff 全滤空拒绝生成空指纹")
+
+        # ---- V4.3.1-⑤：fund 侧 scope —— 无关基金缓存变化不影响 scoped KFP ----
+        # 此刻 000001.json 为 01-01..01-03 三行（close 10/11/12）、fun/ 仅有 002112.json。
+        # 先取 scoped 锚点（fund 侧显式=样本基金）+ 默认口径对照，再引入无关基金。
+        fp_def0 = kf.build_fingerprint()      # 对照：默认口径（收全部 klines/*.json）
+        fp_f0 = kf.build_fingerprint(["002112"], stock_codes=["000001"], cutoff="2020-01-03")
+        (fun / "999999.json").write_text(json.dumps(nav(
+            [["2020-01-01", 1.1], ["2020-01-02", 1.2]])), encoding="utf-8")
+        fp_f1 = kf.build_fingerprint(["002112"], stock_codes=["000001"], cutoff="2020-01-03")
+        check(fp_f1["aggregate_sha256"] == fp_f0["aggregate_sha256"],
+              "无关基金新增文件不改 scoped KFP")
+        (fun / "999999.json").write_text(json.dumps(nav(
+            [["2020-01-01", 1.05], ["2020-01-02", 1.2]])), encoding="utf-8")
+        fp_f2 = kf.build_fingerprint(["002112"], stock_codes=["000001"], cutoff="2020-01-03")
+        check(fp_f2["aggregate_sha256"] == fp_f0["aggregate_sha256"],
+              "无关基金净值改写不改 scoped KFP")
+        (fun / "002112.json").write_text(json.dumps(nav(
+            [["2020-01-01", 1.49], ["2020-01-02", 1.6]])), encoding="utf-8")
+        fp_f3 = kf.build_fingerprint(["002112"], stock_codes=["000001"], cutoff="2020-01-03")
+        check(fp_f3["aggregate_sha256"] != fp_f0["aggregate_sha256"],
+              "在域基金改写仍敏感（scope 不整体免疫）")
+        check(kf.build_fingerprint()["aggregate_sha256"] != fp_def0["aggregate_sha256"],
+              "默认口径（无 fund 参）仍受无关基金文件影响（旧锚点语义不变）")
     print(f"[kline_fingerprint SELFTEST] {total - len(fails)} passed, {len(fails)} failed"
           + (f" -> {fails}" if fails else ""))
     return 1 if fails else 0
