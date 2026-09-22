@@ -60,8 +60,24 @@ class TestPostInputs(unittest.TestCase):
                 d, rows = load_post_inputs()
                 self.assertEqual(d, "2026-09-11")
                 self.assertEqual(rows["A"]["slot"], "post")
-                self.assertEqual(rows["A"]["features"]["est_chg"], 0.8)
+                # V4.4 步 2：切换日（2026-09-23）前的旧行 est_chg 是百分数，
+                # 读取端过唯一桥归一到契约 fraction（0.8% → 0.008）
+                self.assertAlmostEqual(rows["A"]["features"]["est_chg"], 0.008)
                 self.assertNotIn("fwd1", rows["A"]["features"])
+            finally:
+                feature_store.STORE_PATH = old_path
+
+    def test_post_switch_rows_pass_through_unscaled(self):
+        """切换日起落盘的行已是 fraction，读取端原样透传（不得二次 ÷100）。"""
+        with tempfile.TemporaryDirectory() as td:
+            old_path = feature_store.STORE_PATH
+            feature_store.STORE_PATH = Path(td) / "intraday_features.jsonl"
+            try:
+                feature_store.append_features(
+                    "2026-09-23", "post", "B", {"est_chg": 0.008}, model_version=3)
+                d, rows = load_post_inputs("2026-09-23")
+                self.assertEqual(d, "2026-09-23")
+                self.assertAlmostEqual(rows["B"]["features"]["est_chg"], 0.008)
             finally:
                 feature_store.STORE_PATH = old_path
 
@@ -194,7 +210,7 @@ class TestExpertAShadowBlock(unittest.TestCase):
                          "F2": {"a_mean": -0.03, "a_med": 0.05}}}
 
     def test_ranks_and_lock_present(self):
-        feats = {"F1": {"est_chg": 1.0}, "F2": {"est_chg": -1.0}}
+        feats = {"F1": {"est_chg": 0.01}, "F2": {"est_chg": -0.01}}
         blk = expert_a_shadow_block("F1", self.SCORES, feats)
         self.assertEqual(blk["arms"]["a_mean"]["rank_in_pool"], 1)
         self.assertEqual(blk["arms"]["a_med"]["rank_in_pool"], 2)  # 两臂独立排名
@@ -204,21 +220,31 @@ class TestExpertAShadowBlock(unittest.TestCase):
 
     def test_divergence_flagged_not_reconciled(self):
         # A 看多 F1（a_mean>0）但镜像分看空（est_chg 低于池内均值）→ 标分歧
-        feats = {"F1": {"est_chg": -1.0}, "F2": {"est_chg": 3.0}}
+        # V4.4 步 2：post 特征 est_chg 现为 fraction；镜像分经逆向桥还原 % 域
+        # 后喂 _score_relative。-0.01 fraction = -1.0% vs 池内其余 +3.0%
+        feats = {"F1": {"est_chg": -0.01}, "F2": {"est_chg": 0.03}}
         blk = expert_a_shadow_block("F1", self.SCORES, feats)
-        # F1：a_mean=+0.02（A 看多）；est_chg=-1.0 vs 池内其余均值 +3.0
+        # F1：a_mean=+0.02（A 看多）；还原后 est=-1.0% vs 池内其余均值 +3.0%
         # → diff=-4.0（实时看空），预期精确判为 a_bullish_live_bearish
         self.assertEqual(blk["mirror"]["diff_vs_pool_mean"], -4.0)
         self.assertEqual(blk["divergence"], "a_bullish_live_bearish")
         # 不调和：A 分与镜像分各自保持原值，不得被均值/衰减改写
         self.assertEqual(blk["arms"]["a_mean"]["score"], 0.02)
+        # mirror.est_chg 为还原后的百分数；fraction 原值保留在 est_chg_fraction
         self.assertEqual(blk["mirror"]["est_chg"], -1.0)
+        self.assertEqual(blk["mirror"]["est_chg_fraction"], -0.01)
 
     def test_no_divergence_when_same_direction(self):
         # 同方向（A 看多 + 实时强势）→ none；不能误标分歧
-        feats = {"F1": {"est_chg": 3.0}, "F2": {"est_chg": -1.0}}
+        feats = {"F1": {"est_chg": 0.03}, "F2": {"est_chg": -0.01}}
         blk = expert_a_shadow_block("F1", self.SCORES, feats)
         self.assertEqual(blk["divergence"], "none")
+
+    def test_mirror_none_passthrough(self):
+        # est_chg 缺失 → 镜像分 error 块（est_chg_unavailable），不得抛异常
+        feats = {"F1": {"est_chg": None}, "F2": {"est_chg": 0.03}}
+        blk = expert_a_shadow_block("F1", self.SCORES, feats)
+        self.assertEqual(blk["mirror"]["error"], "est_chg_unavailable")
 
     def test_scorer_error_degrades_to_field_not_exception(self):
         # 打分器不可用 → 块里只有 error，主记录流程不得抛异常

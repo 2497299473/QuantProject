@@ -43,6 +43,25 @@ class TestContract(unittest.TestCase):
         self.assertEqual(p["label_denominator"], "nav_hat_1455")
         self.assertEqual(p["est_chg_unit"], "fraction")
 
+    def test_reverse_bridge_roundtrip(self):
+        """V4.4 步 2：逆向桥 %↔fraction 互逆；None 透传。仅供 % 域消费点还原。"""
+        self.assertAlmostEqual(C.est_pct_from_fraction(0.0123), 1.23, places=12)
+        self.assertAlmostEqual(C.est_pct_from_fraction(-1.228), -122.8, places=12)
+        self.assertIsNone(C.est_pct_from_fraction(None))
+        # 互逆性：from_pct(pct_from_fraction(x)) == x
+        self.assertAlmostEqual(C.est_chg_from_pct(C.est_pct_from_fraction(0.0456)),
+                               0.0456, places=12)
+
+    def test_live_switch_gate(self):
+        """切换日判别：之前=百分数旧行（需过桥），起=fraction 新行（透传）。"""
+        self.assertEqual(C.EST_CHG_LIVE_FRACTION_SINCE, "2026-09-23")
+        self.assertFalse(C.est_chg_live_is_fraction("2026-09-22"))
+        self.assertFalse(C.est_chg_live_is_fraction("2026-09-01"))
+        self.assertTrue(C.est_chg_live_is_fraction("2026-09-23"))
+        self.assertTrue(C.est_chg_live_is_fraction("2026-12-31"))
+        self.assertFalse(C.est_chg_live_is_fraction(None))
+        self.assertFalse(C.est_chg_live_is_fraction(""))
+
 
 class TestRecomputeRow(unittest.TestCase):
     def setUp(self):

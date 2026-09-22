@@ -185,6 +185,20 @@ class TestForecastMetaB1(unittest.TestCase):
         self.assertEqual(meta["composite"], 0)     # 中性是合法值
         self.assertEqual(meta["score"], 0)
 
+    def test_est_chg_converts_pct_to_fraction(self):
+        """V4.4 步 2：est_return（百分数）过唯一桥转 fraction 进 est_chg 特征。"""
+        meta = run.build_forecast_meta(
+            "002112",
+            {"est_return": 1.23, "breadth": 0.5},
+            lookthrough=None, signals={})
+        self.assertAlmostEqual(meta["est_chg"], 0.0123, places=12)
+        self.assertEqual(meta["est_sign"], 1)      # 符号与量纲无关
+        meta2 = run.build_forecast_meta(
+            "002112", {"est_return": -122.8, "breadth": 0.5},
+            lookthrough=None, signals={})
+        self.assertAlmostEqual(meta2["est_chg"], -1.228, places=12)
+        self.assertEqual(meta2["est_sign"], -1)
+
     def test_fallback_features_none_passthrough(self):
         """decision_engine 回退路径（无 feature_meta）同属 B1：缺失 → None。"""
         from core.decision_engine import _forecast_features

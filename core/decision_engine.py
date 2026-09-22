@@ -35,6 +35,8 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .pit1455_contract import est_chg_from_pct   # V4.4 步 2：量纲唯一桥
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 ACTION_CN = {"ADD": "加仓", "REDUCE": "减仓", "HOLD": "保持不动"}
@@ -353,7 +355,7 @@ def _forecast_features(inp: DecisionInput, feature_meta: dict | None) -> dict | 
     feat = inp.feat_1455 or {}
     if not feat:
         return None
-    est = feat.get("est_return")
+    est = est_chg_from_pct(feat.get("est_return"))   # V4.4 步 2：% → fraction
     return {
         "est_chg": est,
         # 2026-09-22 评审修复（①）：缺失 → None（B1 mask），不强制 0——旧实现

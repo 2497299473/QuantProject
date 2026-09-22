@@ -309,8 +309,15 @@ def build_forecast_meta(code: str, f_rt: dict, lookthrough: dict | None,
     对缺失做 (值, missing_mask) 双列，live 侧却把「缺失」写成「真 0」喂给模型。
     现：有值 → 原值；缺失 → None，由 ForecastEngine.predict() 统一打 mask
     （训练/推理协议真正对齐）。
+
+    2026-09-22 V4.4 步 2（量纲接入）：est_return 是百分数（腾讯行情口径），
+    est_chg 特征按契约过唯一桥 ``est_chg_from_pct`` 转 fraction——训练样本
+    （backtest_spread closes 比值）本就是 fraction，接入前 live 侧 100× 错位
+    （72 条 post 行 66 条落在训练支撑域外）。切换日常量与读取端判别函数见
+    pit1455_contract.EST_CHG_LIVE_FRACTION_SINCE。
     """
-    est = f_rt.get("est_return")
+    from core.pit1455_contract import est_chg_from_pct
+    est = est_chg_from_pct(f_rt.get("est_return"))
     lt = (lookthrough or {}).get(code)
     sig = signals.get(code)
     return {

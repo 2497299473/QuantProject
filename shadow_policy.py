@@ -201,7 +201,12 @@ def load_post_inputs(date: str | None = None) -> tuple[str | None, dict[str, dic
 
     返回 ``(decision_date, {fund: record})``。同日同基金的重复运行由
     intraday_feature_store 统一 last-write-wins；只接受当前模型协议版本。
+
+    V4.4 步 2（量纲迁移）：store 只追加不覆写 ⇒ 磁盘上 est_chg 两种量纲并存
+    （切换日前百分数 / 切换日后 fraction）。读取端按行 date 判别：早于切换日
+    的行过唯一桥 ``est_chg_from_pct`` 归一到契约量纲，之后的行原样透传。
     """
+    from core.pit1455_contract import est_chg_from_pct, est_chg_live_is_fraction
     records = feature_store.load_history(slot="post")
     if not records:
         return None, {}
@@ -214,13 +219,19 @@ def load_post_inputs(date: str | None = None) -> tuple[str | None, dict[str, dic
         if mv is not None and int(mv) != fe.MODEL_VERSION:
             continue
         raw_features = rec.get("features") or {}
+        raw_est = raw_features.get("est_chg")
+        if est_chg_live_is_fraction(decision_date):
+            est = raw_est                    # 切换日后落盘：已是 fraction
+        else:
+            est = est_chg_from_pct(raw_est)  # 旧行：百分数 → 契约 fraction
         selected[rec.get("fund", "")] = {
             "date": decision_date,
             "fund": rec.get("fund"),
             "timestamp": rec.get("timestamp"),
             "slot": "post",
             "model_version": mv,
-            "features": {k: raw_features.get(k) for k in fe.FEATURE_KEYS},
+            "features": {**{k: raw_features.get(k) for k in fe.FEATURE_KEYS},
+                         "est_chg": est},
             "context": rec.get("context") or {},
         }
     selected.pop("", None)
@@ -270,16 +281,21 @@ def resolve_promotion_mode(engine) -> tuple[str | None, str]:
 def mirror_relative_score(post_feats: dict[str, dict], code: str) -> dict:
     """用**生产真实现**算当日 `_score_relative`（不复制公式，防口径漂移）。
 
-    post 裆的 `est_chg` 与 14:55 的 `est_return` 同为「当日重仓估算涨跌%」（已查源码），
-    故直接以其为输入做「镜像分」，仅供事后对照，**不参与任何决策/下单**。
+    post 裆的 `est_chg` 自 V4.4 步 2 起为 fraction 量纲（pit1455 契约），
+    经逆向桥 `est_pct_from_fraction` 还原为百分数后喂 `_score_relative`——
+    其 `est_return` 语义是「当日重仓估算涨跌%」（已查源码），故直接以其为
+    输入做「镜像分」，仅供事后对照，**不参与任何决策/下单**。
     惰性 import + 全异常吞掉：私有函数改签名只会让对照字段变 error，不影响主流程。
     """
     try:
         from core import decision_engine as de
+        from core.pit1455_contract import est_pct_from_fraction
     except Exception as e:                      # noqa: BLE001
         return {"error": f"import_failed:{type(e).__name__}"}
-    me = (post_feats.get(code) or {}).get("est_chg")
-    pool_est = {c: (f or {}).get("est_chg") for c, f in post_feats.items()}
+    me_frac = (post_feats.get(code) or {}).get("est_chg")
+    me = est_pct_from_fraction(me_frac)
+    pool_est = {c: est_pct_from_fraction((f or {}).get("est_chg"))
+                for c, f in post_feats.items()}
     if me is None or len([v for v in pool_est.values() if v is not None]) < 2:
         return {"error": "est_chg_unavailable"}
     try:
@@ -289,11 +305,13 @@ def mirror_relative_score(post_feats: dict[str, dict], code: str) -> dict:
     except Exception as e:                      # noqa: BLE001
         return {"error": f"call_failed:{type(e).__name__}"}
     return {"est_chg": round(float(me), 6),
+            "est_chg_fraction": (round(float(me_frac), 6)
+                                 if isinstance(me_frac, (int, float)) else None),
             "diff_vs_pool_mean": round(diff, 6),
             "score_15": int(score),
             "reason": (reasons or [None])[0],
             "source": "decision_engine._score_relative (read-only mirror)",
-            "semantics_note": "post 裆 est_chg 与 14:55 est_return 同为当日重仓估算涨跌%"}
+            "semantics_note": "est_chg 字段为还原后的百分数；模型特征 est_chg_fraction 为契约 fraction 量纲"}
 
 
 def load_expert_a(date: str | None) -> dict:

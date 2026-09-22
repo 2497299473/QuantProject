@@ -47,7 +47,12 @@ def _sha256(path: Path) -> str:
 
 
 def load_post_features(date: str | None):
-    """当日 post 槽特征（与 shadow_policy 同源、同口径；只取 ≥ 决策日可得信息）。"""
+    """当日 post 槽特征（与 shadow_policy 同源、同口径；只取 ≥ 决策日可得信息）。
+
+    V4.4 步 2 量纲迁移：切换日前的行 est_chg 是百分数，过唯一桥归一到
+    契约 fraction；切换日后原样透传（判别真源 pit1455_contract）。
+    """
+    from core.pit1455_contract import est_chg_from_pct, est_chg_live_is_fraction
     records = feature_store.load_history(slot="post")
     if not records:
         return None, {}
@@ -59,7 +64,10 @@ def load_post_features(date: str | None):
         if rec.get("model_version") != fe.MODEL_VERSION:
             continue
         feats = rec.get("features") or {}
-        out[rec.get("fund", "")] = {k: feats.get(k) for k in fe.FEATURE_KEYS}
+        row = {k: feats.get(k) for k in fe.FEATURE_KEYS}
+        if not est_chg_live_is_fraction(d):
+            row["est_chg"] = est_chg_from_pct(row.get("est_chg"))
+        out[rec.get("fund", "")] = row
     out.pop("", None)
     return d, out
 

@@ -44,6 +44,32 @@ def est_chg_from_pct(pct) -> float | None:
     return float(pct) / 100.0
 
 
+def est_pct_from_fraction(fraction) -> float | None:
+    """契约量纲 fraction → 百分数（逆向桥）。None 透传。
+
+    仅供**展示 / 决策打分镜像**等「人读 % 域」消费点还原量纲
+    （如 shadow mirror_relative_score：_score_relative 的 est_return 语义是 %）。
+    模型特征与样本一律 fraction，禁止用本函数造特征。
+    """
+    if fraction is None:
+        return None
+    return float(fraction) * 100.0
+
+
+# ---- V4.4 步 2（2026-09-22）：live 侧量纲接入切换日 ----
+EST_CHG_LIVE_FRACTION_SINCE = "2026-09-23"
+"""run.py 产出的 est_chg 自该日起为 fraction（本契约量纲）；此前落盘
+data/intraday_features.jsonl 的行是百分数（接入前旧口径）。
+store 只追加不覆写历史 ⇒ 磁盘上两种量纲的行并存，以行 date 为唯一判别标记。
+读取端（shadow_policy.load_post_inputs / score_expert_a.load_post_features）
+对早于此日的行过 est_chg_from_pct，晚于此日的行原样透传。"""
+
+
+def est_chg_live_is_fraction(date: str | None) -> bool:
+    """该日期落盘的 est_chg 是否已是 fraction（读取端判别用，ISO 日期串比较）。"""
+    return bool(date) and date >= EST_CHG_LIVE_FRACTION_SINCE
+
+
 def estimate_nav_at_1455(prev_nav, est_chg_fraction) -> float | None:
     """14:55 时对 T 日 NAV 的最优估计 = 已公布的前一净值 ×(1+估算涨跌小数)。
 
