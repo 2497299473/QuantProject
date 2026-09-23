@@ -1,16 +1,13 @@
 {
-  "generated_at": "2026-08-30T11:27:47",
-  "oos_start": "2025-04-30",
+  "generated_at": "2026-09-24T00:34:38",
+  "oos_start": "2025-05-14",
   "rule": "frozen 2026-08-30, T+5 主判据",
-  "status": "STALE",
-  "stale_marked_at": "2026-09-22",
-  "stale_reason": "09-10 冻结样本重冻结（samples_frozen_20260910.jsonl）+ 09-18 C2 特征非时点不变（est_chg 81.7% 漂移 / 个股K线 sha 186/240 变）⇒ 本件历史可比性失效。09-26 前须以 backtest_lofo.py 重跑生成 FRESH 件；本件 stability 数值仅作历史参照，不得与 09-10 后轮次直接对比。",
+  "status": "FRESH",
   "valid_for": {
-    "code_commit": null,
-    "samples_file": null,
-    "samples_sha256_lf": null,
-    "kfp_comparability": null,
-    "note": "本件生成于冻结样本机制（V4.3 P0-1，2026-09-20）之前，当时消费活缓存，无三件套可回填；code_commit 未回填：2026-09-22 实测 git rev-list --before 2026-08-30T11:27:47+08:00 返回空（仓库历史不追溯该时点），诚实置 null"
+    "code_commit": "cebd9e69925d86e82b2976f4c0130151bf730390",
+    "samples_file": "samples_frozen_20260910.jsonl",
+    "samples_sha256_lf": "be8e55f02b39a25dc48f2efd67150c895ceebfebfe97c647b00610f61a05b034",
+    "kfp_comparability": "DRIFTED"
   },
   "funds": {
     "002112": {
@@ -18,28 +15,28 @@
       "verdict": "跨基金泛化证据不足（CI 跨零）",
       "horizons": {
         "1": {
-          "n_oos": 305,
-          "rank_ic": 0.0594,
-          "ci_lo": -0.0565,
-          "ci_hi": 0.1696,
-          "oos_brier": 0.5942,
-          "ace": 0.1157
+          "n_oos": 306,
+          "rank_ic": 0.0347,
+          "ci_lo": -0.0741,
+          "ci_hi": 0.1568,
+          "oos_brier": 0.5933,
+          "ace": 0.0771
         },
         "3": {
-          "n_oos": 305,
-          "rank_ic": 0.0048,
-          "ci_lo": -0.1039,
-          "ci_hi": 0.1255,
-          "oos_brier": 0.629,
-          "ace": 0.1643
+          "n_oos": 306,
+          "rank_ic": 0.039,
+          "ci_lo": -0.0822,
+          "ci_hi": 0.1573,
+          "oos_brier": 0.6033,
+          "ace": 0.1562
         },
         "5": {
-          "n_oos": 305,
-          "rank_ic": 0.0664,
-          "ci_lo": -0.0475,
-          "ci_hi": 0.1686,
-          "oos_brier": 0.5499,
-          "ace": 0.0797
+          "n_oos": 306,
+          "rank_ic": 0.0986,
+          "ci_lo": -0.0122,
+          "ci_hi": 0.2058,
+          "oos_brier": 0.5587,
+          "ace": 0.1209
         }
       }
     },
@@ -48,58 +45,58 @@
       "verdict": "跨基金泛化证据不足（CI 跨零）",
       "horizons": {
         "1": {
-          "n_oos": 305,
-          "rank_ic": 0.0706,
-          "ci_lo": -0.0414,
-          "ci_hi": 0.1852,
-          "oos_brier": 0.6041,
-          "ace": 0.0672
+          "n_oos": 306,
+          "rank_ic": 0.0429,
+          "ci_lo": -0.073,
+          "ci_hi": 0.1494,
+          "oos_brier": 0.6158,
+          "ace": 0.0974
         },
         "3": {
-          "n_oos": 305,
-          "rank_ic": 0.0695,
-          "ci_lo": -0.0495,
-          "ci_hi": 0.1837,
-          "oos_brier": 0.5562,
-          "ace": 0.0757
+          "n_oos": 306,
+          "rank_ic": 0.1023,
+          "ci_lo": -0.0101,
+          "ci_hi": 0.2159,
+          "oos_brier": 0.5408,
+          "ace": 0.0523
         },
         "5": {
-          "n_oos": 305,
-          "rank_ic": 0.0424,
-          "ci_lo": -0.0716,
-          "ci_hi": 0.1513,
-          "oos_brier": 0.5679,
-          "ace": 0.1197
+          "n_oos": 306,
+          "rank_ic": 0.0346,
+          "ci_lo": -0.0805,
+          "ci_hi": 0.1517,
+          "oos_brier": 0.5622,
+          "ace": 0.1373
         }
       }
     },
     "022853": {
-      "stability": 0.85,
-      "verdict": "跨基金泛化成立",
+      "stability": 0.6,
+      "verdict": "跨基金泛化证据不足（CI 跨零）",
       "horizons": {
         "1": {
-          "n_oos": 268,
-          "rank_ic": 0.0546,
-          "ci_lo": -0.0639,
-          "ci_hi": 0.1821,
-          "oos_brier": 0.5954,
-          "ace": 0.0813
+          "n_oos": 276,
+          "rank_ic": -0.0042,
+          "ci_lo": -0.123,
+          "ci_hi": 0.1117,
+          "oos_brier": 0.6105,
+          "ace": 0.1239
         },
         "3": {
-          "n_oos": 268,
-          "rank_ic": 0.0429,
-          "ci_lo": -0.0734,
-          "ci_hi": 0.1642,
-          "oos_brier": 0.5552,
-          "ace": 0.0821
+          "n_oos": 276,
+          "rank_ic": 0.0827,
+          "ci_lo": -0.0355,
+          "ci_hi": 0.2082,
+          "oos_brier": 0.5889,
+          "ace": 0.0688
         },
         "5": {
-          "n_oos": 268,
-          "rank_ic": 0.1312,
-          "ci_lo": 0.0143,
-          "ci_hi": 0.2503,
-          "oos_brier": 0.5288,
-          "ace": 0.0754
+          "n_oos": 276,
+          "rank_ic": 0.005,
+          "ci_lo": -0.118,
+          "ci_hi": 0.1179,
+          "oos_brier": 0.5841,
+          "ace": 0.092
         }
       }
     },
@@ -108,28 +105,28 @@
       "verdict": "证据不足（小样本，仅警示）",
       "horizons": {
         "1": {
-          "n_oos": 27,
-          "rank_ic": -0.2516,
-          "ci_lo": -0.5635,
-          "ci_hi": 0.1275,
-          "oos_brier": 0.6252,
-          "ace": 0.2111
+          "n_oos": 35,
+          "rank_ic": -0.1325,
+          "ci_lo": -0.4485,
+          "ci_hi": 0.1895,
+          "oos_brier": 0.5784,
+          "ace": 0.22
         },
         "3": {
-          "n_oos": 27,
-          "rank_ic": -0.116,
-          "ci_lo": -0.5129,
-          "ci_hi": 0.2615,
-          "oos_brier": 0.5595,
-          "ace": 0.1889
+          "n_oos": 35,
+          "rank_ic": 0.2142,
+          "ci_lo": -0.1895,
+          "ci_hi": 0.5397,
+          "oos_brier": 0.5382,
+          "ace": 0.1114
         },
         "5": {
-          "n_oos": 27,
-          "rank_ic": -0.0354,
-          "ci_lo": -0.4722,
-          "ci_hi": 0.3401,
-          "oos_brier": 0.5185,
-          "ace": 0.1815
+          "n_oos": 35,
+          "rank_ic": 0.3001,
+          "ci_lo": -0.0386,
+          "ci_hi": 0.5727,
+          "oos_brier": 0.4916,
+          "ace": 0.0314
         }
       }
     }
