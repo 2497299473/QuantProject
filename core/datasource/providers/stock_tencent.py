@@ -1,8 +1,9 @@
 """腾讯日 K 主源（web.ifzq.gtimg.cn，前复权 qfq）——迁自 core/stock_data._fetch_page（V4 步 2）。
 
-行为逐项对齐旧实现（迁移不夹带改动）：
+行为对齐旧实现，**除一处有意偏差（P0-2，2026-09-23 Summer 授权）**：
 - 分页 640 根、最多 5 页（约 3200 根，覆盖 2013 年以来），页间 sleep 0.12s；
-- 某页中途失败：**保留已取到的页继续出结果**（旧实现即如此），仅一页都没拿到才算失败；
+- 某页中途失败：**fail-closed 整链判失败**（旧实现是「保留已取到的页继续出 ok=True」——
+  那会把截断历史静默写入缓存并污染下游回测，P0-2 修复改为此语义，由链上下一源补全量）；
 - 跨页按日期去重后升序输出 `(date, open, close, high, low)`，与旧实现同形状。
 
 已知源级短板（2026-08-27 记录）：部分科创板股（688382/688266/688428/688192 等，
@@ -59,11 +60,18 @@ class TencentKlineProvider:
             time.sleep(PAGE_SLEEP_S)
 
         latency = int((time.monotonic() - started) * 1000)
+        if err is not None:
+            # P0-2（2026-09-23 授权）：任一页失败 ⇒ 不返回半截数据，整源判失败。
+            # 前缀仍由 classify_exc 定（网络类计入健康度连续失败 → 达阈值降级到链尾）。
+            kind = classify_exc(err)
+            if pages:
+                msg = (f"{kind}partial_page: got={len(pages)}/{MAX_PAGES} "
+                       f"before {type(err).__name__}: {err}")
+            else:
+                msg = f"{kind}{type(err).__name__}: {err}"
+            return FetchResult(ok=False, source=self.name,
+                               error=msg, latency_ms=latency)
         if not pages:
-            if err is not None:
-                return FetchResult(ok=False, source=self.name,
-                                   error=f"{classify_exc(err)}{type(err).__name__}: {err}",
-                                   latency_ms=latency)
             return FetchResult(ok=False, source=self.name,
                                error=f"{DATA}{symbol}: 腾讯源无 K 线", latency_ms=latency)
 

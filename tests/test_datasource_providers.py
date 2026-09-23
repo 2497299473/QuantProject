@@ -5,7 +5,7 @@
 把「网络之外的全部逻辑」在离线侧锁死；真实对拍作为人授权的单独一步执行。
 
 覆盖：
-1. 腾讯：单页/分页拼接、跨页去重升序、页间节流被调用、**中途失败保留已取页**、
+1. 腾讯：单页/分页拼接、跨页去重升序、页间节流被调用、**中途失败 fail-closed（P0-2）**、
    普通错误 → network: 前缀、空数据 → data: 前缀
 2. 东财：解析 + 明文 HTTP URL 契约（TLS 指纹过滤的绕行前提）+ 失败分类
 3. Tushare：无 token → skip:（不计降级）、上游 code!=0 → data:、复权合成数值正确
@@ -88,8 +88,9 @@ class TestTencentProvider(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         slept.assert_called()                              # 页间节流（源级频控纪律）
 
-    def test_partial_page_failure_keeps_fetched_pages(self):
-        """旧实现即如此：某页中途失败保留已取页，不整链作废。"""
+    def test_partial_page_failure_is_not_success(self):
+        """P0-2（2026-09-23 授权）：某页中途失败 ⇒ 整源判败，不返回半截数据。
+        （旧实现「保留已取页继续出 ok=True」会把截断历史静默写缓存，已改语义）"""
         page1 = [["2026-01-0%d" % i, "1", "1", "1", "1", "0"]
                  for i in range(1, 5)] + [["2025-01-01", "2", "2", "2", "2", "0"]]
         page1 = page1 + [["2025-06-%02d" % i, "3", "3", "3", "3", "0"]
@@ -101,8 +102,24 @@ class TestTencentProvider(unittest.TestCase):
                                side_effect=seq), \
                 mock.patch.object(stock_tencent.time, "sleep"):
             r = self.p.fetch(code="000001", market="0")
-        self.assertTrue(r.ok, r.error)
-        self.assertEqual(len(r.payload["klines"]), stock_tencent.PAGE)
+        self.assertFalse(r.ok, "中途失败不得出 ok=True（否则截断数据污染缓存）")
+        self.assertIsNone(r.payload)
+        self.assertTrue(r.error.startswith(NETWORK), r.error)  # OSError → 网络类，计健康度
+        self.assertIn("partial_page", r.error)
+        self.assertIn("got=1/", r.error)
+
+    def test_partial_page_data_class_failure_still_not_success(self):
+        """中途失败且异常非传输类（如 ValueError）：同样 fail-closed，
+        但前缀归 data:（不计网络降级）。"""
+        page1 = _rows(date(2025, 1, 1), stock_tencent.PAGE)
+        seq = [_tencent_payload(self.symbol, page1), ValueError("bad row")]
+        with mock.patch.object(stock_tencent.netutil, "http_get_json",
+                               side_effect=seq), \
+                mock.patch.object(stock_tencent.time, "sleep"):
+            r = self.p.fetch(code="000001", market="0")
+        self.assertFalse(r.ok)
+        self.assertTrue(r.error.startswith(DATA), r.error)
+        self.assertIn("partial_page", r.error)
 
     def test_transport_error_is_network_prefixed(self):
         with mock.patch.object(stock_tencent.netutil, "http_get_json",
