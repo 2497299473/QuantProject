@@ -26,6 +26,7 @@ import random
 import sys
 from bisect import bisect_right
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -33,9 +34,10 @@ sys.path.insert(0, str(BASE_DIR))
 
 import numpy as np
 
-from backtest_spread import load_samples, FWD_LIST, EXTRA_FWD
+from backtest_spread import load_samples, FWD_LIST, EXTRA_FWD, HISTORICAL_FEATURE_MODE
 from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
-from core import forecast_engine
+import freeze_verify_tool                    # B++-2：git_commit 复用三件套口径，不新写取数
+from core import forecast_contract, forecast_engine, validation_schema
 
 # 确定性种子
 RNG = random.Random(42)
@@ -196,6 +198,200 @@ def decision_edge_metrics(score, est, yret, dates,
             "edge_ci": [round(ci[0], 4), round(ci[1], 4)] if ci[0] == ci[0] else None}
 
 
+# ---------- B++-2（2026-09-23）：validation evidence schema v2 产出 ----------
+# 契约 B §12/§13 落地第一批：验证器直接产出 schema v2 证据（pooled + fund×horizon
+# + provenance），fund 证据落盘而非只打 stdout。纯函数组表 + fail-closed 自检
+# （core.validation_schema.validate_evidence），不 bind、不碰 registry。
+def _ev_nc() -> dict:
+    """NOT_COMPUTABLE 槽位简写（value 恒 null，不造 0）。"""
+    return validation_schema.ev_na(validation_schema.STATUS_NOT_COMPUTABLE)
+
+
+def _ev_ci(ci) -> dict:
+    """cluster_bootstrap_ci 的 (lo, hi) → CI 槽位；nan（含交易日不足）→ NOT_COMPUTABLE。"""
+    if ci is None or ci[0] != ci[0]:
+        return _ev_nc()
+    return validation_schema.ev_ok([round(float(ci[0]), 3), round(float(ci[1]), 3)])
+
+
+def insufficient_power_node(n: int) -> dict:
+    """未产出任何指标的 horizon 节点（样本不足/验证器跳过分支）。
+
+    n 真实计数永远 OK；n==0 → 全指标 NOT_COMPUTABLE（无行可算，定义上
+    算不出，不是“样本还不够”）；0<n<30 → INSUFFICIENT_POWER（临时闸门：
+    对齐验证器既有 OOS n>=30 下限；正式 N_POWER_FUND 待功效预注册冻结）；
+    n>=30 但未产出指标（如训练集不足未拟合）→ NOT_COMPUTABLE。
+    """
+    node = validation_schema.metric_node()
+    node["n"] = validation_schema.ev_ok(int(n))
+    st = (validation_schema.STATUS_NOT_COMPUTABLE if n <= 0
+          else validation_schema.STATUS_INSUFFICIENT_POWER if n < 30
+          else validation_schema.STATUS_NOT_COMPUTABLE)
+    for k in node:
+        if k != "n":
+            node[k] = validation_schema.ev_na(st)
+    return node
+
+
+def evidence_node_from_rows(score_up, base_vec, yret, dates, p_train,
+                            po=None, yo=None) -> dict:
+    """schema v2 单 horizon 证据节点（pooled 与 fund 共用同一构建器）。
+
+    产出端诚实化（B++-5 前置）：n==0 → NOT_COMPUTABLE；0<n<30 →
+    INSUFFICIENT_POWER；秩相关族输入恒值（spearman 即 NaN）→ NOT_COMPUTABLE，
+    不得伪装 0.0；CI 复用 cluster_bootstrap_ci（不新造 bootstrap），交易日
+    不足其自带返回 nan → 如实 NOT_COMPUTABLE。po/yo 提供时补 Brier /
+    b_majority（用传入 p_train，与 stdout 同源）/ midpoint_calibration_error。
+    """
+    yr = np.asarray(yret, dtype=float)
+    if len(yr) < 30:
+        return insufficient_power_node(len(yr))
+    s = np.asarray(score_up, dtype=float)
+    b = np.asarray(base_vec, dtype=float)
+    dl = list(dates)
+
+    def _const(a) -> bool:
+        fin = a[np.isfinite(a)]
+        return len(np.unique(fin)) <= 1
+
+    def _ric(x, y) -> float:
+        return rank_ic(x.tolist(), y.tolist())
+
+    node = validation_schema.metric_node()
+    node["n"] = validation_schema.ev_ok(int(len(yr)))
+    yr_const = _const(yr)
+    node["rank_ic"] = (_ev_nc() if yr_const or _const(s)
+                       else validation_schema.ev_ok(round(_ric(s, yr), 3)))
+    node["base_ic"] = (_ev_nc() if yr_const or _const(b)
+                       else validation_schema.ev_ok(round(_ric(b, yr), 3)))
+    if node["rank_ic"]["status"] == validation_schema.STATUS_OK:
+        node["rank_ic_ci"] = _ev_ci(cluster_bootstrap_ci(
+            lambda sub: _ric(sub["x"], sub["y"]), {"x": s, "y": yr}, dl))
+    else:
+        # 退化输入（恒值序列）不进 bootstrap——rank_ic 的 NaN→0.0 强转
+        # 会把不可算伪装成 [0.0, 0.0] 假 CI（正是三态纪律要禁的混装）。
+        node["rank_ic_ci"] = _ev_nc()
+    if node["rank_ic"]["status"] == validation_schema.STATUS_OK \
+            and node["base_ic"]["status"] == validation_schema.STATUS_OK:
+        node["decision_edge"] = validation_schema.ev_ok(
+            round(_ric(s, yr) - _ric(b, yr), 3))
+        node["decision_edge_ci"] = _ev_ci(cluster_bootstrap_ci(
+            lambda sub: _ric(sub["x"], sub["y"]) - _ric(sub["e"], sub["y"]),
+            {"x": s, "e": b, "y": yr}, dl))
+    else:
+        node["decision_edge"] = _ev_nc()
+        node["decision_edge_ci"] = _ev_nc()
+    if po is not None and yo is not None and len(po) == len(yr):
+        node["brier"] = validation_schema.ev_ok(round(brier_multiclass(yo, po), 3))
+        node["brier_ci"] = _ev_ci(cluster_bootstrap_ci(
+            lambda sub: brier_multiclass(sub["y"], sub["p"]),
+            {"y": yo, "p": po}, dl))
+        onehot = np.zeros((len(yr), 3))
+        onehot[np.arange(len(yr)), yo] = 1.0
+        pt = np.asarray(p_train, dtype=float)
+        node["b_majority"] = validation_schema.ev_ok(round(
+            float(np.mean(np.sum((onehot - pt) ** 2, axis=1))), 3))
+        y_up = (yo == 2).astype(int)
+        node[validation_schema.MIDPOINT_CALIBRATION_ERROR_KEY] = validation_schema.ev_ok(
+            round(calibration_curve(y_up, po[:, 2])["ace"], 3))
+    return node
+
+
+def pooled_node_from_results(r: dict) -> dict:
+    """results[h]（stdout 报告字典，已 round）→ schema v2 pooled 节点。
+
+    不重算、不转义——与当轮报告逐位同源；CI 为 None（nan）或缺字段如实
+    NOT_COMPUTABLE，不造 0；跳过分支（reason）委托 insufficient_power_node。
+    """
+    if "reason" in r:
+        return insufficient_power_node(int(r.get("n_oos", 0)))
+    if not r:
+        # 周期本轮未运行（results 无条目）：全 UNKNOWN（「还没跑」），
+        # 不是 NOT_COMPUTABLE（那是「算了但定义上产不出结果」）——两态不混
+        # （契约 B §13）。
+        return validation_schema.metric_node()
+    node = validation_schema.metric_node()
+    node["n"] = validation_schema.ev_ok(int(r.get("n_oos", 0)))
+    edge = r.get("decision_edge") or {}
+    node["rank_ic"] = (validation_schema.ev_ok(r["rank_ic"])
+                       if "rank_ic" in r else _ev_nc())
+    node["rank_ic_ci"] = (validation_schema.ev_ok(list(r["ric_ci"]))
+                          if r.get("ric_ci") is not None else _ev_nc())
+    node["base_ic"] = validation_schema.ev_ok(r["base_ic"]) if "base_ic" in r else _ev_nc()
+    node["decision_edge"] = (validation_schema.ev_ok(edge["edge"])
+                             if "edge" in edge else _ev_nc())
+    node["decision_edge_ci"] = (validation_schema.ev_ok(list(edge["edge_ci"]))
+                                if edge.get("edge_ci") else _ev_nc())
+    node["brier"] = validation_schema.ev_ok(r["oos_brier"]) if "oos_brier" in r else _ev_nc()
+    node["brier_ci"] = (validation_schema.ev_ok(list(r["brier_ci"]))
+                        if r.get("brier_ci") is not None else _ev_nc())
+    node["b_majority"] = (validation_schema.ev_ok(r["b_majority"])
+                          if "b_majority" in r else _ev_nc())
+    node[validation_schema.MIDPOINT_CALIBRATION_ERROR_KEY] = (
+        validation_schema.ev_ok(r["ace"]) if "ace" in r else _ev_nc())
+    return node
+
+
+def assemble_validation_evidence(results: dict, pooled_nodes: dict,
+                                 fund_evidence: dict, horizons, snap_info: dict,
+                                 *, overall_ok: bool, git_head: str | None,
+                                 produced_at: str) -> dict:
+    """本轮验证产出 → validation evidence schema v2（组表纯函数）。
+
+    pooled：常规分支取 results[h]（与 stdout 逐位同源），跳过分支取
+    pooled_nodes[h]；funds：fund_evidence[h][code]（同一 OOS 预测按行身份
+    切片）；protocol 取 current_feature_protocol()（registry 同源，不另造字段）；
+    power.frozen=OK(False)——功效阈值未预注册是可计算事实，其余 power 键如实
+    UNKNOWN；quantile calibration 本验证器不产出 → 全 UNKNOWN；provenance
+    透传冻结件三元组 + git head + EOD_PROXY 口径诚实标注。decision 只映射
+    验证器既有 overall_ok，不引入第二套裁决。
+    """
+    proto = forecast_engine.current_feature_protocol()
+    prov_snap = snap_info.get("snapshot_provenance") or {}
+    ev = validation_schema.blank_evidence()
+    ev["decision"] = "approved" if overall_ok else "rejected"
+    ev["protocol"] = {"version": int(proto["protocol_version"]),
+                      "feature_dim": int(proto["feature_dim"]),
+                      "feature_keys": list(proto["feature_keys"]),
+                      "masking": json.dumps(proto["masking"], ensure_ascii=False)}
+    for h in horizons:
+        c = validation_schema.canonical_horizon(h)
+        if c is None:
+            continue
+        # 键型归一：调用方传入的 results/pooled_nodes/fund_evidence 可能以
+        # int 或 str 作周期键（config horizons 历史上两型都有）——双路查找，
+        # 查不到才落 UNKNOWN，杜绝键型不匹配静默降级。
+        node = pooled_nodes.get(h, pooled_nodes.get(c))
+        if node is not None:
+            ev["pooled"][c] = node
+        else:
+            r = results.get(h, results.get(c))
+            ev["pooled"][c] = pooled_node_from_results(r or {})
+        fe = fund_evidence.get(h) or fund_evidence.get(c) or {}
+        for code, node in fe.items():
+            if code in ev["funds"]:
+                ev["funds"][code][c] = node
+    ev["power"]["frozen"] = validation_schema.ev_ok(False)
+    sha = prov_snap.get("samples_sha256_lf")
+    ev["provenance"] = {
+        "frozen_dataset": validation_schema.ev_ok(
+            str(prov_snap.get("snapshot_file") or snap_info.get("file")
+                or snap_info.get("mode") or "unknown")),
+        "dataset_sha256": (validation_schema.ev_ok(str(sha)) if sha
+                           else validation_schema.ev_na(validation_schema.STATUS_UNKNOWN)),
+        "git_commit": (validation_schema.ev_ok(str(git_head)) if git_head
+                       else validation_schema.ev_na(validation_schema.STATUS_UNKNOWN)),
+        "feature_protocol": validation_schema.ev_ok(
+            f"protocol_version={proto['protocol_version']};"
+            f"feature_dim={proto['feature_dim']};masking={ev['protocol']['masking']}"),
+        "contract_version": validation_schema.ev_ok(forecast_contract.CONTRACT_VERSION),
+        "historical_feature_mode": validation_schema.ev_ok(HISTORICAL_FEATURE_MODE),
+        "produced_by": validation_schema.ev_ok("backtest_forecast.py"),
+        "produced_at": validation_schema.ev_ok(str(produced_at)),
+    }
+    return ev
+
+
 @dataclass
 class XYBatch:
     """同一筛选循环生成的矩阵、标签与行身份，禁止下游自行重建对齐。"""
@@ -295,6 +491,8 @@ def main() -> int:
     from sklearn.ensemble import HistGradientBoostingClassifier
 
     results = {}
+    pooled_nodes = {}    # B++-2：样本不足跳过分支的 pooled schema v2 节点
+    fund_evidence = {}   # B++-2：fund×horizon schema v2 节点（同一 OOS 预测按行身份切片）
     overall_ok = True
     for h in horizons:
         print(f"\n=== Horizon T+{h} ===")
@@ -304,6 +502,13 @@ def main() -> int:
             print(f"  ⚠️ 样本不足（train={len(XY[1]) if XY else 0}, oos={len(XYo[1]) if XYo else 0}）→ 跳过")
             results[h] = {"ok": False, "reason": "insufficient_samples"}
             overall_ok = False
+            # B++-2：跳过分支证据诚实化——n 真实计数，指标按三态标注
+            n_oos_h = len(XYo[1]) if XYo is not None else 0
+            pooled_nodes[h] = insufficient_power_node(n_oos_h)
+            fund_evidence[h] = {
+                code: insufficient_power_node(
+                    sum(1 for f in XYo.funds if f == code) if XYo is not None else 0)
+                for code in validation_schema.PRODUCTION_FUNDS}
             continue
 
         X, y, yret = XY
@@ -388,6 +593,17 @@ def main() -> int:
         print(f"  decision_edge（审计，不进裁决）= {edge_audit['edge']:+.3f} "
               f"95% CI = {ci_txt}")
 
+        # B++-2：四基金证据——同一份 OOS 预测按行身份切片（契约 B §6/F3：
+        # fund×horizon 必须逐基金落盘，不得只打 stdout）。不重训、不新增模型。
+        base_arr = np.asarray(base_vec, dtype=float)
+        fund_evidence[h] = {}
+        for code in validation_schema.PRODUCTION_FUNDS:
+            m = np.array([f == code for f in XYo.funds], dtype=bool)
+            fund_evidence[h][code] = evidence_node_from_rows(
+                score_up[m], base_arr[m], yreto[m],
+                [d for d, keep in zip(XYo.dates, m) if keep],
+                p_train, po[m], yo[m])
+
         # 裁决（v7 P1：
         #   - Rank IC 95% CI 下界 > 0（cluster bootstrap）才算「显著不为零」
         #   - ML Brier 逐级不劣于梯队（Brier 越低越好；IC 高于 est_chg 单因子））
@@ -405,6 +621,32 @@ def main() -> int:
                       "ace": round(calib["ace"], 3), "n_train": int(len(y)), "n_oos": int(len(yo))}
         overall_ok = overall_ok and ok
         print(f"  → 裁决：{'✅ 通过' if ok else '❌ 不通过'}（需全部周期通过）")
+
+    # ---- B++-2：validation evidence schema v2 组表 + fail-closed 自检 + 落盘 ----
+    # 纪律：仅留档（不 bind_validation、不碰 registry/prereg）；自检不过拒落盘；
+    # 证据产物异常只降级记录，绝不反噬验证裁决退出码。
+    try:
+        ev = assemble_validation_evidence(
+            results, pooled_nodes, fund_evidence, horizons, snap_info,
+            overall_ok=overall_ok,
+            git_head=freeze_verify_tool.git_commit(),
+            produced_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        ok_ev, errs_ev = validation_schema.validate_evidence(ev)
+        if not ok_ev:
+            print(f"\n[evidence] schema v2 自检未过，拒绝落盘（fail-closed）：{errs_ev[:3]}")
+        else:
+            outdir = BASE_DIR / "output" / "validation_evidence"
+            outdir.mkdir(parents=True, exist_ok=True)
+            ev_path = outdir / (
+                f"validation_evidence_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            ev_path.write_text(json.dumps(ev, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
+            # stdout 纪律：不含运行时间戳（文件名才含）——本验证器的可复现性
+            # 判据是「同命令连跑两次 stdout 逐字节一致」，变量只许落盘不进 stdout。
+            print("\n[evidence] schema v2 证据已落盘 → output/validation_evidence/"
+                  "validation_evidence_<运行时间戳>.json（仅留档，不参与授权）")
+    except Exception as e:
+        print(f"\n[evidence] 证据组表/落盘失败（不影响裁决）：{type(e).__name__}: {e}")
 
     # 特征重要性（排列重要性，HistGradientBoosting 无原生 feature_importances_）
     try:

@@ -61,6 +61,7 @@ LAYERS: dict[str, str] = {
     "test_b3_sample_retention.py": FAST,   # B 契约 §15-B3：样本构建/target 可用性分离，纯函数+源码断言零网络
     "test_feature_protocol_strict.py": FAST,  # B 契约 §15-B2：协议 exact 校验，独立条目进出真实 registry 后复原（同 test_model_registry 惯例）
     "test_validation_schema.py": FAST,     # B++-1：validation 证据 schema v2 纯函数 + fail-closed 校验器；仅 numpy，零网络，不碰真实 data/（契约文本只读，缺席自动 skip）
+    "test_forecast_evidence.py": FAST,     # B++-2：验证器产出 schema v2 的纯函数层（evidence_node/pooled_node/assemble），合成数据零网络，不跑 main
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_contracts.py": SLOW,
     "test_data_fingerprint.py": SLOW,
