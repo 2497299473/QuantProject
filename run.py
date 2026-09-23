@@ -59,12 +59,59 @@ def _write_log(now: datetime) -> None:
         old.unlink(missing_ok=True)
 
 
+_MANIFEST_WRITTEN = False
+"""本次进程是否已成功落盘一份运行清单（V4.5 P0，2026-09-23）。
+
+``main()`` 每次启动重置。用于「FAILED 兜底」不重复写：正常路径已落清单后若再抛
+异常，不得用第二份 FAILED 覆盖掉那份已带完整逐环状态的证据（更完整的证据优先）。
+"""
+
+
+def _run_id(now: datetime, slot: str | None) -> str:
+    """run_id 单一来源：``YYYYMMDD_HHMMSS_<slot>``（清单文件名与 payload.run_id 同源）。
+
+    抽成函数供 FAILED 兜底复用——兜底清单必须能被审计按同一命名契约识别为
+    「本次 run_id 的清单」，否则监控侧「exit=1 且无对应清单」的判读会失真。
+    """
+    return f"{now:%Y%m%d_%H%M%S}_{slot or 'na'}"
+
+
+def _fund_pool_safe() -> list[str]:
+    """尽力取 ``config.fund_pool`` 作掩码基准表；取不到返回空表（不抛异常）。
+
+    FAILED 兜底发生在任意崩溃点，不能假设 ``cfg`` 已在手。空表 ⇒ 别名表为空 ⇒
+    残留真实代码会被 ``assert_no_fund_codes`` 拒绝落盘——宁可少一份证据，也不写出
+    一份泄露持仓的清单（P0-2）。
+    """
+    try:
+        cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+        return [str(c) for c in (cfg.get("fund_pool") or [])]
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return []
+
+
+def _stage_from_log() -> str:
+    """从运行日志末行提取 ``[tag]`` 作为崩溃阶段（只取标签，**不含其后的基金代码**）。
+
+    归因只进本地日志与清单的 ``failure_stage``；``failure_detail`` 只记异常类名——
+    完整消息（可能含真实基金代码）只进 ``output/logs/``（gitignored），不进随仓库
+    跟踪的 ``output/run_manifest/``（P0-2）。
+    """
+    for line in reversed(_LOG):
+        i = line.find("[")
+        j = line.find("]", i + 1) if i >= 0 else -1
+        if 0 <= i < j:
+            return line[i:j + 1]
+    return "unknown"
+
+
 def _write_run_manifest(now: datetime, manifest: dict, fund_pool) -> bool:
     """机器可读运行清单（V4-A 证据底座，2026-09-16）。
 
     退出码只说「成 / 降级 / 败」，本文件说「哪几环证据链是坏的」——供 Windows
     计划任务与监控判读「程序没崩但数据坏了」的静默降级。落盘
-    output/run_manifest/run_manifest_<run_id>.json。
+    output/run_manifest/run_manifest_<run_id>.json。``status`` ∈
+    SUCCESS / DEGRADED / FAILED 三态（V4.5 P0 起 FAILED 也走本函数落盘）。
 
     原子写（2026-09-17）：tmp + ``os.replace``，半截文件不会被读成「证据完整」。
     返回是否落盘成功；失败不阻断主流程，由调用方转成 DEGRADED（exit=2）。
@@ -76,7 +123,7 @@ def _write_run_manifest(now: datetime, manifest: dict, fund_pool) -> bool:
     里留基准表指纹供门禁反查；掩码后若仍残留 6 位代码则拒绝落盘（转 DEGRADED），
     宁可少一份证据，也不写出一份泄露持仓的清单（P0-2）。
     """
-    run_id = f"{now:%Y%m%d_%H%M%S}_{manifest.get('slot', 'na')}"
+    run_id = _run_id(now, manifest.get("slot"))
     out_dir = BASE_DIR / "output" / "run_manifest"
     final = out_dir / f"run_manifest_{run_id}.json"
     tmp = out_dir / f"{final.name}.tmp"
@@ -91,6 +138,8 @@ def _write_run_manifest(now: datetime, manifest: dict, fund_pool) -> bool:
         os.replace(tmp, final)
         log(f"[mani] 运行清单 → output/run_manifest/run_manifest_{run_id}.json"
             f"（status={manifest.get('status')}）")
+        global _MANIFEST_WRITTEN
+        _MANIFEST_WRITTEN = True
         return True
     except Exception as e:                      # noqa: BLE001
         log(f"[warn] 运行清单写入失败（本次运行判为 DEGRADED）：{type(e).__name__} {e}")
@@ -124,6 +173,51 @@ def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str],
         log(f"[exit] DEGRADED（{len(degraded)} 项降级：{'; '.join(degraded)}）")
         return 2
     return 0
+
+
+def _finalize_failed(now: datetime, slot: str | None, reason: str,
+                     extra_degraded: list[str] | None = None,
+                     exc: BaseException | None = None,
+                     stage: str | None = None) -> int:
+    """FAILED 兜底清单 + 退出码 1（V4.5 P0，2026-09-23 实测事故驱动）。
+
+    动因（实况，非推演）：2026-09-23 14:55 post 轮在报告生成前抛异常，
+    ``output/logs/run_20260923_145504.log`` 停在 ``[stat]`` 行——**没有报告、
+    没有清单、审计指针也没刷新**，而 ``output/audit_current.json`` 仍停在
+    09-22 且 ``evidence_stale=false``。旧实现只在 happy path 末端写清单，
+    异常 ⇒ 整份证据不存在 ⇒ 监控只看得到「没有清单」，看不到「为什么没有」。
+    本函数把「异常」本身变成一份可判读的 FAILED 证据。
+
+    与正常清单同一掩码 / 原子写路径（复用 ``_write_run_manifest``，P0-2 契约不变）；
+    已落过清单则不再写（不覆盖更完整的证据）。异常原文只进本地日志，清单只留
+    类名（``failure_detail``）与阶段（``failure_stage``）。
+    """
+    if _MANIFEST_WRITTEN:
+        log(f"[exit] FAILED（{reason}）——本次已有清单在档，不重复落盘")
+        return 1
+    payload = {
+        "slot": slot or "na",
+        "status": "FAILED",
+        "failure_reason": reason,
+        "failure_stage": stage or _stage_from_log(),
+        "failure_detail": type(exc).__name__ if exc is not None else "",
+        "data": {"ok": False, "failed": [], "fallback": [],
+                 "status_unknown": [], "n_funds": 0},
+        "lookthrough": {"ok": False, "missing": []},
+        "realtime": {"ok": False, "failed": [], "degraded": [], "n_funds": 0},
+        "intraday_features": {"ok": False, "n_funds": 0},
+        "market_context": {"ok": False},
+        "report": {"ok": False, "path": None},
+        "notification": {"ok": None, "reason": "not_reached"},
+        "shadow": {"ok": None, "reason": "not_reached"},
+        "degraded_reasons": [reason] + list(extra_degraded or []),
+    }
+    if _write_run_manifest(now, payload, _fund_pool_safe()):
+        log(f"[exit] FAILED（{reason}）——兜底清单已落盘，异常原文见 output/logs/")
+    else:
+        log(f"[exit] FAILED（{reason}）——兜底清单亦未落盘，"
+            f"监控侧以「exit=1 且本次 run_id 无对应清单」识别")
+    return 1
 
 
 def load_holidays() -> set[str]:
@@ -370,8 +464,21 @@ def main() -> int:
     args = parser.parse_args()
 
     now = datetime.now()
+    slot_hint = args.slot or auto_slot(now)     # 兜底清单也要能报出「哪个时点崩的」
+    # V4.5 P0（2026-09-23）：异常必须留下证据。旧实现在报告生成前抛异常 ⇒
+    # 无报告、无清单、审计指针不刷新，而监控只看到「没有清单」（见 09-23 post 轮）。
+    global _MANIFEST_WRITTEN
+    _MANIFEST_WRITTEN = False
     try:
         return _run(args, now)
+    except SystemExit:
+        raise                                    # argparse 等显式退出语义不劫持
+    except KeyboardInterrupt:
+        return _finalize_failed(now, slot_hint, "interrupted",
+                                exc=KeyboardInterrupt())
+    except BaseException as e:                   # noqa: BLE001  含 MemoryError 等
+        log(f"[fail] 未捕获异常，本次判 FAILED：{type(e).__name__}: {e}")
+        return _finalize_failed(now, slot_hint, f"exception:{type(e).__name__}", exc=e)
     finally:
         _write_log(now)
 
@@ -415,7 +522,10 @@ def _run(args, now: datetime) -> int:
 
     if not funds:
         log("[fail] 无任何基金数据，退出")
-        return 1
+        # V4.5 P0（2026-09-23）：早退路径同样必须留痕——旧实现直接 return 1
+        # 不留任何清单，「无数据」与「程序没跑」在证据侧无法区分。
+        return _finalize_failed(now, slot, "no_fund_data",
+                                extra_degraded=degraded, stage="[data]")
     # V4.2（2026-09-18）：申购/赎回状态可得性。状态未知**不**进 degraded（它不影响报告
     # 其余栏的可信度，只影响「动作能不能执行」），而是① 记进清单 data.status_unknown
     # ② 由 decision_engine 的硬门禁把动作锁成 HOLD。
@@ -635,7 +745,11 @@ def _run(args, now: datetime) -> int:
                      "n_funds": len(realtime)},
         "intraday_features": {"ok": bool(feats), "n_funds": len(feats)},
         "market_context": {"ok": bool(mc_snap and mc_snap.get("ok"))},
-        "report": {"ok": True, "path": f"output/report_{now:%Y%m%d}_{slot}.md"},
+        # V4.5 P0（2026-09-23）：report.ok 不再硬编码 True。旧实现在报告生成
+        # **之后**才组装本字段，故「走到清单」必然等于「报告没炸」——`ok: true`
+        # 是自证循环，读侧无法据它判「报告是否真的落盘」。现改读实际产物存在性。
+        "report": {"ok": (BASE_DIR / "output" / f"report_{now:%Y%m%d}_{slot}.md").is_file(),
+                   "path": f"output/report_{now:%Y%m%d}_{slot}.md"},
         "notification": push_status,
         "shadow": shadow_status,
         "degraded_reasons": degraded,

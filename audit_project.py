@@ -136,6 +136,27 @@ def git_lines(*args: str):
     return [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()], ""
 
 
+def git_worktree_clean() -> tuple[bool | None, str]:
+    """工作区是否干净（V4.5，2026-09-23）：返回 ``(clean, detail)``。
+
+    ``clean=None`` 表示**判不了**（git 不可用 / 非仓库 / 超时）——调用方须据此
+    判 WARN 而非 PASS：把「查不到」当成「干净」是 fail-open，与项目
+    「宁可 FAIL 也不假 PASS」的纪律相反。
+
+    用途：registry 里的 ``git_commit`` 是**权重字节**的锚点提交；若工作区带着
+    未提交改动，读侧就无法确定「当前跑的是不是那个已绑定版本」。本函数把这一
+    不确定性显式化。``git_lines`` 是既有 git 单一入口，此处复用不另起炉灶。
+    """
+    lines, err = git_lines("status", "--porcelain")
+    if lines is None:
+        return None, f"git 不可用或非仓库（{err}）"
+    if not lines:
+        return True, "工作区干净"
+    preview = "；".join(lines[:5])
+    return False, (f"{len(lines)} 项未提交改动（前 5：{preview}）"
+                   "——registry 绑定的 git_commit 未必等于当前运行代码")
+
+
 def classify(rec: dict) -> str:
     """镜像 shadow_policy.record_channel 的极小判定。
 
@@ -406,6 +427,43 @@ def check_registry_hash(a: Audit) -> None:
           f"{len(models)} 个模型" + ("；" + "；".join(bad) if bad else ""))
 
 
+def check_registry_paths(a: Audit) -> None:
+    """registry 的 ``path`` 字段必须可判读（V4.5，2026-09-23）。
+
+    实况：两个条目都存着 WSL 时代的绝对路径
+    ``/home/summer/QuantV1/data/models/forecast_v2.pkl`` —— Windows 迁移后该路径
+    永远指不到文件。``check_registry_hash`` 靠 ``Path(...).name`` 兜底，所以
+    **哈希校验照样 PASS**，坏字段一路静默；只有人肉读 registry 才会发现。
+
+    判据（逐条，任一不满足即 WARN —— 档案事实，不阻断当前生产）：
+    ① 不是绝对路径（Unix ``/`` 开头 或 Windows 盘符）；
+    ② 归一到正斜杠后与 ``provenance.git_tracked_path`` 一致（有该字段时）。
+    两条合起来才说明「这个 path 描述的是仓库内位置」，而非某台机器的临时布局。
+    """
+    models = _models()
+    if not models:
+        a.add("P1-10", "P1-证据链", "registry 路径字段可判读", WARN,
+              "registry.json 缺失或无 models")
+        return
+    bad: list[str] = []
+    for name, entry in models.items():
+        raw = str(entry.get("path") or "")
+        reasons = []
+        if not raw:
+            reasons.append("缺失")
+        elif raw.startswith("/") or (len(raw) > 1 and raw[1] == ":"):
+            reasons.append(f"绝对路径（{raw[:40]}…）" if len(raw) > 40 else f"绝对路径（{raw}）")
+        tracked = (entry.get("provenance") or {}).get("git_tracked_path")
+        if tracked and raw and raw.replace("\\", "/") != str(tracked).replace("\\", "/"):
+            reasons.append(f"与 git_tracked_path（{tracked}）不一致")
+        if reasons:
+            bad.append(f"{name}：" + "、".join(reasons))
+    a.add("P1-10", "P1-证据链", "registry 路径字段可判读",
+          PASS if not bad else WARN,
+          f"{len(models)} 个模型路径均为仓库相对路径" if not bad
+          else "；".join(bad) + "（重跑 train_forecast_model 登记时自动归一）")
+
+
 def check_validation_binding(a: Audit) -> None:
     """验证报告绑定核验（V4.1 ⑥ 收紧：active model 缺绑定即 FAIL）。
 
@@ -503,6 +561,28 @@ def check_approval_binding(a: Audit) -> None:
           PASS if not missing else FAIL, "；".join(missing))
 
 
+def check_worktree_clean(a: Audit) -> None:
+    """工作区干净度（V4.5，2026-09-23）：registry 绑的 commit 是否就是当前代码。
+
+    ``git_commit`` 只在**登记那一刻**写入。若工作区带着未提交改动，读侧就无法
+    确定「当前跑的是不是那个已绑定版本」——本检查把这一不确定性显式化。
+
+    分级（刻意保守，避免自锁）：
+      - 干净              ⇒ PASS；
+      - 有未提交改动      ⇒ **WARN**（本地开发常态：跑审计时几乎总有在改的文件；
+        判 FAIL 会让 audit_health 常年 FAIL、并触发「审计 FAIL ⇒ 资格层 FAIL」的
+        自锁，与本项目 P1-9 的取舍同理）；
+      - git 不可用/非仓库 ⇒ **WARN**（不是「干净」——把查不到当干净是 fail-open）。
+    """
+    clean, detail = git_worktree_clean()
+    if clean is None:
+        a.add("P1-11", "P1-证据链", "工作区干净度（代码锚点可比）", WARN,
+              detail + "——无法确认当前代码与 registry 绑定版本一致")
+    else:
+        a.add("P1-11", "P1-证据链", "工作区干净度（代码锚点可比）",
+              PASS if clean else WARN, detail)
+
+
 def check_shadow_channels(a: Audit) -> None:
     src = BASE_DIR / "shadow_policy.py"
     txt = src.read_text(encoding="utf-8") if src.is_file() else ""
@@ -534,6 +614,14 @@ def check_legacy_archived(a: Audit) -> None:
 MANIFEST_REQUIRED_KEYS = ("run_id", "slot", "status", "data", "lookthrough",
                           "realtime", "degraded_reasons")
 """最新清单必须齐备的键——缺任一即「监控瞎眼」，属契约破坏（FAIL）。"""
+
+MANIFEST_STATUSES = ("SUCCESS", "DEGRADED", "FAILED")
+"""清单 status 词表 = run.py 三态退出码（0 / 2 / 1）的镜像（V4.5 P0，2026-09-23）。
+
+旧词表只有 SUCCESS / DEGRADED——与 README「0=SUCCESS / 2=DEGRADED / 1=FAILED」
+自相矛盾：run.py 一旦补上 FAILED 兜底清单，审计会把一份**合格**的失败证据判成
+「status 非三态词表」。三态在此显式收口，SUCCESS/DEGRADED 之外的**非法值**仍 FAIL。
+"""
 
 MID_CUTOFF = (11, 30)
 """午盘时点：早于此点，当日尚无「本应产出」的清单（11:30 mid 任务）。"""
@@ -611,7 +699,7 @@ def check_run_manifest(a: Audit, now: datetime | None = None) -> None:
     missing = [k for k in MANIFEST_REQUIRED_KEYS if k not in payload]
     if missing:
         problems.append(f"缺关键字段 {missing}（监控会瞎眼）")
-    if payload.get("status") not in ("SUCCESS", "DEGRADED"):
+    if payload.get("status") not in MANIFEST_STATUSES:
         problems.append(f"status 非三态词表（{payload.get('status')!r}）")
     try:
         assert_no_fund_codes(payload)
@@ -632,6 +720,16 @@ def check_run_manifest(a: Audit, now: datetime | None = None) -> None:
     if problems:
         a.add("P1-7", "P1-证据链", "运行清单已实际产出", FAIL,
               f"最新清单 {latest.name} 不合格：" + "；".join(problems))
+    elif payload.get("status") == "FAILED":
+        # V4.5 P0（2026-09-23）：FAILED 兜底清单是**合格证据**（三态之一、掩码合规），
+        # 但它如实报告「本次运行崩了」——不得当作 SUCCESS 放行。判 FAIL 让失败可
+        # 见（旧实况：09-23 post 轮崩了却无任何清单，审计只能看到「没有清单」）。
+        a.add("P1-7", "P1-证据链", "运行清单已实际产出", FAIL,
+              f"最新清单 {latest.name} status=FAILED"
+              f"（reason={payload.get('failure_reason')} · "
+              f"stage={payload.get('failure_stage')} · "
+              f"detail={payload.get('failure_detail') or '—'}）；"
+              f"异常原文见 output/logs/（本地，不入库）")
     elif stale:
         a.add("P1-7", "P1-证据链", "运行清单已实际产出", WARN,
               f"{len(files)} 份，但最新 {latest.name} 停在 {as_of}，"
@@ -1235,6 +1333,7 @@ def run_audit() -> Audit:
     check_manifest_freshness(a)
     check_manifest_scope_acyclic(a)
     check_registry_hash(a)
+    check_registry_paths(a)
     check_validation_binding(a)
     check_promotion_consistency(a)
     check_history_validated(a)
@@ -1243,6 +1342,7 @@ def run_audit() -> Audit:
     check_run_manifest(a)
     check_publish_gate(a)
     check_approval_binding(a)
+    check_worktree_clean(a)
     check_atomic_write(a)
     check_tushare_https(a)
     check_test_layering(a)

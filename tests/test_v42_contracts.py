@@ -110,6 +110,22 @@ class TestP1_7CurrentRunEvidence(ManifestHarness):
         self.assertEqual(status, ap.FAIL)
         self.assertIn("三态词表", detail)
 
+    def test_failed_status_is_in_vocabulary_but_still_fails_audit(self):
+        """V4.5 P0（2026-09-23）：FAILED 是合法三态值，但它如实报告「崩了」。
+
+        两个断言缺一不可——① 不得被判「非三态词表」（词表须与 README 三态退出码
+        对齐）；② 也不得被当 SUCCESS 放行（否则兜底清单反而洗白了失败）。
+        """
+        self.write(manifest(status="FAILED",
+                            **{"failure_reason": "exception:TypeError",
+                               "failure_stage": "[repo]", "failure_detail": "TypeError"}))
+        status, detail, meta = self.status()
+        self.assertEqual(status, ap.FAIL, detail)
+        self.assertNotIn("三态词表", detail)
+        self.assertIn("status=FAILED", detail)
+        self.assertIn("exception:TypeError", detail)
+        self.assertEqual(meta["status"], "FAILED")
+
     def test_unmasked_code_in_manifest_fails(self):
         """V4.1 ④ 的契约由审计常驻复核：清单里残留 6 位码 ⇒ FAIL。"""
         self.write(manifest(**{"data": {"ok": False, "failed": ["002112"],

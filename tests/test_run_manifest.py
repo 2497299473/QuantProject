@@ -212,5 +212,110 @@ class TestManifestFailureContract(unittest.TestCase):
         self.assertEqual(code, 0)
 
 
+class TestFailedManifestFallback(unittest.TestCase):
+    """V4.5 P0（2026-09-23）：异常必须留下 FAILED 清单，而非「无任何证据」。
+
+    实况驱动：09-23 14:55 post 轮在报告生成前抛异常 ⇒ 无报告、无清单、审计指针
+    不刷新，监控只看到「没有清单」。以下测例钉住三件事：兜底清单**存在**、**可被
+    审计按三态词表识别**、且**不泄露基金代码**（走同一掩码路径）。
+    """
+
+    def setUp(self):
+        self._orig = run.BASE_DIR
+        self._td = tempfile.TemporaryDirectory()
+        run.BASE_DIR = Path(self._td.name)
+        run._LOG.clear()
+        run._MANIFEST_WRITTEN = False
+        # 基准表：真实代码只在内存，落盘必须变 F1/F2
+        (Path(self._td.name) / "config.json").write_text(
+            json.dumps({"fund_pool": POOL}), encoding="utf-8")
+
+    def tearDown(self):
+        run.BASE_DIR = self._orig
+        run._MANIFEST_WRITTEN = False
+        run._LOG.clear()
+        self._td.cleanup()
+
+    def _manifests(self):
+        d = Path(self._td.name) / "output" / "run_manifest"
+        return sorted(d.glob("*.json")) if d.is_dir() else []
+
+    def test_exception_writes_failed_manifest_and_exit_1(self):
+        code = run._finalize_failed(datetime(2026, 9, 23, 14, 55, 4), "post",
+                                    "exception:TypeError", exc=TypeError("boom"))
+        self.assertEqual(code, 1, "失败必须映射 exit=1")
+        files = self._manifests()
+        self.assertEqual(len(files), 1, "异常后必须恰好留一份兜底清单")
+        self.assertEqual(files[0].name, "run_manifest_20260923_145504_post.json")
+        payload = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertEqual(payload["status"], "FAILED")
+        self.assertEqual(payload["failure_reason"], "exception:TypeError")
+        self.assertEqual(payload["failure_detail"], "TypeError")
+        self.assertEqual(payload["slot"], "post")
+        self.assertEqual(payload["run_id"], "20260923_145504_post")
+        # 齐备性：审计 MANIFEST_REQUIRED_KEYS 全在，否则监控判「瞎眼」
+        for key in ("run_id", "slot", "status", "data", "lookthrough",
+                    "realtime", "degraded_reasons"):
+            self.assertIn(key, payload)
+
+    def test_failed_manifest_passes_audit_three_state_vocabulary(self):
+        """兜底清单必须能被审计按三态词表**识别**（而不是判「非三态词表」）。"""
+        import audit_project as ap
+        run._finalize_failed(datetime(2026, 9, 23, 14, 55, 4), "post",
+                             "exception:TypeError", exc=TypeError("boom"))
+        orig = ap.RUN_MANIFEST_DIR
+        ap.RUN_MANIFEST_DIR = Path(self._td.name) / "output" / "run_manifest"
+        try:
+            a = ap.Audit()
+            ap.check_run_manifest(a, now=datetime(2026, 9, 23, 15, 0, 0))
+        finally:
+            ap.RUN_MANIFEST_DIR = orig
+        self.assertEqual(a.checks[0].status, ap.FAIL, a.checks[0].detail)
+        self.assertNotIn("三态词表", a.checks[0].detail)
+        self.assertIn("FAILED", a.checks[0].detail)
+
+    def test_exception_message_not_written_to_manifest(self):
+        """异常原文（可能含真实代码）只进本地日志；清单只留类名。"""
+        run._finalize_failed(datetime(2026, 9, 23, 14, 55, 4), "post",
+                             "exception:ValueError",
+                             exc=ValueError(f"bad fund {POOL[0]}"))
+        text = self._manifests()[0].read_text(encoding="utf-8")
+        for code in POOL:
+            self.assertNotIn(code, text, "清单不得写真实基金代码（P0-2）")
+        self.assertIn("ValueError", text)
+
+    def test_second_call_does_not_overwrite_richer_evidence(self):
+        """正常路径已落清单后若再抛异常，不得用 FAILED 覆盖那份更完整的证据。"""
+        run._write_run_manifest(datetime(2026, 9, 23, 14, 55, 4),
+                                {"slot": "post", "status": "SUCCESS",
+                                 "degraded_reasons": []}, POOL)
+        self.assertTrue(run._MANIFEST_WRITTEN)
+        code = run._finalize_failed(datetime(2026, 9, 23, 14, 55, 4), "post",
+                                    "exception:TypeError", exc=TypeError("x"))
+        self.assertEqual(code, 1, "退出码仍为失败")
+        files = self._manifests()
+        self.assertEqual(len(files), 1, "不得写出第二份清单")
+        payload = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertEqual(payload["status"], "SUCCESS", "已落盘的证据不得被降级覆盖")
+
+    def test_manifest_write_failure_still_returns_exit_1(self):
+        """兜底清单自身也写不出时，不得抛异常、不得改判成功。"""
+        run.BASE_DIR = Path(self._td.name) / "nul" / ("x" * 300)
+        code = run._finalize_failed(datetime(2026, 9, 23, 14, 55, 4), "post",
+                                    "exception:TypeError", exc=TypeError("x"))
+        self.assertEqual(code, 1)
+        self.assertTrue(any("兜底清单亦未落盘" in ln for ln in run._LOG), run._LOG)
+
+    def test_stage_from_log_extracts_tag_without_fund_codes(self):
+        run._LOG[:] = ["14:55:36 [stat] 002207 结构态 up|above~stale"]
+        self.assertEqual(run._stage_from_log(), "[stat]")
+        run._LOG[:] = []
+        self.assertEqual(run._stage_from_log(), "unknown")
+
+    def test_fund_pool_safe_survives_missing_config(self):
+        (Path(self._td.name) / "config.json").unlink()
+        self.assertEqual(run._fund_pool_safe(), [])
+
+
 if __name__ == "__main__":
     unittest.main()
