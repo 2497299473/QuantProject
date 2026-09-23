@@ -1,0 +1,80 @@
+== [0] 加载样本 ==
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=be8e55f02b39… n=3371））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+> 样本快照: FROZEN `samples_frozen_20260910.jsonl` · G-A PASS · G-B DRIFTED；K线指纹 DRIFTED，与历史锚点不可比
+  总样本 3371
+  按基金样本量: {'002112': 1530, '002207': 1530, '022853': 276, '025687': 35}
+
+== [1] 各周期标签可用样本（全池）==
+  fwd1: 3371
+  fwd2: 3371
+  fwd3: 3371
+  fwd5: 3371
+  fwd10: 3371
+  fwd20: 3371
+
+== [2] 时间切分：train < 2025-05-14（2438），OOS ≥ 2025-05-14（923）==
+
+=== Horizon T+1 ===
+  类别分布 up/flat/down = [904, 616, 918]
+  fold@0: 样本不足(tr=0,va=488) → 跳过
+  CV Brier(均) = 0.663（瞎猜基准 0.667；越低越好，可用 fold=4）
+  OOS Brier = 0.597
+  OOS 校准(up) ACE = 0.092
+    0.00~0.20 n=3 预测均=0.18 实际=0.67
+    0.20~0.40 n=435 预测均=0.34 实际=0.45
+    0.40~0.60 n=483 预测均=0.45 实际=0.47
+    0.60~0.80 n=2 预测均=0.62 实际=0.00
+  OOS Rank IC(up倾向 vs fwd1) = +0.049
+  OOS Rank IC 95% CI (cluster bootstrap, n=923样本/306日) = [-0.014, +0.114]
+  OOS Brier 95% CI = [0.585, 0.610]
+  基线梯队（OOS）：瞎猜 Brier=0.667 IC=0.000 │ 多数类 Brier=0.617 IC=0.000 │ est_chg IC=-0.013
+  decision_edge（审计，不进裁决）= +0.061 95% CI = [-0.042, +0.169]
+  → 裁决：❌ 不通过（需全部周期通过）
+
+=== Horizon T+3 ===
+  类别分布 up/flat/down = [1012, 349, 1077]
+  fold@0: 样本不足(tr=0,va=488) → 跳过
+  CV Brier(均) = 0.618（瞎猜基准 0.667；越低越好，可用 fold=4）
+  OOS Brier = 0.575
+  OOS 校准(up) ACE = 0.048
+    0.00~0.20 n=1 预测均=0.16 实际=1.00
+    0.20~0.40 n=163 预测均=0.33 实际=0.50
+    0.40~0.60 n=705 预测均=0.49 实际=0.50
+    0.60~0.80 n=54 预测均=0.62 实际=0.50
+  OOS Rank IC(up倾向 vs fwd3) = +0.048
+  OOS Rank IC 95% CI (cluster bootstrap, n=923样本/306日) = [-0.013, +0.109]
+  OOS Brier 95% CI = [0.559, 0.590]
+  基线梯队（OOS）：瞎猜 Brier=0.667 IC=0.000 │ 多数类 Brier=0.561 IC=0.000 │ est_chg IC=+0.025
+  decision_edge（审计，不进裁决）= +0.023 95% CI = [-0.075, +0.115]
+  → 裁决：❌ 不通过（需全部周期通过）
+
+=== Horizon T+5 ===
+  类别分布 up/flat/down = [1008, 284, 1146]
+  fold@0: 样本不足(tr=0,va=488) → 跳过
+  CV Brier(均) = 0.608（瞎猜基准 0.667；越低越好，可用 fold=4）
+  OOS Brier = 0.551
+  OOS 校准(up) ACE = 0.045
+    0.20~0.40 n=115 预测均=0.37 实际=0.38
+    0.40~0.60 n=778 预测均=0.49 实际=0.53
+    0.60~0.80 n=30 预测均=0.63 实际=0.50
+  OOS Rank IC(up倾向 vs fwd5) = -0.019
+  OOS Rank IC 95% CI (cluster bootstrap, n=923样本/306日) = [-0.080, +0.047]
+  OOS Brier 95% CI = [0.538, 0.564]
+  基线梯队（OOS）：瞎猜 Brier=0.667 IC=0.000 │ 多数类 Brier=0.546 IC=0.000 │ est_chg IC=-0.009
+  decision_edge（审计，不进裁决）= -0.011 95% CI = [-0.127, +0.103]
+  → 裁决：❌ 不通过（需全部周期通过）
+
+== [3] 特征重要性（全量，排列重要性，×10^2）==
+  est_chg=0.015, score=0.014, covered_pct=0.013, est_sign=0.000, breadth=0.000, concentration=0.000, composite=0.000
+
+========================================
+v5 多周期预测验证 · 汇总
+========================================
+  T+ 1: ❌ 不通过  {'ok': False, 'cv_brier': 0.663, 'oos_brier': 0.597, 'rank_ic': 0.049, 'ric_ci': [-0.014, 0.114], 'brier_ci': [0.585, 0.61], 'base_ic': -0.013, 'decision_edge': {'edge': 0.0615, 'edge_ci': [-0.0421, 0.1689]}, 'b_majority': 0.617, 'ace': np.float64(0.092), 'n_train': 2438, 'n_oos': 923}
+  T+ 3: ❌ 不通过  {'ok': False, 'cv_brier': 0.618, 'oos_brier': 0.575, 'rank_ic': 0.048, 'ric_ci': [-0.013, 0.109], 'brier_ci': [0.559, 0.59], 'base_ic': 0.025, 'decision_edge': {'edge': 0.0229, 'edge_ci': [-0.0755, 0.1148]}, 'b_majority': 0.561, 'ace': np.float64(0.048), 'n_train': 2438, 'n_oos': 923}
+  T+ 5: ❌ 不通过  {'ok': False, 'cv_brier': 0.608, 'oos_brier': 0.551, 'rank_ic': -0.019, 'ric_ci': [-0.08, 0.047], 'brier_ci': [0.538, 0.564], 'base_ic': -0.009, 'decision_edge': {'edge': -0.0106, 'edge_ci': [-0.1269, 0.1033]}, 'b_majority': 0.546, 'ace': np.float64(0.045), 'n_train': 2438, 'n_oos': 923}
+
+❌ 存在周期未通过/样本不足 → 维持占位预测（model_ready=false），本报告留档为证据。
+   改进方向：① 补更多历史净值/持仓快照；② 调 prob_flat_margin；③ 增加特征；④ 更长 OOS 观测。

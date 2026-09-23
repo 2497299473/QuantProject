@@ -1,0 +1,87 @@
+{
+  "kind": "validation_report",
+  "topic": "backtest_forecast",
+  "run_at": "2026-09-23T21:00:58",
+  "command": ".venv\\Scripts\\python.exe backtest_forecast.py  # 无参数 ⇒ 自动选最新冻结件",
+  "report_file": "backtest_forecast_0910frozen_20260923.log",
+  "report_sha256": "87fa2f5f04c32f7d685938ad9ea13efae2da2acdd3829e621db71b3cc5e7f55b",
+  "report_bytes": 4756,
+  "reproducibility": {
+    "method": "同一命令连跑两次，stdout 归一化行尾后逐行比对",
+    "byte_identical": true,
+    "note": "与 09-22 轮（output/backtest_forecast_v44_step2_20260922.log）结论一致：T+1 +0.049 / T+3 +0.048 / T+5 -0.019，三周期全 ❌"
+  },
+  "inputs": {
+    "samples_file": "forecast_outputs/samples_frozen_20260910.jsonl",
+    "samples_sha256": "0d59f663a5deaf936157b1dfa54045d8b3f5e5c77465caac987f68868be87d34",
+    "samples_meta_sha256": "c28c70541202544090cfeb62bbdb7943164929cf9aba43304cac16bdfdcd1f75",
+    "samples_n": 3371,
+    "samples_frozen_at": "2026-09-10T09:48:22",
+    "samples_date_range": [
+      "2020-04-27",
+      "2026-08-12"
+    ],
+    "kline_fingerprint_file": "forecast_outputs/kline_fingerprint_20260910.json",
+    "kline_fingerprint_sha256": "380354e20545f3bb0cba6d86bf0826ddbcd5b3ede1451c3ddcde5360a6548f9a",
+    "note": "G-A 内部完整性 PASS（sha=be8e55f02b39…）；G-B K线指纹 DRIFTED"
+  },
+  "code_commit": {
+    "head": "fc4f130194cbec8eba3c00d8fc92beb1bfc9071a",
+    "worktree_dirty": true,
+    "dirty_files": [
+      "M audit_project.py",
+      " M bind_provenance.py",
+      " M core/model_registry.py",
+      " M data/model_registry/registry.json",
+      " M run.py",
+      " M tests/test_provenance_binding.py",
+      " M tests/test_run_manifest.py",
+      " M tests/test_v42_contracts.py",
+      "?? evidence/"
+    ],
+    "note": "head 为落档时刻的提交；worktree_dirty=true 表示当时工作区带未提交改动，故 head **不**完全等于本次运行的代码状态。本文件如实记录，不冒充「干净运行」。"
+  },
+  "verdict": {
+    "horizons": {
+      "1": {
+        "decision": "rejected",
+        "rank_ic": 0.049,
+        "ric_ci": [
+          -0.014,
+          0.114
+        ],
+        "oos_brier": 0.597,
+        "n_oos": 923
+      },
+      "3": {
+        "decision": "rejected",
+        "rank_ic": 0.048,
+        "ric_ci": [
+          -0.013,
+          0.109
+        ],
+        "oos_brier": 0.575,
+        "n_oos": 923
+      },
+      "5": {
+        "decision": "rejected",
+        "rank_ic": -0.019,
+        "ric_ci": [
+          -0.08,
+          0.047
+        ],
+        "oos_brier": 0.551,
+        "n_oos": 923
+      }
+    },
+    "model_ready": false,
+    "bound_to_registry": false,
+    "unbound_reason": "**刻意不绑**：bind_validation 会覆盖 registry 里 forecast_v3.pkl 的 validation 报告哈希，而 data/promotion_prereg.json 的 shadow 降级授权把 forecast_v3.pkl 的 sha 与报告 sha 钉死到 2026-10-12（D3 判据）——绑定即当场 断掉 22:30 shadow 授权链。本报告仅作证据留档，不参与授权。",
+    "comparable_to_historical": false,
+    "comparability_note": "G-B DRIFTED ⇒ 本轮数字**不得**与 09-01 锚定轮次（registry 内 rank_ic 0.005/0.002/0.08、Brier 0.605/0.566/0.537）直接比。"
+  },
+  "privacy": {
+    "contains_holdings": false,
+    "note": "基金代码为公开研究标的；无份额/成本/账户金额。"
+  }
+}
