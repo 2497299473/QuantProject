@@ -1,7 +1,7 @@
 {
   "models": {
     "forecast_v2.pkl": {
-      "path": "/home/summer/QuantV1/data/models/forecast_v2.pkl",
+      "path": "data/models/forecast_v2.pkl",
       "sha256": "a0c309641dfb0a5eb5d30466c9fb2f470b8645a5f3dc1d71181cebbdc1dade69",
       "size_bytes": 901088,
       "registered_at": "2026-08-30T11:00:17",
@@ -98,7 +98,7 @@
       }
     },
     "forecast_v3.pkl": {
-      "path": "/home/summer/QuantV1/data/models/forecast_v3.pkl",
+      "path": "data/models/forecast_v3.pkl",
       "sha256": "7b66ce123dfd577af0c81d21cb2db3d4fc3d3d8d8430d812202db5da042606c5",
       "size_bytes": 899273,
       "registered_at": "2026-08-31T08:22:23",

@@ -192,7 +192,23 @@ def main() -> int:
     ap.add_argument("--model", action="append", default=None,
                     help="只绑定指定模型键（可重复）；缺省 = registry 全部条目")
     ap.add_argument("--dry-run", action="store_true", help="只打印不写入")
+    ap.add_argument("--normalize-paths", action="store_true",
+                    help="V4.5：把 registry 里的旧绝对路径归一为仓库相对路径"
+                         "（只动 path 字段，不动任何证据字段）；配 --dry-run 只报告")
     args = ap.parse_args()
+
+    if args.normalize_paths:
+        changed, details = mr.normalize_registry_paths(dry_run=args.dry_run)
+        for d in details:
+            print(f"[path] {d}")
+        if not details:
+            print("== 无需归一（无绝对路径条目）==")
+            return 0
+        print(f"== {len(details)} 条路径待归一 =="
+              + ("（dry-run，未写入）" if args.dry_run else
+                 ("，已写入" if changed else "，但写入失败")))
+        return 0 if (args.dry_run or changed) else 1
+
     keys = args.model or sorted(mr.load_registry()["models"])
     return bind(keys, args.dry_run)
 

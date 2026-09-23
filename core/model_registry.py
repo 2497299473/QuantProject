@@ -26,6 +26,13 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "data" / "model_registry"
 REGISTRY_PATH = MODELS_DIR / "registry.json"
+PKL_DIR = BASE_DIR / "data" / "models"
+"""权重 pkl 的落盘目录（注意与 ``MODELS_DIR`` 区分：后者是**注册表**目录）。
+
+命名历史遗留：``MODELS_DIR`` 指的是 ``data/model_registry/``（本模块的 registry.json
+所在地），而权重在 ``data/models/``（``forecast_engine.MODELS_DIR``）。V4.5 归一化
+需要按条目名回推权重路径，故显式声明，避免再拿 ``MODELS_DIR`` 去拼 pkl 路径。
+"""
 
 
 def _file_sha256(path: Path) -> str:
@@ -34,6 +41,24 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def tracked_path(pkl_path: Path) -> str:
+    """pkl → 仓库相对路径（**正斜杠**），仓库根外或无法相对化时退回文件名。
+
+    V4.5（2026-09-23）：``entry["path"]`` 的单一来源。旧实况里该字段是
+    ``/home/summer/QuantV1/data/models/forecast_v2.pkl`` —— WSL 时代写入的绝对路径，
+    Windows 迁移后**永远指不到真实文件**（消费点只能靠 ``Path(...).name`` 兜底，
+    而路径字段本身已经不可判读）。改存相对路径：跨机器可读、无本地绝对路径泄漏、
+    与 ``provenance.git_tracked_path`` 同口径（一处定义，两处引用）。
+
+    不写绝对路径的另一理由：``output/run_manifest/`` 与 registry 均随仓库跟踪，
+    落盘本地绝对路径既不可跨环境判读，也把运行账户名带进仓库。
+    """
+    try:
+        return pkl_path.resolve().relative_to(BASE_DIR.resolve()).as_posix()
+    except (ValueError, OSError):
+        return pkl_path.name
 
 
 def load_registry() -> dict:
@@ -90,6 +115,36 @@ def capture_provenance() -> dict:
     return out
 
 
+def _is_absolute_path_str(p: str) -> bool:
+    """Unix 绝对路径（``/`` 开头）或 Windows 绝对路径（盘符）。"""
+    return bool(p) and (p.startswith("/") or (len(p) > 1 and p[1] == ":"))
+
+
+def normalize_registry_paths(dry_run: bool = False) -> tuple[bool, list[str]]:
+    """把 registry 里的旧绝对路径就地归一为仓库相对路径（V4.5，2026-09-23）。
+
+    历史遗留：两个条目都存着 WSL 时代绝对路径（``/home/summer/QuantV1/...``），
+    Windows 迁移后不可判读，却因消费点用 ``Path(...).name`` 兜底而**静默通过**
+    （审计 P1-10 现把它显式化）。本函数按 ``tracked_path`` 的单一来源重写 path——
+    **只动路径措辞，不动 sha256 / validation / promotion / provenance 等任何证据
+    字段**；registry 的其余字节保持原样。
+
+    返回 ``(changed, details)``；``dry_run=True`` 只报告不落盘。
+    """
+    reg = load_registry()
+    details: list[str] = []
+    for name, entry in (reg.get("models") or {}).items():
+        raw = str(entry.get("path") or "")
+        if not _is_absolute_path_str(raw):
+            continue
+        new = tracked_path(PKL_DIR / name)
+        details.append(f"{name}: {raw} → {new}")
+        entry["path"] = new
+    if not details or dry_run:
+        return bool(details), details
+    return _save_registry(reg), details
+
+
 def register_model(pkl_path: Path, meta: dict,
                    snapshot_provenance: dict | None = None) -> str | None:
     """把 pkl 登记进注册表，返回 sha256（失败返回 None）。
@@ -118,7 +173,7 @@ def register_model(pkl_path: Path, meta: dict,
     prov = capture_provenance()
     sp = snapshot_provenance or {}
     entry = {
-        "path": str(pkl_path),
+        "path": tracked_path(pkl_path),
         "sha256": digest,
         "size_bytes": pkl_path.stat().st_size,
         "registered_at": datetime.now().isoformat(timespec="seconds"),
@@ -138,6 +193,11 @@ def register_model(pkl_path: Path, meta: dict,
         v = sp.get(k)
         if v is not None:
             entry["snapshot_provenance"][k] = str(v)
+    # 历史条目的旧绝对路径在此就地归一（V4.5，2026-09-23）：下次登记该 pkl 时
+    # 自动把 WSL 时代绝对路径改成仓库相对路径，无需单独跑迁移脚本。
+    for old_name, old_entry in reg["models"].items():
+        if _is_absolute_path_str(str(old_entry.get("path") or "")):
+            old_entry["path"] = tracked_path(PKL_DIR / old_name)
     reg["models"][key] = entry
     return digest if _save_registry(reg) else None
 
