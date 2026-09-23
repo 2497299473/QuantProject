@@ -25,7 +25,7 @@
 - T+5 方向: **UNRESOLVED（V4.3 P0-4 证据清理，2026-09-20）**（当前结论 = 09-18 C2/CTRL WF 部署式 pooled RankIC **-0.079** CI[-0.158,-0.016]，不显著；**+0.080** CI[+0.020,+0.140] 为 2026-09-01 冻结模型 pooled 档案值（09-08 WF 曾 +0.089），已被特征非不变性（TTL 重取追溯改写历史 close）复算推翻——仅存档，不再引用为当前结论或门槛）
 - Walk-Forward: **PARTIAL**（wf_partial：重训救不回最近两折 → regime shift 而非模型老化）
 - T+3 三拆（研究轨，2026-09-18）: **三尺度均不显著，「仅点估计」维持**（D-lite 冻结面板 a158+LGB WF：pooled +0.0299 CI[-0.0061,+0.0647] / CS 日均 +0.009 CI[-0.0236,+0.0365]（333日，宽≥4） / TS 成员均 +0.0218 正值占比 0.652<2/3（23员，n≥60）；pool17 敏感性同向更弱；判据见 forecast_lab_prereg_T3decomp_20260918.md，生产轨 C2 重跑另行授权）
-- Quantile: **CALIBRATED（CV conformal-style 诊断）**（原始 coverage 57~62% 过窄，CQR 后 ~76%；不绑 registry）
+- Quantile: **CALIBRATED（CV conformal-style 诊断）**（09-23 在 0910 冻结件重出：原始 coverage 51.9~59.4% 过窄，CQR 外扩后 73.8~76.3% 入带宽 70%~90%；G-B DRIFTED ⇒ 与 09-01 锚定轮次绝对值不可直接比；不绑 registry）
 - CQR-WF: **DEPLOYMENT-STYLE READY（观察层）**（09-01 P1-③：逐折折内 split-conformal，T+1/3/5 pooled cov 85.6%/87.7%/84.2% 全部入带宽，qhat 折间窄；正式口径仍以 calib 报告为准）
 - Path: **OBSERVATION ONLY**（v1.3 基金级 20 交易日 σ，RECENT_WINDOW 冻结；Path-WF pooled hit mdd10 10.8% ≈ 期望 10%，mfe50 31% 低估观察中）
 - Path-WF: **OBSERVATION（部署式逐折校准）**（折间 hit 波动大 → 已接 Drift 监控）
