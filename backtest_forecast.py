@@ -44,20 +44,53 @@ RNG = random.Random(42)
 
 
 # ---------- 指标 ----------
-def brier_multiclass(y_true: np.ndarray, proba: np.ndarray) -> float:
-    """多类 Brier Score（越低越好，0=完美，0.667=三分类瞎猜）。"""
+# B++-5（2026-09-23）：指标「不足/不可算」与真实 0 分离——
+# status 核心（*_status）返回 (value|None, status)（core.validation_schema 四态），
+# 证据层只吃 status 核心；遗留函数变薄外壳，哨兵行为逐位保留（rank_ic <10 → 0.0、
+# NaN → 0.0；brier 空输入 → 0.0；calib 空输入 → ace=1.0），十余个既有消费方
+# （lofo / walk_forward / rolling_oos / experiments…）零改动兼容，既有统计行为
+# 不一次性大改。
+def brier_multiclass_status(y_true, proba) -> tuple[float | None, str]:
+    """多类 Brier status 核心：空输入/形状不良/标签越界 → (None, NOT_COMPUTABLE)。
+
+    与遗留外壳的唯一分叉：n==0 时历史哨兵 0.0 在这里是 (None, NOT_COMPUTABLE)
+    ——空样本没有 Brier 可言，0.0 是「完美」的语义，不能被空样本冒领。
+    """
+    proba = np.asarray(proba, dtype=float)
+    if proba.ndim != 2 or proba.shape[0] == 0:
+        return None, validation_schema.STATUS_NOT_COMPUTABLE
     n, k = proba.shape
-    if n == 0:
-        return 0.0
+    yt = np.asarray(y_true)
+    if (len(yt) != n or np.any(yt.astype(int) != yt)
+            or yt.min() < 0 or yt.max() >= k):
+        return None, validation_schema.STATUS_NOT_COMPUTABLE
     onehot = np.zeros((n, k))
-    onehot[np.arange(n), y_true] = 1.0
-    return float(np.mean(np.sum((proba - onehot) ** 2, axis=1)))
+    onehot[np.arange(n), yt.astype(int)] = 1.0
+    return (float(np.mean(np.sum((proba - onehot) ** 2, axis=1))),
+            validation_schema.STATUS_OK)
+
+
+def brier_multiclass(y_true: np.ndarray, proba: np.ndarray) -> float:
+    """多类 Brier Score（越低越好，0=完美，0.667=三分类瞎猜）。
+
+    B++-5：brier_multiclass_status 的遗留外壳——空输入沿用历史哨兵 0.0
+    （这不是测量值），既有消费方行为逐位不变；证据层一律走 status 核心。
+    """
+    val, _ = brier_multiclass_status(y_true, proba)
+    return 0.0 if val is None else float(val)
 
 
 def calibration_curve(y_bool: np.ndarray, p: np.ndarray, nbins: int = 5) -> dict:
-    """二值校准曲线：每桶预测概率 vs 实际频率。返回平均绝对校准误差(ACE)。"""
+    """二值校准曲线：每桶预测概率 vs 实际频率（B++-5 返回新增 status 键）。
+
+    bins/ace 数值与历史逐位一致（纯增量键，既有消费方只读 'ace' 不受影响）：
+    空输入或无样本落入 [0,1] 域（无有效桶）→ status=NOT_COMPUTABLE，此时
+    ace=1.0 是哨兵不是测量值；正常路径 → status=OK，ace 为真测量值（含真实 0.0）。
+    """
+    p = np.asarray(p, dtype=float)
     if len(p) == 0:
-        return {"bins": [], "ace": 1.0}
+        return {"bins": [], "ace": 1.0,
+                "status": validation_schema.STATUS_NOT_COMPUTABLE}
     edges = np.linspace(0, 1, nbins + 1)
     ace = 0.0
     bins = []
@@ -74,16 +107,34 @@ def calibration_curve(y_bool: np.ndarray, p: np.ndarray, nbins: int = 5) -> dict
         ace += abs(mid - freq) * mask.sum()
         bins.append({"bin": f"{lo:.2f}~{hi:.2f}", "n": int(mask.sum()),
                      "avg_p": float(p[mask].mean()), "freq": freq})
-    return {"bins": bins, "ace": ace / len(p)}
+    if not bins:
+        return {"bins": [], "ace": 1.0,
+                "status": validation_schema.STATUS_NOT_COMPUTABLE}
+    return {"bins": bins, "ace": ace / len(p), "status": validation_schema.STATUS_OK}
+
+
+def rank_ic_status(xs, ys) -> tuple[float | None, str]:
+    """Rank IC status 核心：<10 样本或 spearman NaN（恒值序列等）→ (None, NOT_COMPUTABLE)。
+
+    真实 0 分（如对称构造 rho 恰为 0）→ (0.0, OK)——与「不可算」正式分家。
+    """
+    from scipy.stats import spearmanr
+    if len(xs) != len(ys) or len(xs) < 10:
+        return None, validation_schema.STATUS_NOT_COMPUTABLE
+    r, _ = spearmanr(xs, ys)
+    if r != r:                                   # NaN（恒值输入等）
+        return None, validation_schema.STATUS_NOT_COMPUTABLE
+    return float(r), validation_schema.STATUS_OK
 
 
 def rank_ic(xs: list[float], ys: list[float]) -> float:
-    """Spearman 秩相关（Rank IC）。"""
-    from scipy.stats import spearmanr
-    if len(xs) < 10:
-        return 0.0
-    r, _ = spearmanr(xs, ys)
-    return float(r) if r == r else 0.0
+    """Spearman 秩相关（Rank IC）。
+
+    B++-5：rank_ic_status 的遗留外壳——<10 与 NaN 沿用历史哨兵 0.0（不是
+    测量值），既有消费方逐位不变；证据层一律走 status 核心。
+    """
+    val, _ = rank_ic_status(xs, ys)
+    return 0.0 if val is None else float(val)
 
 
 def split_date_oos(samples: list[dict], ratio: float = 0.8,
@@ -250,50 +301,59 @@ def evidence_node_from_rows(score_up, base_vec, yret, dates, p_train,
     b = np.asarray(base_vec, dtype=float)
     dl = list(dates)
 
-    def _const(a) -> bool:
-        fin = a[np.isfinite(a)]
-        return len(np.unique(fin)) <= 1
-
-    def _ric(x, y) -> float:
-        return rank_ic(x.tolist(), y.tolist())
+    def _ric_st(x, y):
+        """B++-5：status 核心直取——恒值/样本不足 → (None, NOT_COMPUTABLE)，真实 0 保留。"""
+        return rank_ic_status(x.tolist(), y.tolist())
 
     node = validation_schema.metric_node()
     node["n"] = validation_schema.ev_ok(int(len(yr)))
-    yr_const = _const(yr)
-    node["rank_ic"] = (_ev_nc() if yr_const or _const(s)
-                       else validation_schema.ev_ok(round(_ric(s, yr), 3)))
-    node["base_ic"] = (_ev_nc() if yr_const or _const(b)
-                       else validation_schema.ev_ok(round(_ric(b, yr), 3)))
-    if node["rank_ic"]["status"] == validation_schema.STATUS_OK:
+    ric_v, ric_st = _ric_st(s, yr)
+    base_v, base_st = _ric_st(b, yr)
+    node["rank_ic"] = (validation_schema.ev_ok(round(ric_v, 3))
+                       if ric_st == validation_schema.STATUS_OK
+                       else validation_schema.ev_na(ric_st))
+    node["base_ic"] = (validation_schema.ev_ok(round(base_v, 3))
+                       if base_st == validation_schema.STATUS_OK
+                       else validation_schema.ev_na(base_st))
+    if ric_st == validation_schema.STATUS_OK:
         node["rank_ic_ci"] = _ev_ci(cluster_bootstrap_ci(
-            lambda sub: _ric(sub["x"], sub["y"]), {"x": s, "y": yr}, dl))
+            lambda sub: rank_ic(sub["x"].tolist(), sub["y"].tolist()),
+            {"x": s, "y": yr}, dl))
     else:
-        # 退化输入（恒值序列）不进 bootstrap——rank_ic 的 NaN→0.0 强转
-        # 会把不可算伪装成 [0.0, 0.0] 假 CI（正是三态纪律要禁的混装）。
+        # 退化输入（恒值序列）不进 bootstrap——遗留 rank_ic 的 0.0 哨兵会把
+        # 不可算伪装成 [0.0, 0.0] 假 CI（正是三态纪律要禁的混装）。
         node["rank_ic_ci"] = _ev_nc()
-    if node["rank_ic"]["status"] == validation_schema.STATUS_OK \
-            and node["base_ic"]["status"] == validation_schema.STATUS_OK:
-        node["decision_edge"] = validation_schema.ev_ok(
-            round(_ric(s, yr) - _ric(b, yr), 3))
+    if ric_st == validation_schema.STATUS_OK and base_st == validation_schema.STATUS_OK:
+        node["decision_edge"] = validation_schema.ev_ok(round(ric_v - base_v, 3))
         node["decision_edge_ci"] = _ev_ci(cluster_bootstrap_ci(
-            lambda sub: _ric(sub["x"], sub["y"]) - _ric(sub["e"], sub["y"]),
+            lambda sub: rank_ic(sub["x"].tolist(), sub["y"].tolist())
+            - rank_ic(sub["e"].tolist(), sub["y"].tolist()),
             {"x": s, "e": b, "y": yr}, dl))
     else:
         node["decision_edge"] = _ev_nc()
         node["decision_edge_ci"] = _ev_nc()
     if po is not None and yo is not None and len(po) == len(yr):
-        node["brier"] = validation_schema.ev_ok(round(brier_multiclass(yo, po), 3))
-        node["brier_ci"] = _ev_ci(cluster_bootstrap_ci(
-            lambda sub: brier_multiclass(sub["y"], sub["p"]),
-            {"y": yo, "p": po}, dl))
+        b_v, b_st = brier_multiclass_status(yo, po)
+        node["brier"] = (validation_schema.ev_ok(round(b_v, 3))
+                         if b_st == validation_schema.STATUS_OK
+                         else validation_schema.ev_na(b_st))
+        if b_st == validation_schema.STATUS_OK:
+            node["brier_ci"] = _ev_ci(cluster_bootstrap_ci(
+                lambda sub: brier_multiclass(sub["y"], sub["p"]),
+                {"y": yo, "p": po}, dl))
+        else:
+            node["brier_ci"] = _ev_nc()
         onehot = np.zeros((len(yr), 3))
         onehot[np.arange(len(yr)), yo] = 1.0
         pt = np.asarray(p_train, dtype=float)
         node["b_majority"] = validation_schema.ev_ok(round(
             float(np.mean(np.sum((onehot - pt) ** 2, axis=1))), 3))
         y_up = (yo == 2).astype(int)
-        node[validation_schema.MIDPOINT_CALIBRATION_ERROR_KEY] = validation_schema.ev_ok(
-            round(calibration_curve(y_up, po[:, 2])["ace"], 3))
+        calib = calibration_curve(y_up, po[:, 2])
+        node[validation_schema.MIDPOINT_CALIBRATION_ERROR_KEY] = (
+            validation_schema.ev_ok(round(calib["ace"], 3))
+            if calib["status"] == validation_schema.STATUS_OK
+            else validation_schema.ev_na(calib["status"]))
     return node
 
 
