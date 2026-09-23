@@ -162,6 +162,25 @@ def auto_slot(now: datetime | None = None) -> str:
 OBSIDIAN_LOG = Path(r"D:\Obsidian\My-First-Obsidian\量化交易工具\基金日频参谋-信号流水-2026.md")
 
 
+def _configured_obsidian_log() -> Path | None:
+    """P0-3（2026-09-23）：Obsidian 流水路径配置化。
+
+    单一事实来源 = config.notify.obsidian_signal_log（绝对路径，或相对项目根）；
+    留空/删键 = 禁用 Obsidian 流水追加（静默跳过，不算 degraded）；
+    config.json 缺失/损坏 → 回退旧默认路径（保持原有行为）。模块级 OBSIDIAN_LOG
+    仅作为该回退值保留，不再是运行时事实来源。
+    """
+    try:
+        cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+        raw = str((cfg.get("notify") or {}).get("obsidian_signal_log") or "").strip()
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return OBSIDIAN_LOG
+    if not raw:
+        return None
+    p = Path(raw)
+    return p if p.is_absolute() else BASE_DIR / p
+
+
 def _write_text_atomic(path: Path, text: str) -> None:
     """原子写（tmp + os.replace）：只替换这一个文件，绝不整目录/整文件重排。"""
     tmp = path.with_name(path.name + ".tmp")
@@ -170,8 +189,11 @@ def _write_text_atomic(path: Path, text: str) -> None:
 
 
 def append_obsidian_log(slot: str, signals: dict, account: dict, now,
-                        path: Path = OBSIDIAN_LOG) -> bool:
+                        path: Path | None = None) -> bool:
     """盘后把当日信号追加一行到 Obsidian 信号流水（只记盘后、只记交易日）。
+
+    路径解析（P0-3，2026-09-23）：path 未指定 → config.notify.obsidian_signal_log
+    （留空 = 禁用，静默跳过不算 degraded；config 缺失/损坏 → 回退 OBSIDIAN_LOG）。
 
     设计（2026-08-23 用户确认）：盘前/盘中是过程态，盘后才是当日定论 → 一天 1 行。
     文件不存在时自动创建并写表头。
@@ -181,6 +203,11 @@ def append_obsidian_log(slot: str, signals: dict, account: dict, now,
     并存，读者无从判断哪行才是当日定论。实现只做**单行替换 + 原子写**：其余行逐字节
     不动（09-18 已发生过「读-改-写整文件」把历史小节抹掉的事故，此处不再给那种机会）。
     """
+    if path is None:
+        path = _configured_obsidian_log()
+        if path is None:
+            log("[obs ] 未配置 Obsidian 信号流水路径（notify.obsidian_signal_log 留空）→ 跳过追加")
+            return False
     if slot != "post" or not is_trading_day(now):
         return False
     icon = report_generator.STANCE_ICON

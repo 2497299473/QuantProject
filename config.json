@@ -125,7 +125,9 @@
   },
   "notify": {
     "provider": "feishu",
-    "degrade_to_local": true
+    "degrade_to_local": true,
+    "obsidian_signal_log": "D:\\Obsidian\\My-First-Obsidian\\量化交易工具\\基金日频参谋-信号流水-2026.md",
+    "_obsidian_signal_log_note": "P0-3（2026-09-23）：盘后信号流水的 Obsidian 绝对路径从 run.py 硬编码移入配置（换机器/换笔记库只改此处）。相对路径按项目根解析；留空或删键 = 禁用 Obsidian 流水追加（静默跳过，不算 degraded）。"
   },
   "risk_boundary": "只出参考建议，绝不自动下单"
 }

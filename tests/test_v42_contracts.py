@@ -318,5 +318,65 @@ class TestSignalJournalIdempotency(unittest.TestCase):
         self.assertEqual(list(Path(self._td.name).glob("*.tmp")), [])
 
 
+class TestObsidianLogConfigured(unittest.TestCase):
+    """P0-3（2026-09-23）：Obsidian 流水路径配置化（notify.obsidian_signal_log）。
+
+    单一事实来源 = config.json；留空/删键 = 禁用（静默跳过不算 degraded）；
+    config 缺失/损坏 → 回退旧默认路径（保持原有行为）。
+    """
+
+    SIGNALS = {"002112": {"stance": "中性", "score": 1}}
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.root = Path(self._td.name)
+        self._old_base = run.BASE_DIR
+        run.BASE_DIR = self.root          # _configured_obsidian_log 读模块级 BASE_DIR
+        run._LOG.clear()
+
+    def tearDown(self):
+        run.BASE_DIR = self._old_base
+        run._LOG.clear()
+        self._td.cleanup()
+
+    def _write_cfg(self, notify):
+        (self.root / "config.json").write_text(
+            json.dumps({"notify": notify}), encoding="utf-8")
+
+    def test_absolute_path_from_config(self):
+        self._write_cfg({"obsidian_signal_log": r"C:\tmp\journal.md"})
+        self.assertEqual(run._configured_obsidian_log(), Path(r"C:\tmp\journal.md"))
+
+    def test_relative_path_resolves_against_root(self):
+        self._write_cfg({"obsidian_signal_log": "notes/journal.md"})
+        self.assertEqual(run._configured_obsidian_log(),
+                         self.root / "notes" / "journal.md")
+
+    def test_empty_or_missing_key_disables(self):
+        self._write_cfg({"obsidian_signal_log": "   "})
+        self.assertIsNone(run._configured_obsidian_log())
+        self._write_cfg({})
+        self.assertIsNone(run._configured_obsidian_log())
+
+    def test_corrupted_config_falls_back_to_default(self):
+        (self.root / "config.json").write_text("{ not json", encoding="utf-8")
+        self.assertEqual(run._configured_obsidian_log(), run.OBSIDIAN_LOG)
+
+    def test_append_with_none_path_uses_config(self):
+        target = self.root / "journal.md"
+        self._write_cfg({"obsidian_signal_log": str(target)})
+        ok = run.append_obsidian_log("post", self.SIGNALS, {"positions": []},
+                                     NOW, path=None)
+        self.assertTrue(ok)
+        self.assertTrue(target.exists())
+
+    def test_append_disabled_when_config_empty(self):
+        self._write_cfg({"obsidian_signal_log": ""})
+        ok = run.append_obsidian_log("post", self.SIGNALS, {"positions": []},
+                                     NOW, path=None)
+        self.assertFalse(ok)
+        self.assertEqual(list(self.root.glob("*.md")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
