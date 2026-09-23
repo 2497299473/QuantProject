@@ -36,7 +36,11 @@ def main() -> int:
     args = ap.parse_args()
 
     print("== [1] 加载样本（PIT 口径）==")
-    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    # B 契约 §15-B3（2026-09-23）：与 backtest_forecast 同口径——入口保留全部
+    # 特征行（require_fwds=()），各 horizon 标签由引擎按 fwd{h} 逐行过滤；
+    # 短周期训练样本不再被 fwd20 连坐截断时间末端。
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR,
+                                         lambda: load_samples(require_fwds=()))
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
     # V4.3.1 ④：训练日志首行区必须记录样本快照——模型基于哪份冻结件训练，

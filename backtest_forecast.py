@@ -257,7 +257,13 @@ def main() -> int:
     flat_margin = fc.get("prob_flat_margin", 0.003)
 
     print("== [0] 加载样本 ==")
-    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    # B 契约 §15-B3（2026-09-23）：Forecast 短周期不再被 fwd20 连坐——入口保留
+    # 全部特征行（require_fwds=()），各 horizon 的标签可用性由 build_xy 按
+    # fwd{h} 逐行过滤（既有逻辑），fwd1/3/5 各自拥有独立可用样本集合。
+    # 冻结件路径不受影响（jsonl 行按落盘内容消费）；freeze_samples/spread 等
+    # 消费方维持默认 FWD_LIST 口径，本批不改。
+    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR,
+                                         lambda: load_samples(require_fwds=()))
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
     # V4.3.1 ④：报告首行区必须原样记录样本快照（DRIFTED/INCOMPLETE/UNKNOWN/FRESH

@@ -618,10 +618,16 @@ def bind_feature_protocol(pkl_name: str, protocol: dict) -> bool:
 
 
 def verify_feature_protocol(pkl_name: str, expected: dict) -> tuple[bool, str]:
-    """校验登记协议与引擎当前协议一致。返回 (ok, reason)。
+    """校验登记协议与引擎当前协议逐字段严格一致（B 契约 §15-B2，2026-09-23）。
 
-    ok=False 的 reason ∈ {"no_entry", "no_protocol", "feature_keys_mismatch",
-    "feature_dim_mismatch", "masking_mismatch"}。
+    校验范围：protocol_version / feature_keys / n_features / feature_dim /
+    masking 整块（enabled+layout+missing_value+mask_value）exact 比较。
+    旧实现只比 keys/dim/enabled——布局翻转（value_then_mask → mask_then_value）
+    或填充值漂移在维度不变时无法被发现，属于「契约在、语义已漂」。
+
+    ok=False 的 reason ∈ {"no_entry", "no_protocol", "protocol_version_mismatch",
+    "feature_keys_mismatch", "n_features_mismatch", "feature_dim_mismatch",
+    "masking_mismatch"}。
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
@@ -630,11 +636,14 @@ def verify_feature_protocol(pkl_name: str, expected: dict) -> tuple[bool, str]:
     proto = entry.get("feature_protocol")
     if proto is None:
         return False, "no_protocol"
+    if int(proto.get("protocol_version", -1)) != int(expected.get("protocol_version", -2)):
+        return False, "protocol_version_mismatch"
     if list(proto.get("feature_keys", [])) != list(expected.get("feature_keys", [])):
         return False, "feature_keys_mismatch"
+    if int(proto.get("n_features", -1)) != int(expected.get("n_features", -2)):
+        return False, "n_features_mismatch"
     if int(proto.get("feature_dim", -1)) != int(expected.get("feature_dim", -2)):
         return False, "feature_dim_mismatch"
-    if bool((proto.get("masking") or {}).get("enabled")) != bool(
-            (expected.get("masking") or {}).get("enabled")):
+    if proto.get("masking") != expected.get("masking"):
         return False, "masking_mismatch"
     return True, "ok"

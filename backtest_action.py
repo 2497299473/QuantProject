@@ -17,7 +17,7 @@
 5. 权重与阈值 = config.decision 当前值（GPT 建议框架初始值）
 
 判定标准（事先写死）：
-- A. ADD 桶平均优势 > 0 且 bootstrap 95% CI 下界 > 0
+- A. ADD 桶平均优势 > 0 且 bootstrap（按交易日聚类，B 契约 §8）95% CI 下界 > 0
 - B. REDUCE 桶平均优势 > 0 且 CI 下界 > 0
 - C. 前后两半 ADD 优势方向一致（均为 >0，防时段依赖）
 - D. 阈值区分度：倾向分 ≥60 桶优势 > 中间桶（-20~20）
@@ -26,36 +26,48 @@ A+B+C+D 全过 → 可人工评估把 history_validated 置 true（仍需复核�
 
 用法：python3 backtest_action.py
 """
-import random
 import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
+from backtest_forecast import cluster_bootstrap_ci   # B 契约 §8：唯一 bootstrap 实现，禁止另造
 from backtest_spread import load_samples   # 复用样本构建（含缓存、防前视）
 from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from core import decision_engine
 
 
-def bootstrap_ci(vals, n_boot=5000, seed=42):
-    rng = random.Random(seed)
-    n = len(vals)
-    if n < 5:
-        return 0.0, 0.0
-    means = []
-    for _ in range(n_boot):
-        means.append(sum(rng.choice(vals) for _ in range(n)) / n)
-    means.sort()
-    return means[int(len(means) * 0.025)], means[int(len(means) * 0.975)]
+def bootstrap_ci(vals, dates, n_boot=999, seed=42):
+    """ADD/REDUCE 桶优势 95% CI —— B 契约 §8（2026-09-23）：统一按交易日聚类重抽样。
+
+    旧实现逐基金日行独立 bootstrap（rng.choice 单条重抽），把同日多基金当成
+    独立样本，会高估有效样本量、CI 偏乐观——与 Forecast 层已建立的按日聚类
+    纪律不一致。现复用 backtest_forecast.cluster_bootstrap_ci（按日整块重抽），
+    不另造第二套 bootstrap。
+
+    vals/dates 严格同序。交易日 <10 或重抽统计不足 → (nan, nan)：调用方
+    「CI 下界 > 0」判定对 nan 恒 False，自然 fail-closed（诚实不足，不造 0.0）。
+    返回口径与旧实现一致：fractions（bucket() 内再 ×100 转百分比）。
+    """
+    lo, hi = cluster_bootstrap_ci(
+        lambda sub: float(np.mean(sub["v"])),
+        {"v": np.asarray(vals, dtype=float)},
+        list(dates), n_boot=n_boot, seed=seed)
+    return lo, hi
 
 
 def fmt_b(b):
     if not b:
         return "— | — | — | —"
-    return f"{b['n']} | {b['mean']:+.2f}% | {b['win']:.0f}% | [{b['ci'][0]:+.2f}%, {b['ci'][1]:+.2f}%]"
+    lo, hi = b["ci"]
+    ci_txt = (f"[{lo:+.2f}%, {hi:+.2f}%]" if lo == lo
+              else "n/a（交易日不足，fail-closed）")
+    return f"{b['n']} | {b['mean']:+.2f}% | {b['win']:.0f}% | {ci_txt}"
 
 
 def main() -> int:
@@ -109,7 +121,7 @@ def main() -> int:
             return None
         advs = [r["adv"] for r in sel]
         mean = sum(advs) / len(advs) * 100
-        lo, hi = bootstrap_ci(advs)
+        lo, hi = bootstrap_ci(advs, [r["date"] for r in sel])
         win = sum(1 for a in advs if a > 0) / len(advs) * 100
         return {"n": len(sel), "mean": mean, "win": win, "ci": (lo * 100, hi * 100)}
 
@@ -163,9 +175,11 @@ def main() -> int:
         "5. 权重/阈值 = config.decision 当前值（GPT 建议框架初始值，未经校准）",
         "6. （2026-09-22 重跑）旧报告（2026-08-25）曾把 account_state=None 误解为空仓，候选分含幽灵 +4（≈+1.63 倾向分，",
         "   恒定偏移：不改相对排序，但影响 ±60 穿越与桶归属）；本报告改用「维度不可用」语义",
+        "7. （2026-09-23 B 契约 §8）CI 改按交易日聚类重抽样（复用 Forecast 层唯一实现）：",
+        "   同日多基金=同一横截面整块重抽；交易日 <10 → CI 记 n/a，A/B 判定自然 fail-closed",
         "",
         "## 一、判定标准（事先写死）", "",
-        "- **A** ADD 桶平均优势 > 0 且 bootstrap 95% CI 下界 > 0",
+        "- **A** ADD 桶平均优势 > 0 且 bootstrap（按交易日聚类，B 契约 §8）95% CI 下界 > 0",
         "- **B** REDUCE 桶平均优势 > 0 且 CI 下界 > 0",
         "- **C** 前后两半 ADD 优势方向一致（均 >0，防时段依赖）",
         "- **D** 倾向分 ≥60 桶优势 > 中间桶（-20~20）",

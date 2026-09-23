@@ -44,6 +44,31 @@ FWD_LIST = (5, 10, 20)
 EXTRA_FWD = (1, 2, 3)
 SPLIT_DATE = "2023-09-21"  # 与 backtest_fusion 一致
 
+
+def _sample_row_complete(row: dict, require_fwds) -> bool:
+    """样本行保留判定：row 必须含 require_fwds 指定的全部 fwd 标签。
+
+    B 契约 §15-B3（2026-09-23）：样本构建与 target 可用性分离——保留条件
+    由调用方按所需 horizon 声明（Forecast 短周期 T+1/3/5 用 require_fwds=(1,3,5)，
+    不再被 fwd20 连坐截掉最近约 20 个交易日；默认 FWD_LIST 维持旧行为）。
+    """
+    return all(f"fwd{f}" in row for f in require_fwds)
+
+
+def _attach_excess10(samples: list[dict], funds: list[str]) -> None:
+    """原地补 excess10（各基金 fwd10 减自身全样本均值）。
+
+    fwd10 缺失的行（require_fwds 不含 10 时）安全跳过：不补 excess10、不报错；
+    既有完整样本的 excess10 逐位不变（B 契约 §15-B3 红线）。
+    """
+    for c in funds:
+        fwds = [s["fwd10"] for s in samples
+                if s["fund"] == c and s.get("fwd10") is not None]
+        base = sum(fwds) / len(fwds) if fwds else 0.0
+        for s in samples:
+            if s["fund"] == c and s.get("fwd10") is not None:
+                s["excess10"] = s["fwd10"] - base
+
 # 历史特征时点口径（2026-09-23 诚实化，详见 README「历史特征时点口径声明」）：
 # 个股估涨用 d 日 EOD close 近似 14:55 价（尾盘漂移有界），**不是**真实 14:55 快照。
 # NAV 系因子已 PIT 错位至 T-1 公布口径，不在本口径列。今后新生成的样本件须带此字段。
@@ -103,12 +128,16 @@ def fetch_stock_klines(stock_universe: dict, lt_cfg: dict) -> tuple[dict, dict, 
     return series_map, close_map, failures
 
 
-def load_samples(return_universe: bool = False):
+def load_samples(return_universe: bool = False, *, require_fwds=FWD_LIST):
     """复用 backtest_fusion 的数据加载逻辑，返回逐日样本。
 
     V4.3 P0-1/P0-3（2026-09-20）：return_universe=True →
     (samples, stock_universe, stock_failures)，供 freeze_samples.py 的
     as-of KFP universe 口径与数据质量门禁。既有调用方（无参）行为不变。
+
+    B 契约 §15-B3（2026-09-23）：require_fwds（仅关键字）声明保留行所需的
+    fwd 标签集合——Forecast 短周期（T+1/3/5）可传 (1, 3, 5)，不再被 fwd20
+    连坐截掉最近约 20 个交易日；默认 FWD_LIST=(5,10,20)，既有冻结件口径逐位不变。
     """
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     fcfg = cfg["signal"]["factors"]
@@ -252,16 +281,11 @@ def load_samples(return_universe: bool = False):
                         mfe = max(mfe, max(tail) / window[t] - 1 if window[t] > 0 else 0.0)
                     row[f"mdd{fwd}"] = mdd
                     row[f"mfe{fwd}"] = mfe
-            if all(f"fwd{f}" in row for f in FWD_LIST):
+            if _sample_row_complete(row, require_fwds):
                 samples.append(row)
 
-    # 超额基准
-    for c in funds:
-        fwds = [s["fwd10"] for s in samples if s["fund"] == c]
-        base = sum(fwds) / len(fwds) if fwds else 0.0
-        for s in samples:
-            if s["fund"] == c:
-                s["excess10"] = s["fwd10"] - base
+    # 超额基准（B3：fwd10 缺失行安全跳过——require_fwds 不含 10 时无此标签）
+    _attach_excess10(samples, funds)
     print(f"  总样本: {len(samples)}")
     if return_universe:
         return samples, stock_universe, stock_failures

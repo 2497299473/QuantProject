@@ -57,6 +57,9 @@ LAYERS: dict[str, str] = {
     "test_state_lookup.py": FAST,
     "test_t5_scorecard.py": FAST,
     "test_walk_forward.py": FAST,
+    "test_action_bootstrap.py": FAST,      # B 契约 §15-B1：action CI 统一聚类 bootstrap，合成数据零网络
+    "test_b3_sample_retention.py": FAST,   # B 契约 §15-B3：样本构建/target 可用性分离，纯函数+源码断言零网络
+    "test_feature_protocol_strict.py": FAST,  # B 契约 §15-B2：协议 exact 校验，独立条目进出真实 registry 后复原（同 test_model_registry 惯例）
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_contracts.py": SLOW,
     "test_data_fingerprint.py": SLOW,
