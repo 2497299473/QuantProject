@@ -58,7 +58,10 @@ def eval_policy(name: str, act: np.ndarray, fwd1: np.ndarray,
         out["excess_add"] = out["mean_add"] - out["mean_hold"]
     if out["n_reduce"]:
         out["excess_reduce"] = out["mean_reduce"] - out["mean_hold"]
-    # 按日 cluster bootstrap：加日超额 CI（把每日「加日均值−不动日均值」当块）
+    # 按日 cluster bootstrap：加日超额 CI（把每日「加日均值−不动日均值」当块）。
+    # B++-6（契约 B §8）：重抽样引擎统一复用 backtest_forecast.cluster_bootstrap_ci，
+    # 手搓第二套实现已删——blocks 与配对日一一对应（每块即一个交易日簇），
+    # 统计量与重抽口径同旧实现逐位一致（seed=42、999 次、2.5/97.5 分位）。
     uniq = sorted(set(dates))
     if len(uniq) >= 10 and out["n_add"]:
         daily = {}
@@ -68,20 +71,19 @@ def eval_policy(name: str, act: np.ndarray, fwd1: np.ndarray,
                 v["a"].append(r)
             elif a == 1:
                 v["h"].append(r)
-        blocks = []
+        pair_days, blocks = [], []
         for d in uniq:
             v = daily.get(d)
             if v and v["a"] and v["h"]:
+                pair_days.append(d)
                 blocks.append(np.mean(v["a"]) - np.mean(v["h"]))
         if len(blocks) >= 10:
-            arr = np.array(blocks)
-            rng = np.random.default_rng(42)
-            boots = []
-            for _ in range(999):
-                samp = rng.choice(blocks, size=len(blocks), replace=True)
-                boots.append(float(np.mean(samp)))
-            out["excess_add_ci"] = [round(float(np.percentile(boots, 2.5)), 5),
-                                    round(float(np.percentile(boots, 97.5)), 5)]
+            ci = cluster_bootstrap_ci(
+                lambda sub: float(np.mean(sub["b"])),
+                {"b": np.array(blocks)}, pair_days)
+            if ci[0] == ci[0]:
+                out["excess_add_ci"] = [round(float(ci[0]), 5),
+                                        round(float(ci[1]), 5)]
     return out
 
 

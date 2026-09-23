@@ -251,7 +251,10 @@ def main() -> int:
     t0 = time.time()
 
     print("== [0] 加载样本 ==")
-    samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
+    # B++-6（B3 纪律推广）：样本构建与 target 可用性分离——入口保留全部特征行，
+    # label 由 build_xy 与 _cqr_fold 按 fwd{h} 逐行过滤，短周期不再被 fwd20 连坐。
+    samples, snap_info = resolve_samples(
+        args.snapshot, args.fresh, BASE_DIR, lambda: load_samples(require_fwds=()))
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
     samples_sorted = sorted(samples, key=lambda s: (s["date"], s["fund"]))
