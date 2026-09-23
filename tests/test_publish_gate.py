@@ -205,6 +205,96 @@ class TestRunWiring(unittest.TestCase):
     def test_excluded_vocabulary_still_exists(self):
         self.assertIn('"feishu_push_failed"', self.src)
 
+    def test_gate_kwargs_match_callee_signatures(self):
+        """事故回归（2026-09-23）：672b9ed 给 generate_report / push_feishu 传了
+        gate= 但两边签名都没这个参数 ⇒ 生产 mid/post 两连崩（Last Result: 1）。
+        fast 层测例全部用旧签名直调，所以 511 项全绿照样漏。这里把「run.py 实调
+        的关键字参数 ⊆ 被调函数签名」钉成合同；再错位当场红。
+        """
+        import ast
+        import inspect
+        from core import notify, report_generator
+
+        tree = ast.parse(self.src)
+        targets = {"generate_report": report_generator.generate_report,
+                   "push_feishu": notify.push_feishu}
+        found = {k: 0 for k in targets}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.keywords:
+                continue
+            fname = (node.func.attr if isinstance(node.func, ast.Attribute)
+                     else getattr(node.func, "id", None))
+            if fname not in targets:
+                continue
+            fn = targets[fname]
+            found[fname] += 1
+            sig = inspect.signature(fn)
+            accepts_var_kw = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD
+                for p in sig.parameters.values())
+            given = {k.arg for k in node.keywords if k.arg}
+            if not accepts_var_kw:
+                unknown = given - set(sig.parameters)
+                self.assertFalse(unknown, f"{fname} 调用传了签名外的参数：{unknown}")
+        # 门禁接线本身也必须在（否则本守护变成空转）
+        self.assertGreaterEqual(found["generate_report"], 1)
+        self.assertGreaterEqual(found["push_feishu"], 1)
+
+
+class TestGateDisplay(unittest.TestCase):
+    """gate 在两个呈现面（落盘报告 / 飞书卡片）的展示契约，纯内存零网络。"""
+
+    GATE_OK = {"ok": True, "reason": None,
+               "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布",
+               "superseded": {"000001": ["realtime_degraded:000001"]}}
+    GATE_BAD = {"ok": False, "reason": "contaminated_funds",
+                "detail": "拦截(contaminated_funds) 持仓基金不干净：000001 自身 realtime_failed",
+                "superseded": {}}
+
+    def test_report_section_shows_verdict_and_observation(self):
+        from core.report_generator import gate_section
+        out = gate_section(self.GATE_OK)
+        self.assertIn("✅ 可发布", out)
+        self.assertIn("早轮降级、末轮已恢复", out, "superseded 要留观测痕迹")
+        bad = gate_section(self.GATE_BAD)
+        self.assertIn("⛔", bad)
+        self.assertIn("contaminated_funds", bad)
+        self.assertEqual(gate_section(None), "", "旧调用方（不传 gate）行为不变")
+
+    def test_card_note_appended_before_footer(self):
+        from core.notify import _build_card, gate_note
+        self.assertEqual(gate_note(None), "")
+        card = _build_card("post", {}, {"positions": [], "abnormal_alerts": [],
+                                        "total_market_value": 0.0, "total_pnl_pct": 0.0},
+                           gate=self.GATE_OK)
+        texts = [e["elements"][0]["content"]
+                 for e in card["card"]["elements"] if e["tag"] == "note"]
+        self.assertEqual(len(texts), 2, "门禁行 + 免责脚注")
+        self.assertIn("✅ 可发布", texts[0])
+        self.assertIn("绝不自动下单", texts[1], "脚注必须仍在最后")
+
+    def test_push_feishu_accepts_gate_without_network(self):
+        """签名对齐的最小实证：未配 webhook 时走降级分支返回，不抛 TypeError。"""
+        import os
+        from core import notify
+        keep = {k: os.environ.get(k) for k in ("FEISHU_WEBHOOK", "FEISHU_SECRET")}
+        try:
+            # 显式置空：_load_env 用 setdefault，os.environ 里的值优先于 .env ⇒
+            # 即便本机 .env 配了真实 webhook，这里也不会发出任何请求（零网络）。
+            os.environ["FEISHU_WEBHOOK"] = ""
+            os.environ["FEISHU_SECRET"] = ""
+            r = notify.push_feishu("post", {}, {"positions": [], "abnormal_alerts": [],
+                                                "total_market_value": 0.0,
+                                                "total_pnl_pct": 0.0},
+                                   gate=self.GATE_OK)
+            self.assertTrue(r.get("skipped"), f"预期降级分支，实得 {r}")
+        finally:
+            for k, v in keep.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
 
 class TestLastRunWins(GateHarness):
     """逐基金干净与否以「最后一次完整评估」为准；运行级证据全天粘性。"""

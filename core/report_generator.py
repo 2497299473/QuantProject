@@ -70,6 +70,29 @@ def _data_source_notice(signals: dict) -> str:
     return "\n".join(lines)
 
 
+def gate_section(gate: dict | None) -> str:
+    """发布资格门禁（V4-A）在落盘报告里的展示段；gate 缺省 ⇒ 空串（旧调用方行为不变）。
+
+    时序要说清：报告生成发生在**推送裁决之前**（`672b9ed` 把门禁评估前移，就是为了让
+    报告/卡片能标注降级），所以这里出现「不推送」时**报告本身已经落盘**——门禁拦的是
+    飞书推送，不是报告。判据与措辞一律取 `publish_gate` 返回的 `detail`（单一真源），
+    本函数只负责呈现，不另起一套判定，避免两处漂移。
+    """
+    if not gate:
+        return ""
+    ok = bool(gate.get("ok"))
+    head = "✅ 可发布" if ok else f"⛔ 本轮不推送（{gate.get('reason') or 'unknown'}）"
+    lines = ["## 🚦 发布资格门禁", "",
+             f"- 裁决：{head} · {gate.get('detail') or '—'}"]
+    # superseded = 早轮脏、末轮已恢复：publish_gate 明确「仅观测，不影响裁决」，
+    # 故只标注不拦，读报告的人需要知道这条历史线，但不必以为今天被拦了。
+    sup = gate.get("superseded") or {}
+    if sup:
+        lines.append(f"- 观测：{len(sup)} 只早轮降级、末轮已恢复（仅观测，不影响裁决）")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _factor_details(signals: dict) -> str:
     lines = []
     for code, s in signals.items():
@@ -276,7 +299,8 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
                     rotation: dict | None = None, realtime: dict | None = None,
                     decisions: dict | None = None,
                     market_context: dict | None = None,
-                    lt_missing: list | None = None) -> str:
+                    lt_missing: list | None = None,
+                    gate: dict | None = None) -> str:
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d")
     header = {"mid": "⏰ 午盘 · 实时参考", "post": "🌙 收盘前 · 最终参考"}.get(
@@ -322,6 +346,10 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
         parts += ["## 💰 账户面与次日预估", "", _account_section(account), "",
                   "## 🔔 告警与复盘", "", alert_line,
                   "- 明日 08:30 盘前报告将更新最新净值与弱参考", ""]
+
+    gate_md = gate_section(gate)
+    if gate_md:
+        parts += [gate_md]
 
     parts += ["---", "", "*基金日频参谋 v5 · 三因子弱参考 + 决策倾向 + 多周期预测（观察层）· 不构成投资建议*"]
     report = "\n".join(parts)

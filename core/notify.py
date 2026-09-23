@@ -37,8 +37,23 @@ def _sign(secret: str, timestamp: int) -> str:
     return base64.b64encode(hmac_code).decode("utf-8")
 
 
+def gate_note(gate: dict | None) -> str:
+    """发布资格门禁在飞书卡片上的展示行；gate 缺省 ⇒ 空串（旧调用方行为不变）。
+
+    判据与措辞一律取 `publish_gate` 返回的 `detail`（单一真源），本函数只负责呈现。
+    注意：run.py 只在 gate.ok=True 的分支才调推送，所以线上这张卡恒为「✅」——
+    它的价值是让 Summer 在手机上就能看到「今天这轮是靠哪几条证据放行的」，
+    不用回头翻落盘报告。
+    """
+    if not gate:
+        return ""
+    ok = bool(gate.get("ok"))
+    head = "✅ 可发布" if ok else f"⛔ 不推送（{gate.get('reason') or 'unknown'}）"
+    return f"🚦 发布资格：{head} · {gate.get('detail') or '—'}"
+
+
 def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None = None,
-                decisions: dict | None = None) -> dict:
+                decisions: dict | None = None, gate: dict | None = None) -> dict:
     slot_name = {"mid": "⏰ 午盘·实时参考", "post": "🌙 收盘前·最终参考"}.get(
         slot, "☀️ 盘前·今日决策")
     fields = []
@@ -77,6 +92,17 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
             "tag": "lark_md",
             "content": "**动作倾向（观察层）**：" + "；".join(dec_lines)}})
 
+    elements: list = [{"tag": "div", "fields": fields}]
+    note = gate_note(gate)
+    if note:
+        elements.append({"tag": "hr"})
+        elements.append({"tag": "note",
+                         "elements": [{"tag": "plain_text", "content": note}]})
+    elements.append({"tag": "hr"})
+    elements.append({"tag": "note",
+                     "elements": [{"tag": "plain_text",
+                                   "content": "v4 决策倾向（五维加权，动作层未验证恒为保持不动）"
+                                              "· 不构成买卖指令 · 绝不自动下单"}]})
     return {
         "msg_type": "interactive",
         "card": {
@@ -85,24 +111,18 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
                 "template": "blue",   # 蓝色 = 弱参考；红色保留给真正的风险告警
                 "title": {"tag": "plain_text", "content": f"基金日频参谋 · {slot_name}"},
             },
-            "elements": [{"tag": "div", "fields": fields}] + [{
-                "tag": "hr"
-            }, {
-                "tag": "note",
-                "elements": [{"tag": "plain_text",
-                              "content": "v4 决策倾向（五维加权，动作层未验证恒为保持不动）· 不构成买卖指令 · 绝不自动下单"}],
-            }],
+            "elements": elements,
         },
     }
 
 
 def push_feishu(slot: str, signals: dict, account: dict, realtime: dict | None = None,
-                decisions: dict | None = None) -> dict:
+                decisions: dict | None = None, gate: dict | None = None) -> dict:
     env = _load_env()
     webhook = env.get("FEISHU_WEBHOOK", "").strip()
     if not webhook or "你的token" in webhook:
         return {"ok": False, "skipped": True, "reason": "未配置 FEISHU_WEBHOOK，已降级为本地落盘"}
-    payload = _build_card(slot, signals, account, realtime, decisions)
+    payload = _build_card(slot, signals, account, realtime, decisions, gate=gate)
     if env.get("FEISHU_SECRET", "").strip():
         ts = int(time.time())
         payload["timestamp"] = str(ts)
