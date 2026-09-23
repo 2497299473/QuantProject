@@ -45,6 +45,28 @@ class TestAdjudicationLabel(unittest.TestCase):
         self.assertIsNone(F.adjudication_label(0.0, NAV_T1))
         self.assertIsNone(F.adjudication_label(-1.0, NAV_T1))
 
+    def test_spread_label_path_consumes_contract(self):
+        """P0-2 护栏：backtest_spread 的 label 构造必须委托唯一真源，
+        不得再出现自算 ``navs[i + fwd][1] / navs[i][1] - 1``（AST 级钉死，
+        防未来回退成影子公式）。
+        """
+        import ast
+        src = (BASE_DIR / "backtest_spread.py").read_text(encoding="utf-8")
+        self.assertIn("from core.forecast_contract import adjudication_label", src)
+        tree = ast.parse(src)
+        calls = [n for n in ast.walk(tree)
+                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                 and n.func.id == "adjudication_label"]
+        self.assertGreaterEqual(len(calls), 2, "FWD_LIST/EXTRA_FWD 两处均须委托真源")
+        for n in ast.walk(tree):
+            if not (isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+                    and n.value.id == "navs"):
+                continue
+            for parent in ast.walk(tree):
+                if isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Div) \
+                        and any(x is n for x in ast.walk(parent)) and n is not parent:
+                    self.fail("backtest_spread 仍在用 navs 下标做除法——label 自算回退")
+
 
 class TestCaliberRoles(unittest.TestCase):
     def test_1455_role_is_accounting_only(self):
@@ -101,6 +123,41 @@ class TestAccountingAndCoupling(unittest.TestCase):
         fwd_old = F.adjudication_label(NAV_T, NAV_T1)
         fwd_1455 = F.accounting_label(NAV_T_MINUS_1, A_T, NAV_T1)
         self.assertAlmostEqual(fwd_1455, fwd_old, places=12)
+
+
+class TestHistoricalFeatureMode(unittest.TestCase):
+    """EOD_PROXY 口径钉死（2026-09-23）：历史样本的个股特征是用当日收盘价
+    近似的 14:55，不是真实 14:55 快照。此声明必须可机检，防被文档漂移冲掉。
+    """
+
+    def test_mode_constant_is_eod_proxy(self):
+        import backtest_spread as B
+        self.assertEqual(B.HISTORICAL_FEATURE_MODE, "EOD_PROXY")
+        self.assertIn(B.HISTORICAL_FEATURE_MODE, B.HISTORICAL_FEATURE_MODES)
+
+    def test_enum_contains_future_1455_snapshot(self):
+        """969-23 起真实 14:55 快照攒够后，口径枚举须能表达 PIT_1455_SNAPSHOT。"""
+        import backtest_spread as B
+        self.assertEqual(
+            set(B.HISTORICAL_FEATURE_MODES), {"EOD_PROXY", "PIT_1455_SNAPSHOT"})
+
+    def test_source_still_uses_eod_close_for_stock_est(self):
+        """实现层钉死：个股估涨仍取 `bisect_right(dates, d) - 1`（d 日收盘）。
+        一旦真换成 14:55 快照，此测例会红 ⇒ 强制同步改口径常量，
+        不许「代码改了、标注没改」的静默漂移。
+        """
+        src = (BASE_DIR / "backtest_spread.py").read_text(encoding="utf-8")
+        self.assertIn("j = bisect_right(dates, d) - 1", src)
+
+    def test_frozen_0910_meta_not_retroactively_rewritten(self):
+        """冻结件诚实性：0910 meta 是冻结事实，不得追溯改写加新字段。"""
+        p = BASE_DIR / "forecast_outputs" / "samples_frozen_20260910.meta.json"
+        if not p.exists():
+            self.skipTest("0910 冻结件不在本地")
+        import json as _json
+        meta = _json.loads(p.read_text(encoding="utf-8"))
+        self.assertNotIn("historical_feature_mode", meta)
+        self.assertEqual(meta["schema_version"], "1")
 
 
 if __name__ == "__main__":

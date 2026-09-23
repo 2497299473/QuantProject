@@ -34,6 +34,7 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
 from core import data_loader, lookthrough, stock_data
+from core.forecast_contract import adjudication_label
 from core.signal_engine import macd_hist, factor_pool_rank_20d
 from frozen_dataset import resolve_samples
 
@@ -42,6 +43,12 @@ FWD_LIST = (5, 10, 20)
 # （数据都在 navs 里，仅需额外逐日计算；诊断确认样本量后再决定是否纳入 load_samples 保留条件）
 EXTRA_FWD = (1, 2, 3)
 SPLIT_DATE = "2023-09-21"  # 与 backtest_fusion 一致
+
+# 历史特征时点口径（2026-09-23 诚实化，详见 README「历史特征时点口径声明」）：
+# 个股估涨用 d 日 EOD close 近似 14:55 价（尾盘漂移有界），**不是**真实 14:55 快照。
+# NAV 系因子已 PIT 错位至 T-1 公布口径，不在本口径列。今后新生成的样本件须带此字段。
+HISTORICAL_FEATURE_MODE = "EOD_PROXY"
+HISTORICAL_FEATURE_MODES = ("EOD_PROXY", "PIT_1455_SNAPSHOT")
 
 
 def _nav_state_at(i: int, navs: list, r20_win: int, dd_win: int) -> dict:
@@ -212,14 +219,23 @@ def load_samples(return_universe: bool = False):
             # 动量/波动特征想让 T+3 RankIC 转正，OOS 三周期全部恶化（T+1 -0.024 /
             # T+3 -0.028 / T+5 -0.100，详见 output/v5_forecast_diag_v51.txt）→ 判定为
             # 特征过拟合（vol20 排列重要性第一但 OOS 不成立），已撤销。fwd1/2/3 标签保留。
+            # 裁决 label 委托唯一真源 core.forecast_contract.adjudication_label（P0-2，
+            # 2026-09-23）：此前两处直接相除、绕过权威定义，口径可能漂移。
+            # 语义等价性：adjudication_label = nav_t_h/nav_t − 1，与本处原式逐位一致；
+            # 边界差异：nav_t ≤ 0 或 None 时返回 None（原式会产出 inf/NaN）⇒ None 即视为
+            # 该 label 不可算，不做保留判定（防造数）。
             for fwd in FWD_LIST:
                 if i + fwd < len(navs):
-                    row[f"fwd{fwd}"] = navs[i + fwd][1] / navs[i][1] - 1
+                    lab = adjudication_label(navs[i][1], navs[i + fwd][1])
+                    if lab is not None:
+                        row[f"fwd{fwd}"] = lab
             # v5 补充：T+1/T+3/T+5 训练标签（独立计算，不参与下方 all() 保留判定，
             # 避免短历史基金因 fwd20 缺失被连坐丢失全部短周期样本）
             for fwd in EXTRA_FWD:
                 if i + fwd < len(navs):
-                    row[f"fwd{fwd}"] = navs[i + fwd][1] / navs[i][1] - 1
+                    lab = adjudication_label(navs[i][1], navs[i + fwd][1])
+                    if lab is not None:
+                        row[f"fwd{fwd}"] = lab
             # v7 P2：MDD/MFE 真标签（2026-08-29，GPT 三审）——历史 NAV 窗口内的
             # 真实最大回撤/最大有利波动（非模型估计）：
             #   mdd5 = 未来 5 日窗口内，任意时点 t 起的最大后续跌幅（≤0）

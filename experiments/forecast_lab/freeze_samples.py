@@ -66,6 +66,19 @@ RATE_MARKERS = ("DegradedResponse", "SUSPECT_DEGRADED", "PARSE_MISMATCH",
                 "持仓拉取失败", "年持仓拉取失败")
 
 
+def _hist_mode() -> str:
+    """历史特征时点口径：从生产真源 backtest_spread 常量读取（不另写一份，防漂移）。
+
+    本脚本产出的样本均由 backtest_spread.load_samples() 生成 ⇒ 恒为 EOD_PROXY。
+    取不到时返回 "UNKNOWN"（不猜、不默认成 PIT 口径）。
+    """
+    try:
+        from backtest_spread import HISTORICAL_FEATURE_MODE as _m
+        return str(_m)
+    except Exception:
+        return "UNKNOWN"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="冻结样本 + K 线指纹（零写入 data/，只读包装器）")
     ap.add_argument("--force", action="store_true",
@@ -292,6 +305,10 @@ def main(argv: list[str] | None = None) -> int:
         "kline_fingerprint_scope": {"stock_n": len(stock_universe), "cutoff": cutoff},
         "stock_data_failures": [],   # V4.3 P0-3：非空会已 INVALID，故此处恒为空
         "code_commit": code_commit,  # V4.3：三件套①，冻结时落盘（verify 侧重解析对照）
+        # 历史特征时点口径（2026-09-23 诚实化）：本件由 backtest_spread.load_samples()
+        # 生产，个股估涨用 d 日 EOD close 近似 14:55 价 ⇒ 历史件恒为 EOD_PROXY。
+        # 字段值取自生产真源常量，不在此处另写一份（防两处漂移）。
+        "historical_feature_mode": _hist_mode(),
         "publish": {"mode": "atomic_staging", "staging_dir": ".staging"},
     }
     st_meta = staging_dir / out_meta.name
