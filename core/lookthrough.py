@@ -370,7 +370,13 @@ def evaluate_lookthrough(fund_codes: list[str]) -> dict[str, dict]:
             history = holdings_history(code)
             if not history:
                 continue
-            snap = history[-1]
+            # PIT（2026-09-23 一行修复）：取最近已生效期（effective_date ≤ 今日），
+            # 不再盲目取 history[-1]——披露滞后窗内（年报最长 95 天）最新一期
+            # 尚未可知，取了即让实时报告前视（回测侧一直用 effective_snapshot，
+            # 报告侧补齐对齐）。无生效期 → 跳过，由 run.py lt_missing 探针显式降级。
+            snap = effective_snapshot(history, time.strftime("%Y-%m-%d"))
+            if not snap:
+                continue
             series_map, events = {}, []
             for h in snap["holdings"]:
                 try:

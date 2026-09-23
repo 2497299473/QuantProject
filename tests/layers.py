@@ -43,6 +43,7 @@ LAYERS: dict[str, str] = {
     "test_holidays.py": FAST,
     "test_intraday.py": FAST,
     "test_layers.py": FAST,
+    "test_lookthrough_pit.py": FAST,       # 2026-09-23：报告侧取生效期（PIT 一行修复），全 mock 零网络
     "test_model_registry.py": FAST,
     "test_publish_gate.py": FAST,       # 全程 tempdir 造证据，零网络不碰真实 output/
     "test_pit_guard.py": FAST,
