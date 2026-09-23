@@ -34,6 +34,7 @@ LAYERS: dict[str, str] = {
     "test_report_source_trace.py": FAST,   # 步 5：纯内存展示层，零网络
     "test_daily_runs_tool.py": FAST,       # 观察链：临时库/临时目录，零网络
     "test_freeze_verify_tool.py": FAST,    # 冻结三件套校验：临时目录，零网络不碰 data/
+    "test_forecast_contract.py": FAST,     # V4.4 重定：Forecast Contract C1-C5 纪律，合成行零网络
     "test_frozen_dataset.py": FAST,        # V4.3 P0-1：统一样本入口契约，tempdir 零网络
     "test_delta_intraday.py": FAST,
     "test_decision_edge.py": FAST,    # P0-1 两轨：decision_edge 审计指标纯函数，合成数据零网络

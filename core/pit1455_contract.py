@@ -44,6 +44,11 @@ OOS RankIC 就有 +0.1278（T+1，n=923）**，而它对 old label 只有 +0.013
 复现与逐格数字：backtest_pit1455_matrix.py 第 1c 节。
 本契约不因此改式子——分母含 est_chg 正是「14:55 可观测状态」的定义所在；
 此段只钉死**消费纪律**。
+
+⚠️ 角色降级（2026-09-23，Forecast Contract 重定，权威见 core/forecast_contract.py）：
+新契约下 1455 口径从「预测/裁决 label」降级为「仅决策输入 + 盈亏核算」，
+不进 label / 训练目标 / 晋升门禁。本模块仍是 1455 核算口径的唯一式子权威
+（式子一字未改；降级只是角色声明，forecast-v1 与本契约并存）。
 """
 from __future__ import annotations
 
