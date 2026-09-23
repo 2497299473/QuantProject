@@ -36,6 +36,7 @@ LAYERS: dict[str, str] = {
     "test_freeze_verify_tool.py": FAST,    # 冻结三件套校验：临时目录，零网络不碰 data/
     "test_frozen_dataset.py": FAST,        # V4.3 P0-1：统一样本入口契约，tempdir 零网络
     "test_delta_intraday.py": FAST,
+    "test_decision_edge.py": FAST,    # P0-1 两轨：decision_edge 审计指标纯函数，合成数据零网络
     "test_drift_monitor.py": FAST,
     "test_dynamics.py": FAST,
     "test_holidays.py": FAST,

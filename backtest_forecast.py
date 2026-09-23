@@ -171,6 +171,31 @@ def cluster_bootstrap_ci(metric, arrays: dict[str, np.ndarray], dates: list[str]
     return float(np.percentile(stats, 2.5)), float(np.percentile(stats, 97.5))
 
 
+def decision_edge_metrics(score, est, yret, dates,
+                          n_boot: int = 999, seed: int = 42) -> dict:
+    """P0-1 两轨（2026-09-23）：decision_edge 审计指标。
+
+    口径：decision_edge = RankIC(模型得分) − RankIC(est_chg 单因子)。
+    同一 OOS 样本、同一 fwd 标签（NAV[T] 口径：前向收益基于净值，不改成
+    估算基线标签）。回答「相对于 14:55 估值本身提供的机械基线，模型
+    额外贡献多少排序信息？」（D2 prereg 的核心问题之一）。
+
+    纪律：**只审计，不参与 ok 裁决门禁**（两轨——forecast 验证与决策边际
+    分开记账，避免审计指标反噬裁决标准）。CI 复用 cluster_bootstrap_ci
+    （按日块重抽样），不新造 bootstrap。样本不足时 CI 为 None、如实标注。
+    """
+    s = np.asarray(score, dtype=float)
+    e = np.asarray(est, dtype=float)
+    y = np.asarray(yret, dtype=float)
+    edge = rank_ic(s.tolist(), y.tolist()) - rank_ic(e.tolist(), y.tolist())
+    ci = cluster_bootstrap_ci(
+        lambda sub: (rank_ic(sub["x"].tolist(), sub["y"].tolist())
+                     - rank_ic(sub["est"].tolist(), sub["y"].tolist())),
+        {"x": s, "est": e, "y": y}, list(dates), n_boot=n_boot, seed=seed)
+    return {"edge": round(float(edge), 4),
+            "edge_ci": [round(ci[0], 4), round(ci[1], 4)] if ci[0] == ci[0] else None}
+
+
 @dataclass
 class XYBatch:
     """同一筛选循环生成的矩阵、标签与行身份，禁止下游自行重建对齐。"""
@@ -347,6 +372,16 @@ def main() -> int:
         print(f"  基线梯队（OOS）：瞎猜 Brier={b_guess:.3f} IC=0.000 │ "
               f"多数类 Brier={b_majority:.3f} IC=0.000 │ est_chg IC={base_ic:+.3f}")
 
+        # P0-1 两轨（2026-09-23）：decision_edge 审计指标——模型相对 est_chg
+        # 单因子机械基线的额外排序信息（OOS、同 fwd 标签、同样本）。只审计，
+        # 不进下方 ok 裁决；数值进 results → stdout 报告（registry 绑定时留档）。
+        edge_audit = decision_edge_metrics(score_up, base_vec, yreto,
+                                           aligned_oos_dates)
+        ci_txt = (f"[{edge_audit['edge_ci'][0]:+.3f}, {edge_audit['edge_ci'][1]:+.3f}]"
+                  if edge_audit["edge_ci"] else "n/a（样本不足）")
+        print(f"  decision_edge（审计，不进裁决）= {edge_audit['edge']:+.3f} "
+              f"95% CI = {ci_txt}")
+
         # 裁决（v7 P1：
         #   - Rank IC 95% CI 下界 > 0（cluster bootstrap）才算「显著不为零」
         #   - ML Brier 逐级不劣于梯队（Brier 越低越好；IC 高于 est_chg 单因子））
@@ -359,6 +394,7 @@ def main() -> int:
                       "brier_ci": [round(brier_ci[0], 3), round(brier_ci[1], 3)]
                       if not math.isnan(brier_ci[0]) else None,
                       "base_ic": round(base_ic, 3),
+                      "decision_edge": edge_audit,
                       "b_majority": round(b_majority, 3),
                       "ace": round(calib["ace"], 3), "n_train": int(len(y)), "n_oos": int(len(yo))}
         overall_ok = overall_ok and ok
