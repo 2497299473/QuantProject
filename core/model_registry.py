@@ -478,28 +478,158 @@ def get_model_entry(pkl_name: str) -> dict | None:
 # 人工仍保留的唯一动作：验证全过后把 config.forecast.model_ready 置 true
 # （措辞红线复核）；registry promotion 本身不再需要手填。
 
-PROMOTION_RULE_VERSION = 1
+PROMOTION_RULE_VERSION = 2
+
+# B++-3：pooled 校准门阈值——与验证器既有冻结判据同源（backtest_forecast.py
+# ok 裁决的 `calib["ace"] < 0.25`；B++-1 起该口径在 schema v2 中具名为
+# midpoint_calibration_error）。
+_PROMOTION_CALIBRATION_MAX = 0.25
+
+
+def _derive_promotion_v2_gates(evidence: dict, vs) -> dict:
+    """schema v2 证据 → rule v2 五门顺序裁决（契约 B §4/§7/§11）。
+
+    门序：power → performance → baseline_edge → calibration → provenance。
+    「不可核验」与「不满足」同罪（fail-closed），各落到对应 blocked_*；
+    五门全过 → approved。状态词为小写机读形——verify_approval 对
+    "approved" 的字面比较零改动继承（B++-4）。
+    """
+
+    def _bad(status: str, reason: str) -> dict:
+        return {"status": status, "rule_version": PROMOTION_RULE_VERSION,
+                "failed_horizons": [], "reason": reason}
+
+    ok_ev, errs_ev = vs.validate_evidence(evidence)
+    if not ok_ev:
+        return _bad("blocked_provenance",
+                    f"证据 schema v2 自检未过（fail-closed）：{errs_ev[0]}")
+
+    # ---- 门 1 power（契约 B §6：小样本不得被迫二元结论）----
+    pw = evidence["power"]
+    if pw["frozen"]["value"] is not True:
+        return _bad("blocked_power",
+                    "功效阈值未预注册冻结（power.frozen=False）——契约 B §6.2：须先经"
+                    "功效分析冻结 N_POWER_*，APPROVED 在此之前结构性不可达")
+    n_pf = pw["n_power_fund"]["value"]
+    if not isinstance(n_pf, (int, float)) or isinstance(n_pf, bool) or n_pf <= 0:
+        return _bad("blocked_power",
+                    f"power.n_power_fund 不可用（{n_pf!r}）——无功效阈值无法判定基金样本充分性")
+    for h in vs.HORIZONS:
+        if evidence["pooled"][h]["decision_edge"]["status"] == vs.STATUS_INSUFFICIENT_POWER:
+            return _bad("blocked_power", f"pooled T+{h} 样本不足（INSUFFICIENT_POWER）")
+    for code, fund in evidence["funds"].items():
+        for h, node in fund.items():
+            if node["decision_edge"]["status"] == vs.STATUS_INSUFFICIENT_POWER:
+                return _bad("blocked_power",
+                            f"{code} T+{h} 样本不足（INSUFFICIENT_POWER）——契约 B §6.1："
+                            "不得解释为 PASS（如 025687 冻结件 n=35）")
+            n = node["n"]["value"]
+            if node["n"]["status"] == vs.STATUS_OK and n < n_pf:
+                return _bad("blocked_power", f"{code} T+{h} n={n} < N_POWER_FUND={n_pf}")
+
+    # ---- 门 2 performance（pooled 绝对能力，对齐 v1「三周期全过」内涵）----
+    for h in vs.HORIZONS:
+        node = evidence["pooled"][h]
+        ric, ric_ci = node["rank_ic"], node["rank_ic_ci"]
+        if ric["status"] != vs.STATUS_OK or ric_ci["status"] != vs.STATUS_OK:
+            return _bad("blocked_performance",
+                        f"pooled T+{h} RankIC/CI 不可核验"
+                        f"（{ric['status']}/{ric_ci['status']}）")
+        if ric_ci["value"][0] <= 0:
+            return _bad("blocked_performance",
+                        f"pooled T+{h} RankIC CI 下界 {ric_ci['value'][0]} ≤ 0")
+        br, bmaj = node["brier"], node["b_majority"]
+        if br["status"] != vs.STATUS_OK or bmaj["status"] != vs.STATUS_OK:
+            return _bad("blocked_performance", f"pooled T+{h} Brier/多数类不可核验")
+        if br["value"] > max(bmaj["value"], 2.0 / 3.0):
+            return _bad("blocked_performance",
+                        f"pooled T+{h} Brier {br['value']} 劣于基线梯队"
+                        f"（多数类 {bmaj['value']}）")
+
+    # ---- 门 3 baseline edge（pooled + 逐基金；契约 B §3/§7 F2/F3）----
+    for h in vs.HORIZONS:
+        e = evidence["pooled"][h]["decision_edge"]
+        ci = evidence["pooled"][h]["decision_edge_ci"]
+        if e["status"] != vs.STATUS_OK or ci["status"] != vs.STATUS_OK:
+            return _bad("blocked_baseline_edge",
+                        f"pooled T+{h} decision_edge/CI 不可核验"
+                        f"（{e['status']}/{ci['status']}）")
+        if ci["value"][0] <= 0:
+            return _bad("blocked_baseline_edge",
+                        f"pooled T+{h} decision_edge CI 下界 {ci['value'][0]} ≤ 0——"
+                        "相对 est_chg 的增量排序信息不成立")
+    for code, fund in evidence["funds"].items():
+        for h, node in fund.items():
+            e, ci = node["decision_edge"], node["decision_edge_ci"]
+            if e["status"] != vs.STATUS_OK or ci["status"] != vs.STATUS_OK:
+                return _bad("blocked_baseline_edge",
+                            f"{code} T+{h} decision_edge/CI 不可核验"
+                            f"（{e['status']}/{ci['status']}）")
+            if ci["value"][0] <= 0:
+                return _bad("blocked_baseline_edge",
+                            f"{code} T+{h} decision_edge CI 下界 {ci['value'][0]} ≤ 0——"
+                            "基金级增量不成立（pooled 过不覆盖基金，契约 B §7/F3）")
+
+    # ---- 门 4 calibration ----
+    for h in vs.HORIZONS:
+        mce = evidence["pooled"][h][vs.MIDPOINT_CALIBRATION_ERROR_KEY]
+        if mce["status"] != vs.STATUS_OK or mce["value"] >= _PROMOTION_CALIBRATION_MAX:
+            return _bad("blocked_calibration",
+                        f"pooled T+{h} midpoint_calibration_error 不可核验或"
+                        f" ≥{_PROMOTION_CALIBRATION_MAX}（got {mce['value']}）")
+
+    # ---- 门 5 provenance ----
+    for k, slot in evidence["provenance"].items():
+        if slot["status"] != vs.STATUS_OK:
+            return _bad("blocked_provenance",
+                        f"provenance.{k} 不可核验（{slot['status']}）——证据链不完整")
+
+    return {"status": "approved", "rule_version": PROMOTION_RULE_VERSION,
+            "failed_horizons": [],
+            "reason": "schema v2 证据五门全过（power/performance/baseline_edge/"
+                      "calibration/provenance）——证据合格；config.forecast.model_ready "
+                      "仍需人工复核措辞红线后置 true"}
 
 
 def derive_promotion(validation: dict | None) -> dict:
-    """从 validation 绑定纯函数推导 promotion（预注册规则 v1，禁改判据）。
+    """从 validation 绑定纯函数推导 promotion（预注册规则 v2，B++-3，禁改判据）。
 
-    规则（对齐 backtest_forecast「三周期全过」总口径）：
-    R1 无 validation / decision 非法 → pending（无依据不强判，不动现有 promotion）
-    R2 decision=approved 但缺 per-horizon metrics → pending（无法核验三周期）
-    R3 decision=rejected 或任一周期 metrics.decision != approved → blocked
-    R4 decision=approved 且全部周期 approved → approved
-       （approved 仅代表证据合格；config.forecast.model_ready 仍人工置位）
+    签名不变（契约 B §12）：同一 evidence 只能推出同一 promotion；人工不得
+    手写 promotion=approved，唯一人工开关仍是 config.forecast.model_ready=true。
+
+    规则：
+    R0 无 validation / decision 非法 → pending（无依据不强判，不动现有 promotion）。
+    R1 validation.evidence 为 schema v2（B++-2 验证器产出）→ 五门顺序裁决
+       （_derive_promotion_v2_gates）；decision=rejected → blocked。
+    R2 legacy 绑定（无 schema v2 证据块）保留 v1 一致性核验：decision=approved
+       但缺 per-horizon metrics → pending；decision=rejected 或任一周期
+       metrics.decision != approved → blocked（failed_horizons 列未过周期）。
+    R3 legacy 三周期全过不再 approved：pooled-only 证据无法核验
+       fund/power/calibration/provenance 门（契约 B §4）→ research_only；
+       升级路径 = 用 B++-2 验证器重新产出 schema v2 证据。
 
     返回 {status, reason, rule_version, failed_horizons}。纯函数：不读盘、
     不写盘、不依赖时间——同输入必同输出。
     """
+    from core import validation_schema as _vs   # 局部 import（同 pit1455 委托惯例，防环）
     if not isinstance(validation, dict) or validation.get("decision") not in (
             "approved", "rejected"):
         return {"status": "pending", "rule_version": PROMOTION_RULE_VERSION,
                 "failed_horizons": [],
                 "reason": "无有效 validation 绑定（bind_validation）——promotion 无依据，保持 pending"}
     decision = validation["decision"]
+
+    # ---- rule v2 主路径：validation.evidence 为 schema v2（B++-2 验证器产出）----
+    evidence = validation.get("evidence")
+    if isinstance(evidence, dict) and evidence.get(
+            "schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
+        if decision == "rejected":
+            return {"status": "blocked", "rule_version": PROMOTION_RULE_VERSION,
+                    "failed_horizons": [],
+                    "reason": "整体裁决 rejected（schema v2 证据）——model_ready 维持 false"}
+        return _derive_promotion_v2_gates(evidence, _vs)
+
+    # ---- legacy 兼容路径（无 schema v2 证据块）----
     metrics = validation.get("metrics") or {}
     if decision == "approved" and not metrics:
         return {"status": "pending", "rule_version": PROMOTION_RULE_VERSION,
@@ -538,9 +668,15 @@ def derive_promotion(validation: dict | None) -> dict:
                                      if not isinstance(metrics[h], dict)
                                      or metrics[h].get("decision") != "approved"],
                 "reason": reason}
-    return {"status": "approved", "rule_version": PROMOTION_RULE_VERSION,
+    # rule v2（B++-3）：v1 的 approved 出口关闭——legacy 绑定缺 fund×horizon /
+    # power / calibration / provenance 证据块，无法核验五门（契约 B §4），
+    # pooled-only 不再构成生产授权依据。
+    return {"status": "research_only", "rule_version": PROMOTION_RULE_VERSION,
             "failed_horizons": [],
-            "reason": "三周期全过（预注册口径）——证据合格；config.forecast.model_ready 仍需人工复核措辞红线后置 true"}
+            "reason": ("legacy 绑定三周期全过仅证明 pooled 能力——rule v2 要求 schema v2 "
+                       "证据过五门（fund×horizon/power/calibration/provenance），"
+                       "pooled-only 不再构成生产授权依据（契约 B §4）；"
+                       "升级须重新产出 schema v2 证据（B++-2 验证器）")}
 
 
 def apply_promotion(pkl_name: str, dry_run: bool = False) -> tuple[bool, dict]:

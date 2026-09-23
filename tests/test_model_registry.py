@@ -20,6 +20,31 @@ sys.path.insert(0, str(BASE_DIR))
 from core import model_registry  # noqa: E402
 
 
+def _full_pass_evidence_v2():
+    """rule v2 五门全过的 schema v2 证据夹具（B++-3；同款见 tests/test_promotion_rule_v2.py）。"""
+    from core import validation_schema as S
+    ev = S.blank_evidence()
+    ev["decision"] = "approved"
+    for h in ("1", "3", "5"):
+        ev["pooled"][h].update({
+            "n": S.ev_ok(923), "rank_ic": S.ev_ok(0.05),
+            "rank_ic_ci": S.ev_ok([0.01, 0.09]), "base_ic": S.ev_ok(0.01),
+            "decision_edge": S.ev_ok(0.04), "decision_edge_ci": S.ev_ok([0.01, 0.07]),
+            "brier": S.ev_ok(0.58), "brier_ci": S.ev_ok([0.55, 0.61]),
+            "b_majority": S.ev_ok(0.60),
+            S.MIDPOINT_CALIBRATION_ERROR_KEY: S.ev_ok(0.11)})
+    for code in S.PRODUCTION_FUNDS:
+        for h in ("1", "3", "5"):
+            ev["funds"][code][h].update({
+                "n": S.ev_ok(200), "decision_edge": S.ev_ok(0.03),
+                "decision_edge_ci": S.ev_ok([0.005, 0.06])})
+    ev["power"]["frozen"] = S.ev_ok(True)
+    ev["power"]["n_power_fund"] = S.ev_ok(100)
+    for k in ev["provenance"]:
+        ev["provenance"][k] = S.ev_ok(f"{k}-ok")
+    return ev
+
+
 class TestModelRegistry(unittest.TestCase):
     def setUp(self):
         self.tmp = model_registry.MODELS_DIR
@@ -148,6 +173,12 @@ class TestModelRegistry(unittest.TestCase):
                    for h in (1, 3, 5)}
         self.assertTrue(model_registry.bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        # rule v2（B++-3）：legacy metrics 不再自动 approved——注入五门全过的
+        # schema v2 证据并重推导，approved 链路才可走通。
+        reg = model_registry.load_registry()
+        reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
+        self.assertTrue(model_registry._save_registry(reg))
+        self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertTrue(ok)
         self.assertEqual(reason, "ok")
@@ -172,6 +203,12 @@ class TestModelRegistry(unittest.TestCase):
                    for h in (1, 3, 5)}
         self.assertTrue(model_registry.bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        # rule v2（B++-3）：注入五门全过的 v2 证据并重推导，使 verify_approval
+        # 能推进到 snapshot_provenance 门（本组测例针对的就是那道门）。
+        reg = model_registry.load_registry()
+        reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
+        self.assertTrue(model_registry._save_registry(reg))
+        self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         return proto
 
     def test_approval_rejects_fresh_provenance(self):
@@ -264,17 +301,18 @@ class TestModelRegistry(unittest.TestCase):
         self.assertIn("未全过", d1["reason"])
         self.assertIn("model_ready 维持 false", d1["reason"])
 
-    def test_derive_promotion_all_approved(self):
-        """三周期全过 → approved（仅代表证据合格，model_ready 仍人工置位）。"""
+    def test_derive_promotion_legacy_all_approved_research_only(self):
+        """rule v2（B++-3）：legacy 三周期全过 → research_only——pooled-only 不再
+        构成生产授权依据（契约 B §4），approved 出口仅对 schema v2 五门证据开放。"""
         metrics = {
             "1": {"ric_ci": [0.01, 0.05], "decision": "approved"},
             "3": {"ric_ci": [0.02, 0.06], "decision": "approved"},
             "5": {"ric_ci": [0.03, 0.07], "decision": "approved"},
         }
         d = model_registry.derive_promotion({"decision": "approved", "metrics": metrics})
-        self.assertEqual(d["status"], "approved")
+        self.assertEqual(d["status"], "research_only")
         self.assertEqual(d["failed_horizons"], [])
-        self.assertIn("人工", d["reason"])
+        self.assertIn("schema v2", d["reason"])
 
     def test_derive_promotion_inconsistent_binding_blocked(self):
         """整体 approved 但有周期未过（绑定不一致）→ blocked（三周期全过是硬门槛）。"""
@@ -308,7 +346,7 @@ class TestModelRegistry(unittest.TestCase):
         promo = entry["promotion"]
         self.assertEqual(promo["status"], "blocked")
         self.assertEqual(promo["derived_by"], "derive_promotion")
-        self.assertEqual(promo["rule_version"], 1)
+        self.assertEqual(promo["rule_version"], 2)   # B++-3：rule v2
 
     def test_apply_promotion_dry_run_no_write(self):
         """dry_run 只推导不落盘；无 validation 不动现有 promotion（不强写 pending）。"""
@@ -319,7 +357,7 @@ class TestModelRegistry(unittest.TestCase):
         })
         written, d = model_registry.apply_promotion(self.test_pkl.name, dry_run=True)
         self.assertFalse(written)
-        self.assertEqual(d["status"], "approved")
+        self.assertEqual(d["status"], "research_only")   # rule v2：legacy 全过不再 approved
         entry = model_registry.get_model_entry(self.test_pkl.name)
         self.assertNotIn("promotion", entry)   # dry_run 未写入
 
@@ -348,6 +386,7 @@ class TestPreregDegradation(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+        self._orig_registry_path = model_registry.REGISTRY_PATH   # 先存 Path 原值
         self._orig_registry = (model_registry.REGISTRY_PATH.read_text(
             encoding="utf-8") if model_registry.REGISTRY_PATH.exists() else None)
         self._orig_models_dir = model_registry.MODELS_DIR
@@ -359,6 +398,8 @@ class TestPreregDegradation(unittest.TestCase):
 
     def tearDown(self):
         model_registry.MODELS_DIR = self._orig_models_dir
+        # 先恢复 REGISTRY_PATH 属性本身再回写内容，防属性留在已删临时目录上
+        model_registry.REGISTRY_PATH = self._orig_registry_path
         if self._orig_registry is not None:
             model_registry.REGISTRY_PATH.write_text(self._orig_registry,
                                                     encoding="utf-8")
