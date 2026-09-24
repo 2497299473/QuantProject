@@ -315,6 +315,25 @@ class TestModelRegistry(unittest.TestCase):
             self.test_pkl.name, str(self.test_report), "approved"))
         self.assertNotIn("validation",
                          model_registry.get_model_entry(self.test_pkl.name))
+
+    def test_verify_approval_still_rejects_fresh_after_validation_exists(self):
+        """外部复审 R1-3/R1-7：即使绕过 bind 层已有 validation，FRESH 仍不得进展示授权门。
+
+        bind 层拒绑定是上游防线（A-1 前移），但不得成为唯一防线：本例手工把
+        已绑定条目的 snapshot_provenance 改成五键 None（模拟 FRESH 经任何路径
+        进入 registry），钉住 verify_approval 自身的 V4.3.1-⑤ 完整性门独立生效。
+        """
+        proto = self._bind_full_evidence(prov=self.FROZEN_PROV)
+        reg = model_registry.load_registry()
+        reg["models"][self.test_pkl.name]["snapshot_provenance"] = {
+            "snapshot_file": None, "samples_sha256_lf": None,
+            "kfp_recorded_sha256": None, "kfp_current_sha256": None,
+            "kfp_comparability": None,
+        }
+        self.assertTrue(model_registry._save_registry(reg))
+        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
+        self.assertFalse(ok)
+        self.assertTrue(reason.startswith("snapshot_provenance_incomplete:"), reason)
     def test_approval_rejects_legacy_entry_without_provenance_block(self):
         """历史条目（registry 无 snapshot_provenance 块）→ 同拒（不回补、不宽容）。"""
         proto = self._bind_full_evidence(prov=self.FROZEN_PROV)

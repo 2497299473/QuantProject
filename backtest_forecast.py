@@ -411,6 +411,11 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
     （本验证器不持久化模型 → 诚实 UNKNOWN）+ 历史特征时点口径；
     验证器运行版本留痕在 produced_by。decision 只映射验证器既有 overall_ok，
     不引入第二套裁决。
+
+    ⚠ artifact_sha256=UNKNOWN 的双层语义（外部复审 R1-5 钉死）：证据可过
+    schema v2 自检并落盘留档，但**不可授权**——derive_promotion 的 provenance
+    门对非 OK 状态 fail-closed，落 blocked_provenance。不要把 schema-valid
+    误读为 promotion-ready。
     """
     proto = forecast_engine.current_feature_protocol()
     prov_snap = snap_info.get("snapshot_provenance") or {}
