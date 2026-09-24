@@ -14,6 +14,7 @@ fast 层纪律：纯函数 + 合成证据，零网络；registry 触点全程 te
 from __future__ import annotations
 
 import inspect
+import json
 import shutil
 import sys
 import tempfile
@@ -201,22 +202,23 @@ class TestRegistryIntegration(unittest.TestCase):
         proto = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(pkl.name, proto))
-        report = self.tmp / "report.log"
-        report.write_text("evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(report)
         entry = model_registry.get_model_entry(pkl.name)
-        prov = {"artifact_sha256": entry["sha256"],
-                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
-                "git_commit": entry["git_commit"]}
+        provenance = {
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "git_commit": entry["git_commit"],
+        }
+        report = self.tmp / "report.log"
+        payload = json.dumps(provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        report.write_text("evidence" + eol + "PROVENANCE_JSON=" + payload, encoding="utf-8")
         self.assertTrue(model_registry.bind_validation(
-            pkl.name, str(report), digest, "approved",
+            pkl.name, str(report), "approved",
             {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
-             for h in (1, 3, 5)}, provenance=prov))
+             for h in (1, 3, 5)}))
         reg = model_registry.load_registry()
         reg["models"][pkl.name]["validation"]["evidence"] = evidence
         self.assertTrue(model_registry._save_registry(reg))
         return pkl, proto
-
     def test_apply_promotion_writes_v2_approved_and_verify_passes(self):
         pkl, proto = self._seed(_full_pass_evidence_v2())
         written, d = model_registry.apply_promotion(pkl.name)
