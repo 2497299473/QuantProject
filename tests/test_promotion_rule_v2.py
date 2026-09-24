@@ -54,7 +54,8 @@ def _full_pass_evidence_v2(power_frozen: bool = True) -> dict:
         elif k == "kfp_comparability":
             ev["provenance"][k] = S.ev_ok("SAME")
         else:
-            ev["provenance"][k] = S.ev_ok(f"{k}-ok")    return ev
+            ev["provenance"][k] = S.ev_ok(f"{k}-ok")
+    return ev
 
 
 class TestFullPassAndPurity(unittest.TestCase):
