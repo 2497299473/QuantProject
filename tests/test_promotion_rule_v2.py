@@ -210,7 +210,7 @@ class TestRegistryIntegration(unittest.TestCase):
         }
         report = self.tmp / "report.log"
         payload = json.dumps(provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        report.write_text("evidence" + eol + "PROVENANCE_JSON=" + payload, encoding="utf-8")
+        report.write_text("evidence" + "\n" + "PROVENANCE_JSON=" + payload, encoding="utf-8")
         self.assertTrue(model_registry.bind_validation(
             pkl.name, str(report), "approved",
             {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
