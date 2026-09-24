@@ -73,7 +73,7 @@ class TestModelRegistry(unittest.TestCase):
         lines = [content, "PROVENANCE_JSON=" + payload]
         if duplicate:
             lines.append("PROVENANCE_JSON=" + payload)
-        self.test_report.write_text(eol.join(lines), encoding="utf-8")
+        self.test_report.write_text("\n".join(lines), encoding="utf-8")
 
     def _bind_report(self, pkl_name, decision="rejected", metrics=None,
                      provenance=None, duplicate=False):
@@ -165,13 +165,13 @@ class TestModelRegistry(unittest.TestCase):
             self.assertFalse(model_registry.bind_validation(
                 self.test_pkl.name, str(self.test_report), "rejected"))
     def test_validation_provenance_missing_rejected(self):
+        """registry 无冻结样本 provenance → bind fail-closed。"""
         self.test_pkl.write_bytes(b"model-A")
         model_registry.register_model(self.test_pkl, meta={})
-        self.test_report.write_text("report-A", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
+        self.test_report.write_text(
+            "report-A\nPROVENANCE_JSON={}", encoding="utf-8")
         self.assertFalse(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "rejected"))
-
+            self.test_pkl.name, str(self.test_report), "rejected"))
     def test_validation_report_missing_provenance_rejected(self):
         self.test_pkl.write_bytes(b"model-A")
         model_registry.register_model(self.test_pkl, meta={},
@@ -199,7 +199,7 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_bind_unknown_model_returns_false(self):
         """绑定不存在的模型 → False（不新增幽灵条目）。"""
-        self.assertFalse(model_registry.bind_validation("_ghost.pkl", "x.log", "rejected")))
+        self.assertFalse(model_registry.bind_validation("_ghost.pkl", "x.log", "rejected"))
 
     def test_get_model_entry_missing_returns_none(self):
         self.assertIsNone(model_registry.get_model_entry("_ghost.pkl"))
