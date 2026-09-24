@@ -27,6 +27,7 @@ if str(BASE_DIR) not in sys.path:
 
 from core import model_registry                     # noqa: E402
 from core import validation_schema as S             # noqa: E402
+import bind_validation_evidence as bve          # noqa: E402
 
 
 def _full_pass_evidence_v2(power_frozen: bool = True) -> dict:
@@ -406,9 +407,59 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             ok, reason = model_registry.verify_approval(pkl, proto)
             self.assertFalse(ok)
             self.assertIn("kfp", reason.lower())
+
+            # registry KFP restored; PIT evidence must independently remain a hard gate.
+            reg = model_registry.load_registry()
+            reg["models"][pkl.name]["snapshot_provenance"]["kfp_comparability"] = "SAME"
+            reg["models"][pkl.name]["validation"]["evidence"]["provenance"][
+                "historical_feature_mode"] = {
+                    "value": "EOD_PROXY", "status": S.STATUS_OK}
+            model_registry._save_registry(reg)
+            model_registry.apply_promotion(pkl.name)
+            ok, reason = model_registry.verify_approval(pkl, proto)
+            self.assertFalse(ok)
+            self.assertIn("historical_feature_mode", reason)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def test_09_explicit_bind_entry_routes_through_registry(self):
+        ev = self._full_pass_phase_a()
+        pkl = self.tmp_root / "_explicit_entry_model.pkl"
+        pkl.write_bytes(b"explicit-entry-model")
+        model_registry.register_model(pkl, meta={}, snapshot_provenance={
+            "snapshot_file": "samples_frozen_20260910.jsonl",
+            "samples_sha256_lf": "ab" * 32,
+            "kfp_recorded_sha256": "cd" * 32,
+            "kfp_current_sha256": "cd" * 32,
+            "kfp_comparability": "SAME"})
+        entry = model_registry.get_model_entry(pkl.name)
+        report = self.tmp_root / "explicit_report.log"
+        report.write_text(
+            "report\\nPROVENANCE_JSON=" + json.dumps({
+                "validation_mode": "ARTIFACT",
+                "artifact_sha256": entry["sha256"],
+                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                "git_commit": entry["git_commit"],
+            }, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8")
+        evidence = self.tmp_root / "explicit_evidence.json"
+        evidence.write_text(
+            json.dumps(ev, ensure_ascii=False, indent=2), encoding="utf-8")
+        old_argv = list(sys.argv)
+        try:
+            sys.argv = ["bind_validation_evidence.py",
+                        "--report", str(report),
+                        "--evidence", str(evidence),
+                        "--model", pkl.name]
+            self.assertEqual(bve.main(), 0)
+        finally:
+            sys.argv = old_argv
+        got = model_registry.get_model_entry(pkl.name)["validation"]["evidence"]
+        self.assertEqual(got["schema_version"], 2)
+        self.assertEqual(
+            model_registry.get_model_entry(pkl.name)["promotion"]["derived_by"],
+            "derive_promotion")
+    
     def test_08_verify_approval_re_reads_report_provenance(self):
         ev = self._full_pass_phase_a()
         tmp, pkl, proto, report = self._seed_real_bind(ev)
