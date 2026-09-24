@@ -525,6 +525,7 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
         "decision": decision,
         "bound_at": datetime.now().isoformat(timespec="seconds"),
         "provenance": {
+            "validation_mode": str(provenance["validation_mode"]).strip(),
             "artifact_sha256": str(provenance["artifact_sha256"]).strip(),
             "dataset_sha256": str(provenance["dataset_sha256"]).strip(),
             "git_commit": str(provenance["git_commit"]).strip(),
