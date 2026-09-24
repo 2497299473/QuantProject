@@ -538,54 +538,6 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
         apply_promotion(pkl_name)
     return saved
 
-# ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
-def bind_validation(pkl_name: str, report_file: str, report_sha256: str,
-                    decision: str, metrics: dict | None = None,
-                    auto_promotion: bool = True,
-                    provenance: dict | None = None) -> bool:
-    """把「这份 pkl 对应哪次验证」绑进注册表（密码学绑定报告哈希）。
-
-    pkl_name: registry 键（文件名，如 forecast_v2.pkl）
-    report_file: 相对 BASE_DIR 的验证报告路径（如 output/backtest_forecast_v8_xxx.log）
-    report_sha256: 该报告的 sha256（防报告事后被替换）
-    decision: "approved" / "rejected"（该验证对 model_ready 的裁决）
-    metrics: {horizon: {rank_ic, ric_ci, oos_brier, ..., decision}} 关键指标快照
-             （每周期须含 decision 字段，供 promotion 纯函数核验）
-    auto_promotion: 绑定成功后自动用 derive_promotion 纯函数推导并写入
-             promotion（P3，2026-09-01）——正常路径不再手填 update_promotion。
-    provenance: 报告侧声明的三项血统字段 artifact_sha256 / dataset_sha256 / git_commit。
-             三项必须与 registry 当前条目的模型字节、冻结样本 sha、训练代码锚点
-             逐项相等；缺失或不一致直接拒绝绑定。
-    """
-    reg = load_registry()
-    entry = reg["models"].get(pkl_name)
-    if entry is None:
-        return False
-
-    ok_prov, _ = validate_validation_provenance(pkl_name, provenance)
-    if not ok_prov:
-        return False
-
-    entry["validation"] = {
-        "report_file": report_file,
-        "report_sha256": report_sha256,
-        "decision": decision,
-        "bound_at": datetime.now().isoformat(timespec="seconds"),
-        "provenance": {
-            "artifact_sha256": str(provenance["artifact_sha256"]).strip(),
-            "dataset_sha256": str(provenance["dataset_sha256"]).strip(),
-            "git_commit": str(provenance["git_commit"]).strip(),
-        },
-    }
-    if metrics:
-        entry["validation"]["metrics"] = metrics
-    saved = _save_registry(reg)
-    if saved and auto_promotion:
-        # P3：promotion 由纯函数从本绑定推导（同一证据 → 同一结论）
-        apply_promotion(pkl_name)
-    return saved
-
-
 def update_promotion(pkl_name: str, status: str, reason: str) -> bool:
     """手写 promotion（低层接口，仅限人工覆写/应急）。
 
