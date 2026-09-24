@@ -175,7 +175,8 @@ class TestAssembleValidationEvidence(unittest.TestCase):
              "3": {c: insufficient_power_node(3) for c in S.PRODUCTION_FUNDS}},
             [1, 3, 5], self._snap_info(),
             overall_ok=False, git_head="b" * 40,
-            produced_at="2026-09-23T23:59:00")
+            produced_at="2026-09-23T23:59:00",
+            model_sha256="c" * 64)
         ok, errs = S.validate_evidence(ev)
         self.assertTrue(ok)
         self.assertEqual(errs, [])
@@ -193,6 +194,14 @@ class TestAssembleValidationEvidence(unittest.TestCase):
         self.assertEqual(ev["provenance"]["historical_feature_mode"]["value"], "EOD_PROXY")
         self.assertEqual(ev["protocol"]["version"], 1)
         self.assertEqual(ev["baseline"], {"name": "est_chg", "unit": "fraction"})
+
+    def test_artifact_sha_unknown_without_persisted_model(self):
+        ev = assemble_validation_evidence(
+            {"1": _pooled_results()}, {}, {}, [1],
+            {"mode": "FRESH", "snapshot_provenance": {}},
+            overall_ok=False, git_head=None, produced_at="t")
+        self.assertEqual(ev["provenance"]["artifact_sha256"]["status"],
+                         S.STATUS_UNKNOWN)
 
     def test_fresh_mode_sha_unknown(self):
         ev = assemble_validation_evidence(
