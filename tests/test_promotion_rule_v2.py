@@ -614,6 +614,7 @@ class TestRegistryIntegration(unittest.TestCase):
         self.assertTrue(model_registry.bind_feature_protocol(pkl.name, proto))
         entry = model_registry.get_model_entry(pkl.name)
         provenance = {
+            "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
             "git_commit": entry["git_commit"],
