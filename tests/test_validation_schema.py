@@ -54,6 +54,16 @@ class TestFrozenConstants(unittest.TestCase):
         self.assertIsNone(S.canonical_horizon("01"))
         self.assertIsNone(S.canonical_horizon(1.0))
 
+    def test_historical_feature_mode_enum_is_authoritative(self):
+        self.assertEqual(S.HISTORICAL_FEATURE_MODES,
+                         ("EOD_PROXY", "PIT_1455_SNAPSHOT"))
+        self.assertIn("PIT_1455_SNAPSHOT", S.HISTORICAL_FEATURE_MODES)
+
+    def test_kfp_comparability_states_exact(self):
+        self.assertEqual(S.KFP_COMPARABILITY_STATES,
+                         ("SAME", "DRIFTED", "UNKNOWN"))
+        self.assertIn("kfp_comparability", S.PROVENANCE_KEYS)
+
     def test_baseline_tied_to_contract_c3_c4(self):
         """C3/C4：基线名与量纲必须与 core.forecast_contract / pit1455 同源。"""
         self.assertEqual(S.BASELINE_NAME, "est_chg")
