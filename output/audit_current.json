@@ -1,11 +1,11 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-09-22T14:55:34",
+  "generated_at": "2026-09-24T11:56:43",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
-    "PASS": 17,
+    "PASS": 18,
     "FAIL": 1,
-    "WARN": 0
+    "WARN": 2
   },
   "audit_health": "FAIL",
   "model_promotion": "BLOCKED",
@@ -31,12 +31,12 @@
     "n_universe": 2,
     "eligible": 2,
     "contaminated": 0,
-    "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+    "detail": "当日 1 次证据运行（1 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
   },
-  "evidence_as_of": "2026-09-22",
-  "evidence_expected_as_of": "2026-09-22",
+  "evidence_as_of": "2026-09-24",
+  "evidence_expected_as_of": "2026-09-24",
   "evidence_stale": false,
-  "evidence_latest_run": "run_manifest_20260922_145504_post.json",
+  "evidence_latest_run": "run_manifest_20260924_113013_mid.json",
   "production": "BLOCKED",
   "legacy_note": "'production' 为旧字段（仅反映审计 FAIL 数，不代表生产资格）；请以 production_status 为准。",
   "checks": [
@@ -59,14 +59,14 @@
       "axis": "P0-研究有效性",
       "title": "数据快照可回溯（内嵌 hash 可解析）",
       "status": "PASS",
-      "detail": "当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（28 条记录）"
+      "detail": "当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（32 条记录）"
     },
     {
       "cid": "P0-4",
       "axis": "P0-研究有效性",
       "title": "数据快照新鲜度",
       "status": "PASS",
-      "detail": "generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 3 天"
+      "detail": "generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 5 天"
     },
     {
       "cid": "P0-5",
@@ -81,6 +81,27 @@
       "title": "模型权重 sha256 与注册表一致",
       "status": "PASS",
       "detail": "2 个模型"
+    },
+    {
+      "cid": "P1-10",
+      "axis": "P1-证据链",
+      "title": "registry 路径字段可判读",
+      "status": "PASS",
+      "detail": "2 个模型路径均为仓库相对路径"
+    },
+    {
+      "cid": "P1-11",
+      "axis": "P1-证据链",
+      "title": "工作区干净度（代码锚点可比）",
+      "status": "WARN",
+      "detail": "12 项未提交改动（前 5：M backtest_forecast.py；M core/forecast_engine.py；M core/model_registry.py；M data/intraday_features.jsonl；M data/market_context/history.jsonl）——registry 绑定的 git_commit 未必等于当前运行代码"
+    },
+    {
+      "cid": "P1-12",
+      "axis": "P1-证据链",
+      "title": "SSOT git tip 对账",
+      "status": "WARN",
+      "detail": "SSOT tip=72d40b98e73b；当前 HEAD^=06d96764fc76… ⇒ SSOT 可能落后当前代码"
     },
     {
       "cid": "P1-2",
@@ -115,14 +136,14 @@
       "axis": "P1-证据链",
       "title": "legacy_invalid 已移出活跃流",
       "status": "PASS",
-      "detail": "活跃流分布 {'prereg_degraded': 28}"
+      "detail": "活跃流分布 {'prereg_degraded': 32}"
     },
     {
       "cid": "P1-7",
       "axis": "P1-证据链",
       "title": "运行清单已实际产出",
       "status": "PASS",
-      "detail": "9 份；最新 run_manifest_20260922_145504_post.json status=SUCCESS · 证据截至 2026-09-22"
+      "detail": "10 份；最新 run_manifest_20260924_113013_mid.json status=SUCCESS · 证据截至 2026-09-24"
     },
     {
       "cid": "P1-8",
@@ -136,7 +157,7 @@
       "axis": "P1-证据链",
       "title": "飞书发布资格（当日逐基金证据干净）",
       "status": "PASS",
-      "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+      "detail": "当日 1 次证据运行（1 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
     },
     {
       "cid": "P2-1",
@@ -157,7 +178,7 @@
       "axis": "P2-工程卫生",
       "title": "测试分层（fast/slow）",
       "status": "PASS",
-      "detail": "测试文件 44 个；pytest 配置 有；markers 有"
+      "detail": "测试文件 59 个；pytest 配置 有；markers 有"
     },
     {
       "cid": "P2-4",
