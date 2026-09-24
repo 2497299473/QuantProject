@@ -773,7 +773,7 @@ def derive_promotion(validation: dict | None) -> dict:
     规则：
     R0 无 validation / decision 非法 → pending（无依据不强判，不动现有 promotion）。
     R1 validation.evidence 为 schema v2（B++-2 验证器产出）→ 五门顺序裁决
-       （_derive_promotion_v2_gates）；decision=rejected → blocked。
+       （_derive_promotion_v2_gates）；validation/evidence 的 decision 只作诊断，不抢先裁决。
     R2 legacy 绑定（无 schema v2 证据块）保留 v1 一致性核验：decision=approved
        但缺 per-horizon metrics → pending；decision=rejected 或任一周期
        metrics.decision != approved → blocked（failed_horizons 列未过周期）。
