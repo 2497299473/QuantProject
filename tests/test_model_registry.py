@@ -473,6 +473,27 @@ class TestPreregDegradation(unittest.TestCase):
 
     PROTO = None   # 由 _seed 填充（与 verify_approval 用同一份协议）
 
+    def _validation_provenance(self):
+        entry = model_registry.get_model_entry(self.pkl.name)
+        if not entry.get("snapshot_provenance"):
+            reg = model_registry.load_registry()
+            reg["models"][self.pkl.name]["snapshot_provenance"] = {
+                "snapshot_file": "samples_frozen_test.jsonl",
+                "samples_sha256_lf": "d" * 64,
+                "kfp_recorded_sha256": "e" * 64,
+                "kfp_current_sha256": "e" * 64,
+                "kfp_comparability": "SAME",
+            }
+            model_registry._save_registry(reg)
+            entry = model_registry.get_model_entry(self.pkl.name)
+        return {"artifact_sha256": entry["sha256"],
+                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                "git_commit": entry["git_commit"]}
+
+    def _bind_validation(self, *args, **kwargs):
+        kwargs.setdefault("provenance", self._validation_provenance())
+        return model_registry.bind_validation(*args, **kwargs)
+
     def _seed(self, metrics=None, decision="rejected", model_bytes=b"v3-bytes"):
         self.pkl.write_bytes(model_bytes)
         model_registry.register_model(self.pkl, meta={"n_train": 10})
