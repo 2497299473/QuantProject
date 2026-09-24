@@ -22,6 +22,7 @@
 """
 import json
 import math
+import pickle
 import random
 import sys
 from bisect import bisect_right
@@ -502,6 +503,79 @@ def build_xy(samples: list[dict], horizon: int, flat_margin: float):
                    np.array(yret, dtype=float), dates, funds)
 
 
+def load_persisted_direction_artifact(artifact: str, horizons, flat_margin: float) -> tuple[dict | None, str | None]:
+    """加载并校验 registry 中已登记的持久化方向模型；绝不触发训练。
+
+    返回 (context, None)；context 含 models/model_sha256/dataset_sha256/git_commit。
+    pickle 反序列化前先走 registry 原始字节 SHA 校验；registry 血统不完整或
+    当前代码 commit 与训练 commit 不同，均拒绝进入 artifact 验证模式。
+    """
+    from core import model_registry
+
+    artifact_name = Path(artifact).name
+    entry = model_registry.get_model_entry(artifact_name)
+    if entry is None:
+        return None, f"registry 无 artifact 条目: {artifact_name}"
+    path = model_registry.PKL_DIR / artifact_name
+    raw, reason = model_registry.read_verified_model_bytes(path)
+    if raw is None:
+        return None, f"artifact 校验失败: {reason}"
+
+    expected_protocol = model_registry.make_feature_protocol(
+        forecast_engine.FEATURE_KEYS, masking=forecast_engine.MASKING_PROTOCOL)
+    ok_proto, proto_reason = model_registry.verify_feature_protocol(
+        artifact_name, expected_protocol)
+    if not ok_proto:
+        return None, f"artifact feature protocol 校验失败: {proto_reason}"
+    try:
+        payload = pickle.loads(raw)
+    except Exception as exc:
+        return None, f"artifact 反序列化失败: {type(exc).__name__}"
+    if not isinstance(payload, dict):
+        return None, "artifact payload 非 dict"
+
+    if payload.get("model_version") != forecast_engine.MODEL_VERSION:
+        return None, "artifact model_version 与当前生产版本不符"
+    if payload.get("feature_keys") != list(forecast_engine.FEATURE_KEYS):
+        return None, "artifact feature_keys 与当前协议不符"
+    if [str(x) for x in (payload.get("horizons") or [])] != [str(x) for x in horizons]:
+        return None, "artifact horizons 与当前验证契约不符"
+    try:
+        if abs(float(payload.get("flat_margin", -1.0)) - float(flat_margin)) > 1e-12:
+            return None, "artifact flat_margin 与当前配置不符"
+    except (TypeError, ValueError):
+        return None, "artifact flat_margin 不可解析"
+
+    raw_models = payload.get("dirmodels") or {}
+    models = {}
+    for h in horizons:
+        clf = raw_models.get(h, raw_models.get(str(h)))
+        if clf is None or not hasattr(clf, "predict_proba"):
+            return None, f"artifact 缺少 T+{h} 持久化方向模型"
+        models[h] = clf
+
+    snapshot = entry.get("snapshot_provenance") or {}
+    dataset_sha = str(snapshot.get("samples_sha256_lf") or "").strip()
+    train_commit = str(entry.get("git_commit") or "").strip()
+    model_sha = str(entry.get("sha256") or "").strip()
+    if not model_sha:
+        return None, "registry artifact sha 缺失"
+    if not dataset_sha:
+        return None, "registry 冻结样本 sha 缺失"
+    if not train_commit:
+        return None, "registry git_commit 缺失"
+    current_git = freeze_verify_tool.git_commit()
+    if not current_git or current_git != train_commit:
+        return None, f"当前代码 commit 与 artifact 训练 commit 不一致：current={current_git!s} / train={train_commit}"
+    return {
+        "artifact_name": artifact_name,
+        "models": models,
+        "model_sha256": model_sha,
+        "dataset_sha256": dataset_sha,
+        "git_commit": train_commit,
+        "entry": entry,
+    }, None
+
 def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
@@ -509,7 +583,13 @@ def main() -> int:
                     help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
     ap.add_argument("--fresh", action="store_true",
                     help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
+    ap.add_argument("--artifact", default=None,
+                    help="持久化 registry artifact 文件名；启用后只加载已登记权重，不重训")
     args = ap.parse_args()
+
+    if args.artifact and args.fresh:
+        print("[fail] --artifact 与 --fresh 互斥：artifact 验证必须消费冻结样本")
+        return 2
 
     cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     fc = cfg.get("forecast", {})
@@ -526,6 +606,25 @@ def main() -> int:
                                          lambda: load_samples(require_fwds=()))
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
+
+    artifact_ctx = None
+    if args.artifact:
+        artifact_ctx, artifact_err = load_persisted_direction_artifact(
+            args.artifact, horizons, flat_margin)
+        if artifact_ctx is None:
+            print(f"[fail] --artifact 校验拒绝：{artifact_err}")
+            return 2
+        if snap_info["mode"] != "FROZEN":
+            print("[fail] --artifact 只允许与 FROZEN 样本一起验证")
+            return 2
+        snap_sha = str((snap_info.get("snapshot_provenance") or {}).get("samples_sha256_lf") or "").strip()
+        if snap_sha != artifact_ctx["dataset_sha256"]:
+            print("[fail] --artifact 的训练冻结样本与当前验证样本 sha 不一致")
+            print(f"       artifact.dataset={artifact_ctx['dataset_sha256']}")
+            print(f"       current_snapshot={snap_sha or 'UNKNOWN'}")
+            return 2
+        print(f"> 验证模型: ARTIFACT `{artifact_ctx['artifact_name']}` sha={artifact_ctx['model_sha256'][:12]}…")
+        print(f"> artifact 训练血统: git={artifact_ctx['git_commit']} · dataset_sha={artifact_ctx['dataset_sha256'][:12]}…")
     # V4.3.1 ④：报告首行区必须原样记录样本快照（DRIFTED/INCOMPLETE/UNKNOWN/FRESH
     # 均在此可见；stdout 即本报告主体，与其他 9 个入口的 report_line 纪律同款）
     print(snap_info["report_line"])
@@ -582,28 +681,33 @@ def main() -> int:
         counts = np.bincount(y, minlength=3)
         print(f"  类别分布 up/flat/down = {counts.tolist()}")
 
-        # 按日分组 + purged/embargoed CV（2026-08-28 修，GPT P1③）：
-        # 一个交易日只属于一个 fold；train 只含验证块**之前**的日期，且剔除紧邻
-        # embargo=h 个交易日的样本（T+h 标签与验证段重叠 → purge），杜绝同日跨折。
-        clf = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
-                                             max_depth=3, early_stopping=True, random_state=42)
-        # 日期身份由 build_xy 与 X/y 在同一循环生成，严禁下游重建筛选口径。
-        cv_results = []
-        for fm in date_group_cv_masks(XY.dates, n_splits=5, embargo=h):
-            if fm["n_train"] < 50 or fm["n_va"] == 0:
-                print(f"  fold@{fm['fold']}: 样本不足(tr={fm['n_train']},va={fm['n_va']}) → 跳过")
-                continue
-            clf_cv = HistGradientBoostingClassifier(max_iter=100, learning_rate=0.08,
-                                                    max_depth=3, early_stopping=True, random_state=42)
-            clf_cv.fit(X[fm["tr_mask"]], y[fm["tr_mask"]])
-            pv = clf_cv.predict_proba(X[fm["va_mask"]])
-            cv_results.append(brier_multiclass(y[fm["va_mask"]], pv))
-        cv_brier = float(np.mean(cv_results)) if cv_results else 0.0
-        print(f"  CV Brier(均) = {cv_brier:.3f}（瞎猜基准 0.667；越低越好，可用 fold={len(cv_results)}）")
-
-        # 在全部 train 上拟合 OOS 用
-        clf.fit(X, y)
-        po = clf.predict_proba(Xo)
+        if artifact_ctx is not None:
+            po = artifact_ctx["models"][h].predict_proba(Xo)
+            cv_brier = None
+            print(f"  [artifact] 使用持久化 T+{h} 模型，跳过 CV 与 OOS 重训")
+        else:
+            # 按日分组 + purged/embargoed CV（2026-08-28 修，GPT P1③）：
+            # 一个交易日只属于一个 fold；train 只含验证块**之前**的日期，且剔除紧邻
+            # embargo=h 个交易日的样本（T+h 标签与验证段重叠 → purge），杜绝同日跨折。
+            clf = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
+                                                 max_depth=3, early_stopping=True, random_state=42)
+            # 日期身份由 build_xy 与 X/y 在同一循环生成，严禁下游重建筛选口径。
+            cv_results = []
+            for fm in date_group_cv_masks(XY.dates, n_splits=5, embargo=h):
+                if fm["n_train"] < 50 or fm["n_va"] == 0:
+                    print(f"  fold@{fm['fold']}: 样本不足(tr={fm['n_train']},va={fm['n_va']}) → 跳过")
+                    continue
+                clf_cv = HistGradientBoostingClassifier(max_iter=100, learning_rate=0.08,
+                                                        max_depth=3, early_stopping=True, random_state=42)
+                clf_cv.fit(X[fm["tr_mask"]], y[fm["tr_mask"]])
+                pv = clf_cv.predict_proba(X[fm["va_mask"]])
+                cv_results.append(brier_multiclass(y[fm["va_mask"]], pv))
+            cv_brier = float(np.mean(cv_results)) if cv_results else 0.0
+            print(f"  CV Brier(均) = {cv_brier:.3f}（瞎猜基准 0.667；越低越好，可用 fold={len(cv_results)}）")
+    
+            # 在全部 train 上拟合 OOS 用
+            clf.fit(X, y)
+            po = clf.predict_proba(Xo)
         oo_brier = brier_multiclass(yo, po)
         print(f"  OOS Brier = {oo_brier:.3f}")
 
@@ -694,11 +798,20 @@ def main() -> int:
             results, pooled_nodes, fund_evidence, horizons, snap_info,
             overall_ok=overall_ok,
             git_head=freeze_verify_tool.git_commit(),
-            produced_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+            produced_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            model_sha256=(artifact_ctx["model_sha256"] if artifact_ctx else None)))
         ok_ev, errs_ev = validation_schema.validate_evidence(ev)
         if not ok_ev:
             print(f"\n[evidence] schema v2 自检未过，拒绝落盘（fail-closed）：{errs_ev[:3]}")
         else:
+            if args.artifact:
+                prov_line = {
+                    "artifact_sha256": ev["provenance"]["artifact_sha256"]["value"],
+                    "dataset_sha256": ev["provenance"]["dataset_sha256"]["value"],
+                    "git_commit": ev["provenance"]["git_commit"]["value"],
+                }
+                print("PROVENANCE_JSON=" + json.dumps(
+                    prov_line, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
             outdir = BASE_DIR / "output" / "validation_evidence"
             outdir.mkdir(parents=True, exist_ok=True)
             ev_path = outdir / (
