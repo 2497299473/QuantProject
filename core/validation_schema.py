@@ -54,6 +54,12 @@ PRODUCTION_FUNDS = ("002112", "002207", "022853", "025687")
 # ---- 契约 B §5 主晋升周期（canonical JSON 键 = 字符串）----
 HORIZONS = ("1", "3", "5")
 
+# ---- 历史特征时点口径（D2：schema 唯一权威）----
+HISTORICAL_FEATURE_MODES = ("EOD_PROXY", "PIT_1455_SNAPSHOT")
+
+# ---- KFP 可比性三态（F2：未判定只允许 UNKNOWN）----
+KFP_COMPARABILITY_STATES = ("SAME", "DRIFTED", "UNKNOWN")
+
 # ---- 契约 B §3 唯一机械基线 ----
 BASELINE_NAME = "est_chg"
 BASELINE_UNIT = "fraction"
@@ -89,7 +95,8 @@ QUANTILE_KEYS = ("coverage", "pinball", "cqr_coverage")
 # provenance 块（契约 B §10：冻结件可溯源；均以非空文本入档）
 PROVENANCE_KEYS = ("frozen_dataset", "artifact_sha256", "dataset_sha256", "git_commit",
                    "feature_protocol", "contract_version",
-                   "historical_feature_mode", "produced_by", "produced_at")
+                   "historical_feature_mode", "kfp_comparability",
+                   "produced_by", "produced_at")
 
 
 # ---------- 证据值构造器（产出方 B++-2 使用） ----------
@@ -289,6 +296,20 @@ def _check_baseline(baseline, errors: list) -> None:
 
 def _check_provenance(prov, errors: list) -> None:
     _check_flat("provenance", prov, {k: "text" for k in PROVENANCE_KEYS}, errors)
+    if not isinstance(prov, dict):
+        return
+    hmode = prov.get("historical_feature_mode")
+    if isinstance(hmode, dict) and hmode.get("status") == STATUS_OK:
+        if hmode.get("value") not in HISTORICAL_FEATURE_MODES:
+            errors.append(
+                "provenance.historical_feature_mode: 非法口径 "
+                f"{hmode.get('value')!r}（仅允许 {'/'.join(HISTORICAL_FEATURE_MODES)}）")
+    kfp = prov.get("kfp_comparability")
+    if isinstance(kfp, dict) and kfp.get("status") == STATUS_OK:
+        if kfp.get("value") not in KFP_COMPARABILITY_STATES:
+            errors.append(
+                "provenance.kfp_comparability: 非法值 "
+                f"{kfp.get('value')!r}（仅允许 {'/'.join(KFP_COMPARABILITY_STATES)}）")
 
 
 def _check_protocol(protocol, errors: list) -> None:
