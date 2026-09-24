@@ -412,10 +412,49 @@ def registry_summary() -> dict:
 
 
 
+
+
+def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tuple[bool, str]:
+    """核对 validation 报告声明与 registry 当前模型血统（A-1）。
+
+    这是 I/O 边界的附加校验，不参与 ``derive_promotion()`` 判据。
+    报告声明的三项必须分别等于：
+      - artifact_sha256 == registry.models[pkl_name].sha256
+      - dataset_sha256 == registry.models[pkl_name].snapshot_provenance.samples_sha256_lf
+      - git_commit == registry.models[pkl_name].git_commit（训练时代码锚点）
+    任一字段缺失、registry 血统缺失或值不一致，一律拒绝绑定（fail-closed）。
+    """
+    if not isinstance(provenance, dict):
+        return False, "validation_provenance_missing"
+    required = ("artifact_sha256", "dataset_sha256", "git_commit")
+    missing = [k for k in required if not str(provenance.get(k) or "").strip()]
+    if missing:
+        return False, "validation_provenance_missing:" + ",".join(missing)
+    entry = get_model_entry(pkl_name)
+    if entry is None:
+        return False, "no_entry"
+    artifact_sha = str(entry.get("sha256") or "").strip()
+    snapshot = entry.get("snapshot_provenance") or {}
+    dataset_sha = str(snapshot.get("samples_sha256_lf") or "").strip()
+    train_commit = str(entry.get("git_commit") or "").strip()
+    if not artifact_sha:
+        return False, "registry_artifact_sha_missing"
+    if not dataset_sha:
+        return False, "registry_dataset_sha_missing"
+    if not train_commit:
+        return False, "registry_git_commit_missing"
+    checks = (("artifact_sha256", str(provenance["artifact_sha256"]).strip(), artifact_sha),
+              ("dataset_sha256", str(provenance["dataset_sha256"]).strip(), dataset_sha),
+              ("git_commit", str(provenance["git_commit"]).strip(), train_commit))
+    for key, declared, expected in checks:
+        if declared != expected:
+            return False, f"validation_provenance_{key}_mismatch"
+    return True, "ok"
 # ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
 def bind_validation(pkl_name: str, report_file: str, report_sha256: str,
                     decision: str, metrics: dict | None = None,
-                    auto_promotion: bool = True) -> bool:
+                    auto_promotion: bool = True,
+                    provenance: dict | None = None) -> bool:
     """把「这份 pkl 对应哪次验证」绑进注册表（密码学绑定报告哈希）。
 
     pkl_name: registry 键（文件名，如 forecast_v2.pkl）
@@ -426,16 +465,29 @@ def bind_validation(pkl_name: str, report_file: str, report_sha256: str,
              （每周期须含 decision 字段，供 promotion 纯函数核验）
     auto_promotion: 绑定成功后自动用 derive_promotion 纯函数推导并写入
              promotion（P3，2026-09-01）——正常路径不再手填 update_promotion。
+    provenance: 报告侧声明的三项血统字段 artifact_sha256 / dataset_sha256 / git_commit。
+             三项必须与 registry 当前条目的模型字节、冻结样本 sha、训练代码锚点
+             逐项相等；缺失或不一致直接拒绝绑定。
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
     if entry is None:
         return False
+
+    ok_prov, _ = validate_validation_provenance(pkl_name, provenance)
+    if not ok_prov:
+        return False
+
     entry["validation"] = {
         "report_file": report_file,
         "report_sha256": report_sha256,
         "decision": decision,
         "bound_at": datetime.now().isoformat(timespec="seconds"),
+        "provenance": {
+            "artifact_sha256": str(provenance["artifact_sha256"]).strip(),
+            "dataset_sha256": str(provenance["dataset_sha256"]).strip(),
+            "git_commit": str(provenance["git_commit"]).strip(),
+        },
     }
     if metrics:
         entry["validation"]["metrics"] = metrics
