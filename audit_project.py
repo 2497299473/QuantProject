@@ -562,16 +562,16 @@ def check_approval_binding(a: Audit) -> None:
 
 
 def check_ssot_git_tip(a: Audit) -> None:
-    """SSOT 收口指针校验（P1-12）。
+    """release code 指针校验（P1-12）。
 
-    ``evidence/ssot_git_tip.txt`` 记录「SSOT 收口时的代码 tip」；该指针文件本身
+    ``evidence/release_code_tip.txt`` 记录「release 收口时的代码 tip」；该指针文件本身
     会形成下一次 commit，因此正常闭合状态是 pointer == HEAD^。
     若 HEAD 在 SSOT 收口后继续前进，则明确标 WARN，而不是把查不到/不一致当 PASS。
     """
     pointer = BASE_DIR / "evidence" / "ssot_git_tip.txt"
     if not pointer.is_file():
-        a.add("P1-12", "P1-证据链", "SSOT git tip 对账", WARN,
-              "缺失 evidence/ssot_git_tip.txt（无法判断 SSOT 是否落后当前代码）")
+        a.add("P1-12", "P1-证据链", "release code tip 对账", WARN,
+              "缺失 evidence/release_code_tip.txt（无法判断 SSOT 是否落后当前代码）")
         return
     try:
         declared = pointer.read_text(encoding="utf-8").strip()
@@ -582,16 +582,16 @@ def check_ssot_git_tip(a: Audit) -> None:
             ["git", "-C", str(BASE_DIR), "rev-parse", "HEAD^"],
             capture_output=True, text=True, encoding="utf-8", check=True).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as exc:
-        a.add("P1-12", "P1-证据链", "SSOT git tip 对账", WARN,
+        a.add("P1-12", "P1-证据链", "release code tip 对账", WARN,
               f"无法读取 Git tip：{type(exc).__name__}")
         return
     if declared == parent:
-        a.add("P1-12", "P1-证据链", "SSOT git tip 对账", PASS,
-              f"SSOT tip={declared[:12]}…；当前闭合提交={current[:12]}…")
+        a.add("P1-12", "P1-证据链", "release code tip 对账", PASS,
+              f"release code tip={declared[:12]}…；当前闭合提交={current[:12]}…")
     else:
         short_declared = declared[:12] if declared else "空"
-        a.add("P1-12", "P1-证据链", "SSOT git tip 对账", WARN,
-              f"SSOT tip={short_declared}；当前 HEAD^={parent[:12]}… ⇒ SSOT 可能落后当前代码")
+        a.add("P1-12", "P1-证据链", "release code tip 对账", WARN,
+              f"release code tip={short_declared}；当前 HEAD^={parent[:12]}… ⇒ release code tip 可能落后当前代码")
 
 def check_worktree_clean(a: Audit) -> None:
     """工作区干净度（V4.5，2026-09-23）：registry 绑的 commit 是否就是当前代码。
