@@ -269,7 +269,7 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             self._orig_registry_path.write_text(self._orig_registry, encoding="utf-8")
         shutil.rmtree(self.tmp_root, ignore_errors=True)
 
-    def _full_pass_phase_a(self, validation_decision="approved"):self, validation_decision="approved"):
+    def _full_pass_phase_a(self, validation_decision="approved"):
         ev = _full_pass_evidence_v2()
         ev["decision"] = "approved"
         ev["provenance"]["historical_feature_mode"] = {
