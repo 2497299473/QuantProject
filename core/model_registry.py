@@ -525,7 +525,8 @@ def _read_validation_report(report_file: str) -> tuple[Path | None, str | None, 
 # ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
 def bind_validation(pkl_name: str, report_file: str, decision: str,
                     metrics: dict | None = None,
-                    auto_promotion: bool = True) -> bool:
+                    auto_promotion: bool = True,
+                    evidence: dict | None = None) -> bool:
     """把实际验证报告绑定进 registry。
 
     A-final-1 收口：
@@ -542,7 +543,7 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     if entry is None:
         return False
 
-    report_path, actual_sha, provenance = _read_validation_report(report_file)
+    # v2 证据若随绑定提交，必须先经唯一 schema 权威校验；不合格时一字不写。\r\n    if evidence is not None:\r\n        from core import validation_schema as _vs\r\n        ok_ev, _errs_ev = _vs.validate_evidence(evidence)\r\n        if not ok_ev:\r\n            return False\r\n\r\n    report_path, actual_sha, provenance = _read_validation_report(report_file)
     if report_path is None or actual_sha is None or provenance is None:
         return False
 
@@ -564,6 +565,8 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     }
     if metrics:
         entry["validation"]["metrics"] = metrics
+    if evidence is not None:
+        entry["validation"]["evidence"] = evidence
     saved = _save_registry(reg)
     if saved and auto_promotion:
         apply_promotion(pkl_name)
@@ -707,6 +710,17 @@ def _derive_promotion_v2_gates(evidence: dict, vs) -> dict:
             return _bad("blocked_provenance",
                         f"provenance.{k} 不可核验（{slot['status']}）——证据链不完整")
 
+    hmode = evidence["provenance"]["historical_feature_mode"]["value"]
+    if hmode != vs.HISTORICAL_FEATURE_MODES[-1]:
+        return _bad("blocked_provenance",
+                    "provenance.historical_feature_mode 必须为 "
+                    f"{vs.HISTORICAL_FEATURE_MODES[-1]}，got {hmode!r}")
+    kfp = evidence["provenance"]["kfp_comparability"]["value"]
+    if kfp != "SAME":
+        return _bad("blocked_provenance",
+                    "provenance.kfp_comparability 必须为 'SAME'，"
+                    f"got {kfp!r}")
+
     return {"status": "approved", "rule_version": PROMOTION_RULE_VERSION,
             "failed_horizons": [],
             "reason": "schema v2 证据五门全过（power/performance/baseline_edge/"
@@ -746,10 +760,8 @@ def derive_promotion(validation: dict | None) -> dict:
     evidence = validation.get("evidence")
     if isinstance(evidence, dict) and evidence.get(
             "schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
-        if decision == "rejected":
-            return {"status": "blocked", "rule_version": PROMOTION_RULE_VERSION,
-                    "failed_horizons": [],
-                    "reason": "整体裁决 rejected（schema v2 证据）——model_ready 维持 false"}
+        # v2 唯一法院：五门 gate 决定结果；validation.decision / evidence.decision
+        # 只保留为验证器诊断字段，不得抢先阻断或放行。
         return _derive_promotion_v2_gates(evidence, _vs)
 
     # ---- legacy 兼容路径（无 schema v2 证据块）----
