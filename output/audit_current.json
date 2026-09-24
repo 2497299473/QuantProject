@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-09-24T14:55:33",
+  "generated_at": "2026-09-24T19:02:27",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
     "PASS": 19,
@@ -66,7 +66,7 @@
       "axis": "P0-研究有效性",
       "title": "数据快照新鲜度",
       "status": "PASS",
-      "detail": "generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 5 天"
+      "detail": "generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 6 天"
     },
     {
       "cid": "P0-5",
@@ -93,15 +93,15 @@
       "cid": "P1-11",
       "axis": "P1-证据链",
       "title": "工作区干净度（代码锚点可比）",
-      "status": "WARN",
-      "detail": "7 项未提交改动（前 5：M data/intraday_features.jsonl；M data/market_context/history.jsonl；M output/shadow_actions.jsonl；M output/state_ref_history.jsonl；?? data/market_context/2026-09-24.json）——registry 绑定的 git_commit 未必等于当前运行代码"
+      "status": "PASS",
+      "detail": "工作区干净"
     },
     {
       "cid": "P1-12",
       "axis": "P1-证据链",
-      "title": "SSOT git tip 对账",
-      "status": "PASS",
-      "detail": "SSOT tip=220bd12a1508…；当前闭合提交=48117a53ee2f…"
+      "title": "release code tip 对账",
+      "status": "WARN",
+      "detail": "release code tip=b49e125a250e；当前 HEAD^=b0f51a221b7e… ⇒ release code tip 可能落后当前代码"
     },
     {
       "cid": "P1-2",
