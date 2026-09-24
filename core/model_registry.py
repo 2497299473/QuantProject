@@ -236,7 +236,10 @@ def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
     validation = entry.get("validation")
     if not isinstance(validation, dict):
         return False, "no_validation"
-    if validation.get("decision") != "approved":
+    evidence = validation.get("evidence")
+    is_v2_evidence = (isinstance(evidence, dict)
+                      and evidence.get("schema_version") == PROMOTION_RULE_VERSION)
+    if not is_v2_evidence and validation.get("decision") != "approved":
         return False, "validation_not_approved"
     report_file = validation.get("report_file")
     expected_sha = validation.get("report_sha256")
@@ -274,30 +277,55 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     if not ok:
         return False, reason
     entry = get_model_entry(pkl_path.name) or {}
+    validation = entry.get("validation") or {}
     promotion = entry.get("promotion") or {}
     if promotion.get("status") != "approved":
         return False, "promotion_not_approved"
-    if derive_promotion(entry.get("validation")).get("status") != "approved":
+    if derive_promotion(validation).get("status") != "approved":
         return False, "promotion_evidence_inconsistent"
-    # V4.3.1-⑤（2026-09-22，外部复审）冻结 provenance 门禁：生产授权要求训练
-    # 实际消费的冻结件（FROZEN）五键齐全。FRESH（全 None）/ 历史无此块的
-    # 条目 → 拒绝（research-only）。门禁只在本授权入口：--fresh 训练路径
-    # 不经过 verify_approval，不受影响；derive_promotion 是五审契约纯函数，
-    # 其判据不受本门禁改变。
+
+    # A4：授权入口重读实际 report 的 provenance，并同时核当前 registry 与已绑定值。
+    # 不能只相信 validation.provenance 这份已入库副本。
+    report_file = validation.get("report_file")
+    report_path, report_actual_sha, report_prov = _read_validation_report(report_file)
+    if report_path is None or report_actual_sha is None or report_prov is None:
+        return False, "validation_report_provenance_unreadable"
+    if report_actual_sha != validation.get("report_sha256"):
+        return False, "validation_report_hash_mismatch"
+    ok_report_prov, report_prov_reason = validate_validation_provenance(
+        pkl_path.name, report_prov)
+    if not ok_report_prov:
+        return False, f"validation_provenance_recheck:{report_prov_reason}"
+    stored_prov = validation.get("provenance") or {}
+    for key in ("validation_mode", "artifact_sha256", "dataset_sha256", "git_commit"):
+        if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
+            return False, f"validation_provenance_report_mismatch:{key}"
+
+    # v2 生产授权硬门：历史特征必须是真实 14:55 PIT 快照，KFP 必须 SAME。
+    evidence = validation.get("evidence")
+    if isinstance(evidence, dict) and evidence.get("schema_version") == PROMOTION_RULE_VERSION:
+        from core import validation_schema as _vs
+        ok_ev, errs_ev = _vs.validate_evidence(evidence)
+        if not ok_ev:
+            return False, f"validation_evidence_invalid:{errs_ev[0]}"
+        ev_prov = evidence["provenance"]
+        hmode = ev_prov["historical_feature_mode"]
+        kfp = ev_prov["kfp_comparability"]
+        if hmode["status"] != _vs.STATUS_OK or hmode["value"] != _vs.HISTORICAL_FEATURE_MODES[-1]:
+            return False, f"historical_feature_mode_not_pit_1455:{hmode.get('value')!r}"
+        if kfp["status"] != _vs.STATUS_OK or kfp["value"] != "SAME":
+            return False, f"kfp_comparability_not_same:{kfp.get('value')!r}"
+        sp_kfp = (entry.get("snapshot_provenance") or {}).get("kfp_comparability")
+        if sp_kfp != "SAME":
+            return False, f"kfp_comparability_registry_not_same:{sp_kfp!r}"
+
+    # V4.3.1-⑤：冻结训练件完整性（legacy 与 v2 共同保留）。
     sp = entry.get("snapshot_provenance") or {}
     missing = [k for k in ("snapshot_file", "samples_sha256_lf",
                            "kfp_recorded_sha256", "kfp_current_sha256",
                            "kfp_comparability") if sp.get(k) in (None, "")]
     if missing:
         return False, "snapshot_provenance_incomplete:" + ",".join(missing)
-    # A批 A4（2026-09-24）：bind 时核验过的 validation provenance，在授权入口
-    # 二次复核——registry 事后被改（人工/脚本）而报告未变的不一致状态在此拦截。
-    # 复用 validate_validation_provenance，不新写第二套比对；置于既有各门之后，
-    # 不改变历史条目的既有拒绝原因（V4.3.1-⑤ 测例钉死的措辞保持不变）。
-    ok_prov2, prov_reason2 = validate_validation_provenance(
-        pkl_path.name, (entry.get("validation") or {}).get("provenance"))
-    if not ok_prov2:
-        return False, f"validation_provenance_recheck:{prov_reason2}"
     return True, "ok"
 
 
