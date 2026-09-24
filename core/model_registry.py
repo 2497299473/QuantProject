@@ -423,6 +423,8 @@ def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tu
     """
     if not isinstance(provenance, dict):
         return False, "validation_provenance_missing"
+    if str(provenance.get("validation_mode") or "").strip() != "ARTIFACT":
+        return False, "validation_mode_not_artifact"
     required = ("artifact_sha256", "dataset_sha256", "git_commit")
     missing = [k for k in required if not str(provenance.get(k) or "").strip()]
     if missing:
@@ -499,7 +501,7 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     - report_file 必须真实存在且可 UTF-8 读取；
     - report SHA256 在 bind 时现场重算，调用者不再传 report_sha256；
     - provenance 从报告唯一的 PROVENANCE_JSON=... 行解析，调用者不再传
-      provenance 字典；
+      provenance 字典；且 validation_mode 必须为 ARTIFACT；
     - artifact/dataset/git 三项必须分别等于 registry 当前条目的模型 sha /
       冻结样本 sha / 训练代码 commit；
     - 任一缺失、不一致或重复 provenance 行均 fail-closed。
