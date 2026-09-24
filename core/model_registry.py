@@ -238,7 +238,7 @@ def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
         return False, "no_validation"
     evidence = validation.get("evidence")
     is_v2_evidence = (isinstance(evidence, dict)
-                      and evidence.get("schema_version") == PROMOTION_RULE_VERSION)
+                      and evidence.get("schema_version") == _vs.VALIDATION_SCHEMA_VERSION)
     if not is_v2_evidence and validation.get("decision") != "approved":
         return False, "validation_not_approved"
     report_file = validation.get("report_file")
@@ -303,7 +303,7 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
 
     # v2 生产授权硬门：历史特征必须是真实 14:55 PIT 快照，KFP 必须 SAME。
     evidence = validation.get("evidence")
-    if isinstance(evidence, dict) and evidence.get("schema_version") == PROMOTION_RULE_VERSION:
+    if isinstance(evidence, dict) and evidence.get("schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
         from core import validation_schema as _vs
         ok_ev, errs_ev = _vs.validate_evidence(evidence)
         if not ok_ev:
@@ -632,7 +632,7 @@ def get_model_entry(pkl_name: str) -> dict | None:
 
 
 # ---------- v4（2026-09-01，GPT 五审 P3）：promotion 纯函数化 ----------
-# 五审指出 promotion 一直是人工手填 status/reason（quantv1_a4_bind.py），
+# 五审指出 promotion 一直是人工手填 status/reason（历史人工绑定脚本已移除），
 # 存在与 validation 绑定证据不一致的风险。现把裁决规则固化为纯函数：
 # 只读 validation 绑定（decision + per-horizon metrics），输出确定性的
 # promotion 状态与理由——同一证据永远推出同一结论，可单测、可审计。
