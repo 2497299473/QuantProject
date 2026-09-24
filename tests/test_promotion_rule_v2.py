@@ -416,7 +416,10 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
                     "value": "EOD_PROXY", "status": S.STATUS_OK}
             model_registry._save_registry(reg)
             model_registry.apply_promotion(pkl.name)
-            ok, reason = model_registry.verify_approval(pkl, proto)
+            with __import__("unittest").mock.patch.object(
+                    model_registry, "derive_promotion",
+                    return_value={"status": "approved"}):
+                ok, reason = model_registry.verify_approval(pkl, proto)
             self.assertFalse(ok)
             self.assertIn("historical_feature_mode", reason)
         finally:
