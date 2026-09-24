@@ -454,7 +454,12 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
             f"protocol_version={proto['protocol_version']};"
             f"feature_dim={proto['feature_dim']};masking={ev['protocol']['masking']}"),
         "contract_version": validation_schema.ev_ok(forecast_contract.CONTRACT_VERSION),
-        "historical_feature_mode": validation_schema.ev_ok(HISTORICAL_FEATURE_MODE),
+        "historical_feature_mode": validation_schema.ev_ok(
+            str(snap_info.get("historical_feature_mode") or HISTORICAL_FEATURE_MODE)),
+        "kfp_comparability": validation_schema.ev_ok(
+            str(prov_snap.get("kfp_comparability")
+                if prov_snap.get("kfp_comparability") in validation_schema.KFP_COMPARABILITY_STATES
+                else "UNKNOWN")),
         "produced_by": validation_schema.ev_ok(
             "backtest_forecast.py"
             + (f";verifier_git={git_head}" if git_head else "")),
