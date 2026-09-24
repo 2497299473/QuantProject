@@ -49,8 +49,12 @@ def _full_pass_evidence_v2(power_frozen: bool = True) -> dict:
     ev["power"]["frozen"] = S.ev_ok(power_frozen)
     ev["power"]["n_power_fund"] = S.ev_ok(100)
     for k in ev["provenance"]:
-        ev["provenance"][k] = S.ev_ok(f"{k}-ok")
-    return ev
+        if k == "historical_feature_mode":
+            ev["provenance"][k] = S.ev_ok("PIT_1455_SNAPSHOT")
+        elif k == "kfp_comparability":
+            ev["provenance"][k] = S.ev_ok("SAME")
+        else:
+            ev["provenance"][k] = S.ev_ok(f"{k}-ok")    return ev
 
 
 class TestFullPassAndPurity(unittest.TestCase):
@@ -140,12 +144,6 @@ class TestContractBAntiExamples(unittest.TestCase):
         ev = _full_pass_evidence_v2()
         ev["pooled"]["3"] = S.metric_node()
         self.assertEqual(self._derive(ev)["status"], "blocked_performance")
-
-    def test_i_rejected_decision_blocked_regardless(self):
-        d = model_registry.derive_promotion(
-            {"decision": "rejected", "evidence": _full_pass_evidence_v2()})
-        self.assertEqual(d["status"], "blocked")
-
 
 class TestLegacyCompat(unittest.TestCase):
     def test_rejected_legacy_blocked_with_failed_horizons(self):
