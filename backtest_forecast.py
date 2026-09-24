@@ -778,7 +778,7 @@ def main() -> int:
         ric_significant = not math.isnan(ric_ci[0]) and ric_ci[0] > 0
         beats_hierarchy = (oo_brier <= max(b_majority, b_guess) and ric > base_ic)
         ok = ric_significant and oo_brier < 0.62 and calib["ace"] < 0.25 and beats_hierarchy
-        results[h] = {"ok": ok, "cv_brier": round(cv_brier, 3), "oos_brier": round(oo_brier, 3),
+        results[h] = {"ok": ok, "cv_brier": (None if artifact_ctx is not None else round(cv_brier, 3)), "oos_brier": round(oo_brier, 3),
                       "rank_ic": round(ric, 3), "ric_ci": [round(ric_ci[0], 3), round(ric_ci[1], 3)]
                       if not math.isnan(ric_ci[0]) else None,
                       "brier_ci": [round(brier_ci[0], 3), round(brier_ci[1], 3)]
