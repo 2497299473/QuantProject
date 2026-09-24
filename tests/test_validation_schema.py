@@ -54,6 +54,19 @@ class TestFrozenConstants(unittest.TestCase):
         self.assertIsNone(S.canonical_horizon("01"))
         self.assertIsNone(S.canonical_horizon(1.0))
 
+    def test_provenance_enum_values_are_fail_closed(self):
+        ev = S.blank_evidence()
+        ev["provenance"]["historical_feature_mode"] = S.ev_ok("UNKNOWN_MODE")
+        ok, errs = S.validate_evidence(ev)
+        self.assertFalse(ok)
+        self.assertIn("非法口径", "；".join(errs))
+
+        ev = S.blank_evidence()
+        ev["provenance"]["kfp_comparability"] = S.ev_ok("INCOMPLETE")
+        ok, errs = S.validate_evidence(ev)
+        self.assertFalse(ok)
+        self.assertIn("非法值", "；".join(errs))
+
     def test_historical_feature_mode_enum_is_authoritative(self):
         self.assertEqual(S.HISTORICAL_FEATURE_MODES,
                          ("EOD_PROXY", "PIT_1455_SNAPSHOT"))
