@@ -253,7 +253,23 @@ class TestRegistryIntegration(unittest.TestCase):
 class TestPhaseAEvidenceCourt(unittest.TestCase):
     """Phase 0 后冻结的 8 颗施工钉：先在现状上全部形成可见红灯。"""
 
-    def _full_pass_phase_a(self, validation_decision="approved"):
+    def setUp(self):
+        self.tmp_root = Path(tempfile.mkdtemp())
+        self._orig_registry_path = model_registry.REGISTRY_PATH
+        self._orig_registry = (model_registry.REGISTRY_PATH.read_text(encoding="utf-8")
+                               if model_registry.REGISTRY_PATH.exists() else None)
+        self._orig_models_dir = model_registry.MODELS_DIR
+        model_registry.MODELS_DIR = self.tmp_root
+        model_registry.REGISTRY_PATH = self.tmp_root / "registry.json"
+
+    def tearDown(self):
+        model_registry.MODELS_DIR = self._orig_models_dir
+        model_registry.REGISTRY_PATH = self._orig_registry_path
+        if self._orig_registry is not None:
+            self._orig_registry_path.write_text(self._orig_registry, encoding="utf-8")
+        shutil.rmtree(self.tmp_root, ignore_errors=True)
+
+    def _full_pass_phase_a(self, validation_decision="approved"):self, validation_decision="approved"):
         ev = _full_pass_evidence_v2()
         ev["decision"] = "approved"
         ev["provenance"]["historical_feature_mode"] = {
