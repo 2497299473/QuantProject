@@ -87,7 +87,7 @@ QUANTILES = ("q10", "q50", "q90")
 QUANTILE_KEYS = ("coverage", "pinball", "cqr_coverage")
 
 # provenance 块（契约 B §10：冻结件可溯源；均以非空文本入档）
-PROVENANCE_KEYS = ("frozen_dataset", "dataset_sha256", "git_commit",
+PROVENANCE_KEYS = ("frozen_dataset", "artifact_sha256", "dataset_sha256", "git_commit",
                    "feature_protocol", "contract_version",
                    "historical_feature_mode", "produced_by", "produced_at")
 
