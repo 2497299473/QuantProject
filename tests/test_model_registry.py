@@ -56,6 +56,16 @@ class TestModelRegistry(unittest.TestCase):
         self.test_report = self.tmp / "_test_validation_report.log"
         self._cleanup()
 
+    # V4.3.1-⑤（2026-09-22，外部复审）：生产授权新契约——FROZEN provenance
+    # 五键齐全才可对外展示；本测例按新契约带完整五键注册（正例）
+    FROZEN_PROV = {
+        "snapshot_file": "samples_frozen_20260910.jsonl",
+        "samples_sha256_lf": "be8e" + "0" * 60,
+        "kfp_recorded_sha256": "f5a2" + "0" * 60,
+        "kfp_current_sha256": "f5a2" + "0" * 60,
+        "kfp_comparability": "SAME",
+    }
+
     def _report_provenance(self, overrides=None):
         entry = model_registry.get_model_entry(self.test_pkl.name)
         snap = entry.get("snapshot_provenance") or {}
@@ -263,11 +273,13 @@ class TestModelRegistry(unittest.TestCase):
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
         entry = model_registry.get_model_entry(self.test_pkl.name)
         if prov is not None:
-            rp = {"artifact_sha256": entry["sha256"],
+            rp = {"validation_mode": "ARTIFACT",
+                  "artifact_sha256": entry["sha256"],
                   "dataset_sha256": prov["samples_sha256_lf"],
                   "git_commit": entry["git_commit"]}
         else:
-            rp = {"artifact_sha256": entry["sha256"],
+            rp = {"validation_mode": "ARTIFACT",
+                  "artifact_sha256": entry["sha256"],
                   "dataset_sha256": "d" * 64,
                   "git_commit": entry["git_commit"]}
         self._write_report(content="approved evidence", provenance=rp)
