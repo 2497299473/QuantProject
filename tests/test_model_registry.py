@@ -57,24 +57,21 @@ class TestModelRegistry(unittest.TestCase):
         self._cleanup()
 
     def _validation_provenance(self):
-        """测试夹具：从当前 registry 条目生成声明，覆盖 A-1 三重等式。"""
+        """测试夹具：从当前 registry 条目生成声明，覆盖 A-1 三重等式。
+
+        FRESH 条目（samples_sha256_lf=None）无 dataset 身份 → 诚实返回 None，
+        不回填不伪造——由 bind_validation 的 fail-closed 拒绝。注意 register_model
+        未带 provenance 时落的是五键 None 的 truthy 块，不能按真值判断是否缺身份。
+        """
         entry = model_registry.get_model_entry(self.test_pkl.name)
         if entry is None:
             return None
-        if not entry.get("snapshot_provenance"):
-            reg = model_registry.load_registry()
-            reg["models"][self.test_pkl.name]["snapshot_provenance"] = {
-                "snapshot_file": "samples_frozen_test.jsonl",
-                "samples_sha256_lf": "d" * 64,
-                "kfp_recorded_sha256": "e" * 64,
-                "kfp_current_sha256": "e" * 64,
-                "kfp_comparability": "SAME",
-            }
-            model_registry._save_registry(reg)
-            entry = model_registry.get_model_entry(self.test_pkl.name)
+        snap = entry.get("snapshot_provenance") or {}
+        if not str(snap.get("samples_sha256_lf") or "").strip():
+            return None
         return {
             "artifact_sha256": entry["sha256"],
-            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "dataset_sha256": snap["samples_sha256_lf"],
             "git_commit": entry["git_commit"],
         }
 
@@ -138,7 +135,8 @@ class TestModelRegistry(unittest.TestCase):
     def test_bind_validation_and_promotion_roundtrip(self):
         """validation 绑定 + promotion 记录 + get_model_entry 读取往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
-        model_registry.register_model(self.test_pkl, meta={"n_train": 50})
+        model_registry.register_model(self.test_pkl, meta={"n_train": 50},
+                                      snapshot_provenance=self.FROZEN_PROV)
         ok = self._bind_validation(
             self.test_pkl.name, "output/fake.log", "a" * 64,
             "rejected", {"5": {"rank_ic": 0.08}})
@@ -153,7 +151,8 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_validation_provenance_model_dataset_code_mismatch_rejected(self):
         self.test_pkl.write_bytes(b"model-A")
-        model_registry.register_model(self.test_pkl, meta={})
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
         good = self._validation_provenance()
         self.test_report.write_text("report-A", encoding="utf-8")
         digest = model_registry._file_sha256(self.test_report)
@@ -201,7 +200,8 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_validation_report_hash_is_enforced(self):
         self.test_pkl.write_bytes(b"approved-model")
-        model_registry.register_model(self.test_pkl, meta={})
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
         self.test_report.write_text("approved evidence", encoding="utf-8")
         digest = model_registry._file_sha256(self.test_report)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
@@ -278,12 +278,25 @@ class TestModelRegistry(unittest.TestCase):
         return proto
 
     def test_approval_rejects_fresh_provenance(self):
-        """全证据但 FRESH（provenance 五键 None）→ 拒（research-only，不得对外展示）。"""
-        proto = self._bind_full_evidence(prov=None)
-        ok, reason = model_registry.verify_approval(self.test_pkl, proto)
-        self.assertFalse(ok)
-        self.assertTrue(reason.startswith("snapshot_provenance_incomplete:"), reason)
-        self.assertIn("snapshot_file", reason)
+        """FRESH（provenance 五键 None）→ A-1 绑定层即拒，进不到展示门。
+
+        register_model 不带 provenance 落五键 None 块（无 dataset 身份）：
+        即使声明形式完备，registry 侧 samples_sha256_lf 缺失也 fail-closed
+        拒绝绑定——FRESH 防展示语义（V4.3.1-⑤）由更上游的绑定门兑现。
+        """
+        self.test_pkl.write_bytes(b"approval-provenance-bytes")
+        model_registry.register_model(self.test_pkl, meta={}, snapshot_provenance=None)
+        self.test_report.write_text("approved evidence", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+        entry = model_registry.get_model_entry(self.test_pkl.name)
+        declared = {"artifact_sha256": entry["sha256"],
+                    "dataset_sha256": "d" * 64,      # 形式完备的声明
+                    "git_commit": entry["git_commit"]}
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "approved",
+            provenance=declared))
+        self.assertNotIn("validation",
+                         model_registry.get_model_entry(self.test_pkl.name))
 
     def test_approval_rejects_legacy_entry_without_provenance_block(self):
         """历史条目（registry 无 snapshot_provenance 块）→ 同拒（不回补、不宽容）。"""
@@ -347,7 +360,8 @@ class TestModelRegistry(unittest.TestCase):
     def _bind(self, decision, metrics, auto_promotion=False):
         """测试辅助：注册假 pkl 并绑定 validation（默认关自动推导，单测纯函数）。"""
         self.test_pkl.write_bytes(b"promotion-test-bytes")
-        model_registry.register_model(self.test_pkl, meta={})
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
         self.assertTrue(self._bind_validation(
             self.test_pkl.name, "output/_test_report.log", "deadbeef" * 8,
             decision, metrics=metrics, auto_promotion=auto_promotion))
@@ -474,20 +488,15 @@ class TestPreregDegradation(unittest.TestCase):
     PROTO = None   # 由 _seed 填充（与 verify_approval 用同一份协议）
 
     def _validation_provenance(self):
+        """从 registry 条目生成 A-1 声明；FRESH 条目（dataset 身份缺失）诚实返回 None。"""
         entry = model_registry.get_model_entry(self.pkl.name)
-        if not entry.get("snapshot_provenance"):
-            reg = model_registry.load_registry()
-            reg["models"][self.pkl.name]["snapshot_provenance"] = {
-                "snapshot_file": "samples_frozen_test.jsonl",
-                "samples_sha256_lf": "d" * 64,
-                "kfp_recorded_sha256": "e" * 64,
-                "kfp_current_sha256": "e" * 64,
-                "kfp_comparability": "SAME",
-            }
-            model_registry._save_registry(reg)
-            entry = model_registry.get_model_entry(self.pkl.name)
+        if entry is None:
+            return None
+        snap = entry.get("snapshot_provenance") or {}
+        if not str(snap.get("samples_sha256_lf") or "").strip():
+            return None
         return {"artifact_sha256": entry["sha256"],
-                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                "dataset_sha256": snap["samples_sha256_lf"],
                 "git_commit": entry["git_commit"]}
 
     def _bind_validation(self, *args, **kwargs):
@@ -496,7 +505,8 @@ class TestPreregDegradation(unittest.TestCase):
 
     def _seed(self, metrics=None, decision="rejected", model_bytes=b"v3-bytes"):
         self.pkl.write_bytes(model_bytes)
-        model_registry.register_model(self.pkl, meta={"n_train": 10})
+        model_registry.register_model(self.pkl, meta={"n_train": 10},
+                                      snapshot_provenance=TestModelRegistry.FROZEN_PROV)
         # 绑特征协议，让 verify_approval 能推进到 validation 那一步（否则先被
         # feature_protocol:no_protocol 拦下，测不到「降级不松动展示门」的真正含义）
         TestPreregDegradation.PROTO = model_registry.make_feature_protocol(

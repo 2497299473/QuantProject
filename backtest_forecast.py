@@ -395,7 +395,8 @@ def pooled_node_from_results(r: dict) -> dict:
 def assemble_validation_evidence(results: dict, pooled_nodes: dict,
                                  fund_evidence: dict, horizons, snap_info: dict,
                                  *, overall_ok: bool, git_head: str | None,
-                                 produced_at: str) -> dict:
+                                 produced_at: str,
+                                 model_sha256: str | None = None) -> dict:
     """本轮验证产出 → validation evidence schema v2（组表纯函数）。
 
     pooled：常规分支取 results[h]（与 stdout 逐位同源），跳过分支取
@@ -403,7 +404,8 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
     切片）；protocol 取 current_feature_protocol()（registry 同源，不另造字段）；
     power.frozen=OK(False)——功效阈值未预注册是可计算事实，其余 power 键如实
     UNKNOWN；quantile calibration 本验证器不产出 → 全 UNKNOWN；provenance
-    透传冻结件三元组 + git head + EOD_PROXY 口径诚实标注。decision 只映射
+    透传冻结件三元组 + git head + 模型 artifact sha（本验证器不持久化模型 →
+    诚实 UNKNOWN）+ EOD_PROXY 口径诚实标注。decision 只映射
     验证器既有 overall_ok，不引入第二套裁决。
     """
     proto = forecast_engine.current_feature_protocol()
@@ -434,6 +436,8 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
     ev["power"]["frozen"] = validation_schema.ev_ok(False)
     sha = prov_snap.get("samples_sha256_lf")
     ev["provenance"] = {
+        "artifact_sha256": (validation_schema.ev_ok(str(model_sha256)) if model_sha256
+                            else validation_schema.ev_na(validation_schema.STATUS_UNKNOWN)),
         "frozen_dataset": validation_schema.ev_ok(
             str(prov_snap.get("snapshot_file") or snap_info.get("file")
                 or snap_info.get("mode") or "unknown")),

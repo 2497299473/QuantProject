@@ -65,6 +65,7 @@ LAYERS: dict[str, str] = {
     "test_promotion_rule_v2.py": FAST,     # B++-3：derive_promotion rule v2 五门判据纯函数 + 契约 B 反例矩阵；registry 触点 tempdir 隔离
     "test_metric_status.py": FAST,         # B++-5：指标不足/不可算与真实 0 分离（status 核心 + 遗留外壳哨兵兼容），纯函数零网络
     "test_diag_entry_unify.py": FAST,      # B++-6：诊断入口统一（四脚本 require_fwds=() + policy 复用 cluster_bootstrap_ci），源码断言 + 合成数据零网络
+    "test_stock_data_cache.py": FAST,      # P1-B：stock 缓存原子写 + 坏件回退 provider 链，tempdir + stub 零网络
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_contracts.py": SLOW,
     "test_data_fingerprint.py": SLOW,

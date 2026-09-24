@@ -188,6 +188,8 @@ class TestAssembleValidationEvidence(unittest.TestCase):
         self.assertEqual(ev["power"]["frozen"], {"value": False, "status": "OK"})
         self.assertEqual(ev["provenance"]["dataset_sha256"]["value"], "a" * 64)
         self.assertEqual(ev["provenance"]["git_commit"]["value"], "b" * 40)
+        self.assertEqual(ev["provenance"]["artifact_sha256"]["status"],
+                         S.STATUS_UNKNOWN)   # 模型未持久化 → 诚实 UNKNOWN（schema 必含此键）
         self.assertEqual(ev["provenance"]["historical_feature_mode"]["value"], "EOD_PROXY")
         self.assertEqual(ev["protocol"]["version"], 1)
         self.assertEqual(ev["baseline"], {"name": "est_chg", "unit": "fraction"})
@@ -204,6 +206,7 @@ class TestAssembleValidationEvidence(unittest.TestCase):
         self.assertEqual(ev["provenance"]["frozen_dataset"]["value"], "FRESH")
         self.assertEqual(ev["provenance"]["dataset_sha256"]["status"], S.STATUS_UNKNOWN)
         self.assertEqual(ev["provenance"]["git_commit"]["status"], S.STATUS_UNKNOWN)
+        self.assertEqual(ev["provenance"]["artifact_sha256"]["status"], S.STATUS_UNKNOWN)
 
     def test_main_wiring_exists(self):
         """接线护栏：main() 必须组表 + 自检 + 落盘（缺失即测试红，防静默断线）。"""

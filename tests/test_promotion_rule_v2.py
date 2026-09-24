@@ -204,10 +204,14 @@ class TestRegistryIntegration(unittest.TestCase):
         report = self.tmp / "report.log"
         report.write_text("evidence", encoding="utf-8")
         digest = model_registry._file_sha256(report)
+        entry = model_registry.get_model_entry(pkl.name)
+        prov = {"artifact_sha256": entry["sha256"],
+                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                "git_commit": entry["git_commit"]}
         self.assertTrue(model_registry.bind_validation(
             pkl.name, str(report), digest, "approved",
             {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
-             for h in (1, 3, 5)}))
+             for h in (1, 3, 5)}, provenance=prov))
         reg = model_registry.load_registry()
         reg["models"][pkl.name]["validation"]["evidence"] = evidence
         self.assertTrue(model_registry._save_registry(reg))
