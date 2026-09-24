@@ -571,7 +571,14 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     if entry is None:
         return False
 
-    # v2 证据若随绑定提交，必须先经唯一 schema 权威校验；不合格时一字不写。\r\n    if evidence is not None:\r\n        from core import validation_schema as _vs\r\n        ok_ev, _errs_ev = _vs.validate_evidence(evidence)\r\n        if not ok_ev:\r\n            return False\r\n\r\n    report_path, actual_sha, provenance = _read_validation_report(report_file)
+    # v2 证据若随绑定提交，必须先经唯一 schema 权威校验；不合格时一字不写。
+    if evidence is not None:
+        from core import validation_schema as _vs
+        ok_ev, _errs_ev = _vs.validate_evidence(evidence)
+        if not ok_ev:
+            return False
+
+    report_path, actual_sha, provenance = _read_validation_report(report_file)
     if report_path is None or actual_sha is None or provenance is None:
         return False
 
