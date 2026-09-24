@@ -199,8 +199,7 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_bind_unknown_model_returns_false(self):
         """绑定不存在的模型 → False（不新增幽灵条目）。"""
-        self.assertFalse(self._bind_validation(
-            "_ghost.pkl", "x.log", "a" * 64, "rejected"))
+        self.assertFalse(model_registry.bind_validation("_ghost.pkl", "x.log", "rejected")))
 
     def test_get_model_entry_missing_returns_none(self):
         self.assertIsNone(model_registry.get_model_entry("_ghost.pkl"))
@@ -481,22 +480,20 @@ class TestPreregDegradation(unittest.TestCase):
 
     PROTO = None   # 由 _seed 填充（与 verify_approval 用同一份协议）
 
-    def _validation_provenance(self):
-        """从 registry 条目生成 A-1 声明；FRESH 条目（dataset 身份缺失）诚实返回 None。"""
+    def _report_provenance(self):
         entry = model_registry.get_model_entry(self.pkl.name)
-        if entry is None:
-            return None
         snap = entry.get("snapshot_provenance") or {}
-        if not str(snap.get("samples_sha256_lf") or "").strip():
-            return None
-        return {"artifact_sha256": entry["sha256"],
-                "dataset_sha256": snap["samples_sha256_lf"],
-                "git_commit": entry["git_commit"]}
-
-    def _bind_validation(self, *args, **kwargs):
-        kwargs.setdefault("provenance", self._validation_provenance())
-        return model_registry.bind_validation(*args, **kwargs)
-
+        return {
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": snap.get("samples_sha256_lf"),
+            "git_commit": entry.get("git_commit"),
+        }
+    def _write_report(self):
+        prov = self._report_provenance()
+        payload = json.dumps(prov, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        self.report.write_text(
+            "validation evidence" + eol + "PROVENANCE_JSON=" + payload,
+            encoding="utf-8")
     def _seed(self, metrics=None, decision="rejected", model_bytes=b"v3-bytes"):
         self.pkl.write_bytes(model_bytes)
         model_registry.register_model(self.pkl, meta={"n_train": 10},
@@ -506,17 +503,16 @@ class TestPreregDegradation(unittest.TestCase):
         TestPreregDegradation.PROTO = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         model_registry.bind_feature_protocol(self.pkl.name, self.PROTO)
-        self.report.write_text("validation evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(self.report)
+        self._write_report()
         m = metrics if metrics is not None else {
             "1": {"rank_ic": 0.005, "ric_ci": [-0.066, 0.07], "decision": "rejected"},
             "3": {"rank_ic": 0.002, "ric_ci": [-0.061, 0.066], "decision": "rejected"},
             "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142], "decision": "approved"},
         }
-        self._bind_validation(self.pkl.name, str(self.report), digest,
-                                       decision, metrics=m)
-        return digest
-
+        ok = model_registry.bind_validation(
+            self.pkl.name, str(self.report), decision, metrics=m)
+        self.assertTrue(ok)
+        return model_registry._file_sha256(self.report)
     def _prereg(self, report_sha, expiry="2099-01-01", enabled=True,
                 rule_version="prereg_shadow_v1", model_sha=None):
         reg = model_registry.load_registry()
