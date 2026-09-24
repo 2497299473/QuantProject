@@ -133,6 +133,11 @@ class TestModelRegistry(unittest.TestCase):
         reg = model_registry.load_registry()
         self.assertEqual(reg, {"models": {}})
 
+    def test_bind_validation_signature_has_no_declared_hash_or_provenance(self):
+        """A-final-1：bind API 不再接受 caller-supplied report/provenance。"""
+        import inspect
+        params = list(inspect.signature(model_registry.bind_validation).parameters)
+        self.assertEqual(params, ["pkl_name", "report_file", "decision", "metrics", "auto_promotion"])
     def test_bind_validation_and_promotion_roundtrip(self):
         """实际报告内容→现场重算 SHA→provenance→registry 往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
