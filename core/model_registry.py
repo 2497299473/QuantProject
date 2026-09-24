@@ -268,6 +268,8 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     FRESH/历史无此块的条目 → research-only，不得对外展示）；调用方再与
     ``config.forecast.model_ready`` 取 AND，形成最终原子授权。
     """
+    from core import validation_schema as _vs
+
     ok, reason = verify_model(pkl_path)
     if not ok:
         return False, f"model:{reason}"
@@ -285,27 +287,9 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     if derive_promotion(validation).get("status") != "approved":
         return False, "promotion_evidence_inconsistent"
 
-    # A4：授权入口重读实际 report 的 provenance，并同时核当前 registry 与已绑定值。
-    # 不能只相信 validation.provenance 这份已入库副本。
-    report_file = validation.get("report_file")
-    report_path, report_actual_sha, report_prov = _read_validation_report(report_file)
-    if report_path is None or report_actual_sha is None or report_prov is None:
-        return False, "validation_report_provenance_unreadable"
-    if report_actual_sha != validation.get("report_sha256"):
-        return False, "validation_report_hash_mismatch"
-    ok_report_prov, report_prov_reason = validate_validation_provenance(
-        pkl_path.name, report_prov)
-    if not ok_report_prov:
-        return False, f"validation_provenance_recheck:{report_prov_reason}"
-    stored_prov = validation.get("provenance") or {}
-    for key in ("validation_mode", "artifact_sha256", "dataset_sha256", "git_commit"):
-        if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
-            return False, f"validation_provenance_report_mismatch:{key}"
-
     # v2 生产授权硬门：历史特征必须是真实 14:55 PIT 快照，KFP 必须 SAME。
     evidence = validation.get("evidence")
     if isinstance(evidence, dict) and evidence.get("schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
-        from core import validation_schema as _vs
         ok_ev, errs_ev = _vs.validate_evidence(evidence)
         if not ok_ev:
             return False, f"validation_evidence_invalid:{errs_ev[0]}"
@@ -316,9 +300,6 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
             return False, f"historical_feature_mode_not_pit_1455:{hmode.get('value')!r}"
         if kfp["status"] != _vs.STATUS_OK or kfp["value"] != "SAME":
             return False, f"kfp_comparability_not_same:{kfp.get('value')!r}"
-        sp_kfp = (entry.get("snapshot_provenance") or {}).get("kfp_comparability")
-        if sp_kfp != "SAME":
-            return False, f"kfp_comparability_registry_not_same:{sp_kfp!r}"
 
     # V4.3.1-⑤：冻结训练件完整性（legacy 与 v2 共同保留）。
     sp = entry.get("snapshot_provenance") or {}
@@ -327,6 +308,31 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
                            "kfp_comparability") if sp.get(k) in (None, "")]
     if missing:
         return False, "snapshot_provenance_incomplete:" + ",".join(missing)
+
+    # registry 侧 KFP 门必须位于 legacy snapshot_provenance 完整性门之后，
+    # 保持 V4.3.1-⑤ 历史条目的既有拒绝原因不变。
+    sp_kfp = sp.get("kfp_comparability")
+    if sp_kfp != "SAME":
+        return False, f"kfp_comparability_registry_not_same:{sp_kfp!r}"
+
+    # A4：bind 时已核验实际 report；授权入口再次现场重读实际 report，
+    # 重新解析 PROVENANCE_JSON，并与 registry 已绑定副本做一致性复核。
+    # 置于既有各门之后，不改变历史拒绝原因；此处只验证，不回写 registry。
+    report_file = validation.get("report_file")
+    report_path, report_actual_sha, report_prov = _read_validation_report(report_file)
+    if report_path is None or report_actual_sha is None or report_prov is None:
+        return False, "validation_provenance_report_unreadable"
+    if report_actual_sha != validation.get("report_sha256"):
+        return False, "validation_provenance_report_hash_mismatch"
+    ok_report_prov, report_prov_reason = validate_validation_provenance(
+        pkl_path.name, report_prov)
+    if not ok_report_prov:
+        return False, f"validation_provenance_recheck:{report_prov_reason}"
+    stored_prov = validation.get("provenance") or {}
+    for key in ("validation_mode", "artifact_sha256", "dataset_sha256", "git_commit"):
+        if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
+            return False, f"validation_provenance_report_mismatch:{key}"
+
     return True, "ok"
 
 
