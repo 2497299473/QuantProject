@@ -250,5 +250,175 @@ class TestRegistryIntegration(unittest.TestCase):
         self.assertEqual(reason, "promotion_evidence_inconsistent")
 
 
+
+
+class TestPhaseAEvidenceCourt(unittest.TestCase):
+    """Phase 0 后冻结的 8 颗施工钉：先在现状上全部形成可见红灯。"""
+
+    def _full_pass_phase_a(self, validation_decision="approved"):
+        ev = _full_pass_evidence_v2()
+        ev["decision"] = "approved"
+        ev["provenance"]["historical_feature_mode"] = {
+            "value": "PIT_1455_SNAPSHOT", "status": S.STATUS_OK}
+        ev["provenance"]["kfp_comparability"] = {
+            "value": "SAME", "status": S.STATUS_OK}
+        ev["_validation_decision"] = validation_decision
+        return ev
+
+    def _seed_real_bind(self, evidence, validation_decision="approved"):
+        tmp = Path(tempfile.mkdtemp())
+        pkl = tmp / "_phase_a_model.pkl"
+        pkl.write_bytes(b"phase-a-model")
+        model_registry.register_model(pkl, meta={}, snapshot_provenance={
+            "snapshot_file": "samples_frozen_20260910.jsonl",
+            "samples_sha256_lf": "ab" * 32,
+            "kfp_recorded_sha256": "cd" * 32,
+            "kfp_current_sha256": "cd" * 32,
+            "kfp_comparability": "SAME"})
+        proto = model_registry.make_feature_protocol(
+            ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
+        self.assertTrue(model_registry.bind_feature_protocol(pkl.name, proto))
+        entry = model_registry.get_model_entry(pkl.name)
+        provenance = {
+            "validation_mode": "ARTIFACT",
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "git_commit": entry["git_commit"],
+        }
+        report = tmp / "report.log"
+        payload = json.dumps(
+            provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        report.write_text(
+            "evidence\nPROVENANCE_JSON=" + payload, encoding="utf-8")
+        self.assertTrue(model_registry.bind_validation(
+            pkl.name, str(report), validation_decision,
+            {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
+             for h in (1, 3, 5)},
+            evidence=evidence))
+        return tmp, pkl, proto, report
+
+    def test_01_bind_validation_persists_v2_evidence(self):
+        ev = self._full_pass_phase_a()
+        tmp, pkl, _, _ = self._seed_real_bind(ev)
+        try:
+            got = model_registry.get_model_entry(pkl.name)["validation"]["evidence"]
+            self.assertEqual(got["schema_version"], 2)
+            self.assertEqual(
+                got["provenance"]["historical_feature_mode"]["value"],
+                "PIT_1455_SNAPSHOT")
+            self.assertEqual(
+                got["provenance"]["kfp_comparability"]["value"], "SAME")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_02_bind_validation_rejects_invalid_evidence_fail_closed(self):
+        ev = self._full_pass_phase_a()
+        ev["pooled"]["1"]["rank_ic"] = {"value": None, "status": S.STATUS_OK}
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            pkl = tmp / "_bad_evidence_model.pkl"
+            pkl.write_bytes(b"bad-evidence-model")
+            model_registry.register_model(pkl, meta={}, snapshot_provenance={
+                "snapshot_file": "samples_frozen_20260910.jsonl",
+                "samples_sha256_lf": "ab" * 32,
+                "kfp_recorded_sha256": "cd" * 32,
+                "kfp_current_sha256": "cd" * 32,
+                "kfp_comparability": "SAME"})
+            entry = model_registry.get_model_entry(pkl.name)
+            report = tmp / "report.log"
+            report.write_text(
+                "PROVENANCE_JSON=" + json.dumps({
+                    "validation_mode": "ARTIFACT",
+                    "artifact_sha256": entry["sha256"],
+                    "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                    "git_commit": entry["git_commit"],
+                }, sort_keys=True, separators=(",", ":")),
+                encoding="utf-8")
+            self.assertFalse(model_registry.bind_validation(
+                pkl.name, str(report), "approved", evidence=ev))
+            self.assertIsNone(
+                model_registry.get_model_entry(pkl.name).get("validation"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_03_v2_court_ignores_legacy_rejected_shortcut(self):
+        ev = self._full_pass_phase_a(validation_decision="rejected")
+        d = model_registry.derive_promotion({
+            "decision": "rejected",
+            "evidence": ev,
+        })
+        self.assertEqual(d["status"], "approved")
+
+    def test_04_v2_overall_decision_is_diagnostic_only(self):
+        ev = self._full_pass_phase_a()
+        ev["decision"] = "rejected"
+        d = model_registry.derive_promotion({
+            "decision": "approved",
+            "evidence": ev,
+        })
+        self.assertEqual(d["status"], "approved")
+
+    def test_05_kfp_drift_blocks_provenance_gate(self):
+        ev = self._full_pass_phase_a()
+        ev["provenance"]["kfp_comparability"] = {
+            "value": "DRIFTED", "status": S.STATUS_OK}
+        d = model_registry.derive_promotion({
+            "decision": "approved",
+            "evidence": ev,
+        })
+        self.assertEqual(d["status"], "blocked_provenance")
+        self.assertIn("DRIFTED", d["reason"])
+
+    def test_06_historical_feature_mode_must_be_pit_1455_snapshot(self):
+        ev = self._full_pass_phase_a()
+        ev["provenance"]["historical_feature_mode"] = {
+            "value": "EOD_PROXY", "status": S.STATUS_OK}
+        d = model_registry.derive_promotion({
+            "decision": "approved",
+            "evidence": ev,
+        })
+        self.assertEqual(d["status"], "blocked_provenance")
+        self.assertIn("EOD_PROXY", d["reason"])
+
+    def test_07_verify_approval_requires_kfp_same_and_pit_mode(self):
+        ev = self._full_pass_phase_a()
+        tmp, pkl, proto, _ = self._seed_real_bind(ev)
+        try:
+            reg = model_registry.load_registry()
+            reg["models"][pkl.name]["snapshot_provenance"]["kfp_comparability"] = "DRIFTED"
+            model_registry._save_registry(reg)
+            model_registry.apply_promotion(pkl.name)
+            ok, reason = model_registry.verify_approval(pkl, proto)
+            self.assertFalse(ok)
+            self.assertIn("kfp", reason.lower())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_08_verify_approval_re_reads_report_provenance(self):
+        ev = self._full_pass_phase_a()
+        tmp, pkl, proto, report = self._seed_real_bind(ev)
+        try:
+            reg = model_registry.load_registry()
+            old = reg["models"][pkl.name]["validation"]["provenance"]
+            tampered = {
+                "validation_mode": "ARTIFACT",
+                "artifact_sha256": old["artifact_sha256"],
+                "dataset_sha256": "ef" * 32,
+                "git_commit": old["git_commit"],
+            }
+            report.write_text(
+                "evidence\nPROVENANCE_JSON=" + json.dumps(
+                    tampered, sort_keys=True, separators=(",", ":")),
+                encoding="utf-8")
+            reg["models"][pkl.name]["validation"]["report_sha256"] = (
+                __import__("hashlib").sha256(report.read_bytes()).hexdigest())
+            model_registry._save_registry(reg)
+            model_registry.apply_promotion(pkl.name)
+            ok, reason = model_registry.verify_approval(pkl, proto)
+            self.assertFalse(ok)
+            self.assertIn("validation_provenance", reason)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 if __name__ == "__main__":
     unittest.main()
