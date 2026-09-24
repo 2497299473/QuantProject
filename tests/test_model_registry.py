@@ -56,6 +56,32 @@ class TestModelRegistry(unittest.TestCase):
         self.test_report = self.tmp / "_test_validation_report.log"
         self._cleanup()
 
+    def _validation_provenance(self):
+        """测试夹具：从当前 registry 条目生成声明，覆盖 A-1 三重等式。"""
+        entry = model_registry.get_model_entry(self.test_pkl.name)
+        if entry is None:
+            return None
+        if not entry.get("snapshot_provenance"):
+            reg = model_registry.load_registry()
+            reg["models"][self.test_pkl.name]["snapshot_provenance"] = {
+                "snapshot_file": "samples_frozen_test.jsonl",
+                "samples_sha256_lf": "d" * 64,
+                "kfp_recorded_sha256": "e" * 64,
+                "kfp_current_sha256": "e" * 64,
+                "kfp_comparability": "SAME",
+            }
+            model_registry._save_registry(reg)
+            entry = model_registry.get_model_entry(self.test_pkl.name)
+        return {
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "git_commit": entry["git_commit"],
+        }
+
+    def _bind_validation(self, *args, **kwargs):
+        kwargs.setdefault("provenance", self._validation_provenance())
+        return self._bind_validation(*args, **kwargs)
+
     def _cleanup(self):
         self.test_pkl.unlink(missing_ok=True)
         self.test_report.unlink(missing_ok=True)
@@ -113,7 +139,7 @@ class TestModelRegistry(unittest.TestCase):
         """validation 绑定 + promotion 记录 + get_model_entry 读取往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
         model_registry.register_model(self.test_pkl, meta={"n_train": 50})
-        ok = model_registry.bind_validation(
+        ok = self._bind_validation(
             self.test_pkl.name, "output/fake.log", "a" * 64,
             "rejected", {"5": {"rank_ic": 0.08}})
         self.assertTrue(ok)
@@ -127,7 +153,7 @@ class TestModelRegistry(unittest.TestCase):
 
     def test_bind_unknown_model_returns_false(self):
         """绑定不存在的模型 → False（不新增幽灵条目）。"""
-        self.assertFalse(model_registry.bind_validation(
+        self.assertFalse(self._bind_validation(
             "_ghost.pkl", "x.log", "a" * 64, "rejected"))
 
     def test_get_model_entry_missing_returns_none(self):
@@ -140,7 +166,7 @@ class TestModelRegistry(unittest.TestCase):
         digest = model_registry._file_sha256(self.test_report)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(model_registry.bind_validation(
+        self.assertTrue(self._bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
         ok, reason = model_registry.verify_validation_report(self.test_pkl.name)
         self.assertTrue(ok)
@@ -171,7 +197,7 @@ class TestModelRegistry(unittest.TestCase):
         digest = model_registry._file_sha256(self.test_report)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(model_registry.bind_validation(
+        self.assertTrue(self._bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
         # rule v2（B++-3）：legacy metrics 不再自动 approved——注入五门全过的
         # schema v2 证据并重推导，approved 链路才可走通。
@@ -201,7 +227,7 @@ class TestModelRegistry(unittest.TestCase):
         digest = model_registry._file_sha256(self.test_report)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(model_registry.bind_validation(
+        self.assertTrue(self._bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
         # rule v2（B++-3）：注入五门全过的 v2 证据并重推导，使 verify_approval
         # 能推进到 snapshot_provenance 门（本组测例针对的就是那道门）。
@@ -282,7 +308,7 @@ class TestModelRegistry(unittest.TestCase):
         """测试辅助：注册假 pkl 并绑定 validation（默认关自动推导，单测纯函数）。"""
         self.test_pkl.write_bytes(b"promotion-test-bytes")
         model_registry.register_model(self.test_pkl, meta={})
-        self.assertTrue(model_registry.bind_validation(
+        self.assertTrue(self._bind_validation(
             self.test_pkl.name, "output/_test_report.log", "deadbeef" * 8,
             decision, metrics=metrics, auto_promotion=auto_promotion))
 
@@ -422,7 +448,7 @@ class TestPreregDegradation(unittest.TestCase):
             "3": {"rank_ic": 0.002, "ric_ci": [-0.061, 0.066], "decision": "rejected"},
             "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142], "decision": "approved"},
         }
-        model_registry.bind_validation(self.pkl.name, str(self.report), digest,
+        self._bind_validation(self.pkl.name, str(self.report), digest,
                                        decision, metrics=m)
         return digest
 
