@@ -19,6 +19,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import unittest.mock  # noqa: F401  test_07 以 __import__("unittest").mock 取用，子模块须显式导入
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +31,8 @@ from core import validation_schema as S             # noqa: E402
 import bind_validation_evidence as bve          # noqa: E402
 
 
-def _full_pass_evidence_v2(power_frozen: bool = True) -> dict:
+def _full_pass_evidence_v2(
+        power_frozen: bool = True, actual_provenance: dict | None = None) -> dict:
     """五门全过的 schema v2 证据（power_frozen=False 用于反例：阈值未冻结）。"""
     ev = S.blank_evidence()
     ev["decision"] = "approved"
@@ -56,6 +58,13 @@ def _full_pass_evidence_v2(power_frozen: bool = True) -> dict:
             ev["provenance"][k] = S.ev_ok("SAME")
         else:
             ev["provenance"][k] = S.ev_ok(f"{k}-ok")
+    if actual_provenance is not None:
+        for key in ("artifact_sha256", "dataset_sha256", "git_commit"):
+            value = str(actual_provenance.get(key) or "").strip()
+            if not value:
+                raise AssertionError(
+                    f"test fixture requires real provenance: {key}")
+            ev["provenance"][key] = S.ev_ok(value)
     return ev
 
 
@@ -415,7 +424,9 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
                 "historical_feature_mode"] = {
                     "value": "EOD_PROXY", "status": S.STATUS_OK}
             model_registry._save_registry(reg)
-            model_registry.apply_promotion(pkl.name)
+            # 不重跑 apply_promotion：它会按被篡改证据重derive并把 promotion 覆写为
+            # 非 approved，使 promotion_not_approved 抢在本段要验的 PIT 证据硬门之前；
+            # 本段场景即「promotion 账面仍 approved、证据已违 PIT」的不一致态。
             with __import__("unittest").mock.patch.object(
                     model_registry, "derive_promotion",
                     return_value={"status": "approved"}):
@@ -426,7 +437,6 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_09_explicit_bind_entry_routes_through_registry(self):
-        ev = self._full_pass_phase_a()
         pkl = self.tmp_root / "_explicit_entry_model.pkl"
         pkl.write_bytes(b"explicit-entry-model")
         model_registry.register_model(pkl, meta={}, snapshot_provenance={
@@ -436,6 +446,15 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             "kfp_current_sha256": "cd" * 32,
             "kfp_comparability": "SAME"})
         entry = model_registry.get_model_entry(pkl.name)
+        ev = _full_pass_evidence_v2(actual_provenance={
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "git_commit": entry["git_commit"],
+        })
+        ev["provenance"]["historical_feature_mode"] = {
+            "value": "PIT_1455_SNAPSHOT", "status": S.STATUS_OK}
+        ev["provenance"]["kfp_comparability"] = {
+            "value": "SAME", "status": S.STATUS_OK}
         report = self.tmp_root / "explicit_report.log"
         report.write_text(
             "report\nPROVENANCE_JSON=" + json.dumps({
