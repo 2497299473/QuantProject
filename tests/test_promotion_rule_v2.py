@@ -1,7 +1,7 @@
 """B++-3（2026-09-23）：derive_promotion rule v2 contract tests。
 
 fast 层纪律：纯函数 + 合成证据，零网络；registry 触点全程 tempdir 隔离
-（同 test_model_registry 惯例）。钉死六条：
+（同 test_model_registry 惯例）。钉死基础规则与 Phase A 绑定/授权闭环：
 1) 签名/纯函数性不变：同输入必同输出；
 2) 五门顺序判据链 power → performance → baseline_edge → calibration → provenance；
 3) 契约 B 五反例全部不得 APPROVED，且各落到对应 blocked_* 门；
