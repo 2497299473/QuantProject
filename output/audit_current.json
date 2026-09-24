@@ -1,11 +1,11 @@
 {
   "schema_version": "2.0",
-  "generated_at": "2026-09-24T11:56:43",
+  "generated_at": "2026-09-24T14:55:33",
   "project": "D:\\PythonProject\\QuantV1",
   "summary": {
-    "PASS": 18,
+    "PASS": 19,
     "FAIL": 1,
-    "WARN": 2
+    "WARN": 1
   },
   "audit_health": "FAIL",
   "model_promotion": "BLOCKED",
@@ -31,12 +31,12 @@
     "n_universe": 2,
     "eligible": 2,
     "contaminated": 0,
-    "detail": "当日 1 次证据运行（1 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+    "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
   },
   "evidence_as_of": "2026-09-24",
   "evidence_expected_as_of": "2026-09-24",
   "evidence_stale": false,
-  "evidence_latest_run": "run_manifest_20260924_113013_mid.json",
+  "evidence_latest_run": "run_manifest_20260924_145503_post.json",
   "production": "BLOCKED",
   "legacy_note": "'production' 为旧字段（仅反映审计 FAIL 数，不代表生产资格）；请以 production_status 为准。",
   "checks": [
@@ -59,7 +59,7 @@
       "axis": "P0-研究有效性",
       "title": "数据快照可回溯（内嵌 hash 可解析）",
       "status": "PASS",
-      "detail": "当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（32 条记录）"
+      "detail": "当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（36 条记录）"
     },
     {
       "cid": "P0-4",
@@ -94,14 +94,14 @@
       "axis": "P1-证据链",
       "title": "工作区干净度（代码锚点可比）",
       "status": "WARN",
-      "detail": "12 项未提交改动（前 5：M backtest_forecast.py；M core/forecast_engine.py；M core/model_registry.py；M data/intraday_features.jsonl；M data/market_context/history.jsonl）——registry 绑定的 git_commit 未必等于当前运行代码"
+      "detail": "7 项未提交改动（前 5：M data/intraday_features.jsonl；M data/market_context/history.jsonl；M output/shadow_actions.jsonl；M output/state_ref_history.jsonl；?? data/market_context/2026-09-24.json）——registry 绑定的 git_commit 未必等于当前运行代码"
     },
     {
       "cid": "P1-12",
       "axis": "P1-证据链",
       "title": "SSOT git tip 对账",
-      "status": "WARN",
-      "detail": "SSOT tip=72d40b98e73b；当前 HEAD^=06d96764fc76… ⇒ SSOT 可能落后当前代码"
+      "status": "PASS",
+      "detail": "SSOT tip=220bd12a1508…；当前闭合提交=48117a53ee2f…"
     },
     {
       "cid": "P1-2",
@@ -136,14 +136,14 @@
       "axis": "P1-证据链",
       "title": "legacy_invalid 已移出活跃流",
       "status": "PASS",
-      "detail": "活跃流分布 {'prereg_degraded': 32}"
+      "detail": "活跃流分布 {'prereg_degraded': 36}"
     },
     {
       "cid": "P1-7",
       "axis": "P1-证据链",
       "title": "运行清单已实际产出",
       "status": "PASS",
-      "detail": "10 份；最新 run_manifest_20260924_113013_mid.json status=SUCCESS · 证据截至 2026-09-24"
+      "detail": "11 份；最新 run_manifest_20260924_145503_post.json status=SUCCESS · 证据截至 2026-09-24"
     },
     {
       "cid": "P1-8",
@@ -157,7 +157,7 @@
       "axis": "P1-证据链",
       "title": "飞书发布资格（当日逐基金证据干净）",
       "status": "PASS",
-      "detail": "当日 1 次证据运行（1 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
+      "detail": "当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布"
     },
     {
       "cid": "P2-1",
