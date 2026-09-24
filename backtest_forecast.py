@@ -799,7 +799,7 @@ def main() -> int:
             overall_ok=overall_ok,
             git_head=freeze_verify_tool.git_commit(),
             produced_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            model_sha256=(artifact_ctx["model_sha256"] if artifact_ctx else None)))
+            model_sha256=(artifact_ctx["model_sha256"] if artifact_ctx else None))
         ok_ev, errs_ev = validation_schema.validate_evidence(ev)
         if not ok_ev:
             print(f"\n[evidence] schema v2 自检未过，拒绝落盘（fail-closed）：{errs_ev[:3]}")
