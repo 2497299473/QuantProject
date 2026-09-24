@@ -435,7 +435,7 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
         entry = model_registry.get_model_entry(pkl.name)
         report = self.tmp_root / "explicit_report.log"
         report.write_text(
-            "report\\nPROVENANCE_JSON=" + json.dumps({
+            "report\nPROVENANCE_JSON=" + json.dumps({
                 "validation_mode": "ARTIFACT",
                 "artifact_sha256": entry["sha256"],
                 "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
