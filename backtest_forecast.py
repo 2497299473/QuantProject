@@ -406,9 +406,9 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
     切片）；protocol 取 current_feature_protocol()（registry 同源，不另造字段）；
     power.frozen=OK(False)——功效阈值未预注册是可计算事实，其余 power 键如实
     UNKNOWN；quantile calibration 本验证器不产出 → 全 UNKNOWN；provenance
-    透传冻结件三元组 + 训练血统 git（artifact 模式 = artifact 训练 commit，
-    A批 A2；fresh 研究模式 = 本验证器 head，两者天然同源）+ 模型 artifact sha
-    （本验证器不持久化模型 → 诚实 UNKNOWN）+ EOD_PROXY 口径诚实标注；
+    透传冻结件三元组 + KFP 可比性 + 训练血统 git（artifact 模式 = artifact 训练
+    commit，A批 A2；fresh 研究模式 = 本验证器 head）+ 模型 artifact sha
+    （本验证器不持久化模型 → 诚实 UNKNOWN）+ 历史特征时点口径；
     验证器运行版本留痕在 produced_by。decision 只映射验证器既有 overall_ok，
     不引入第二套裁决。
     """
