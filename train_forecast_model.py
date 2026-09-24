@@ -77,7 +77,8 @@ def main() -> int:
     # + 哪套 K 线指纹训练"。FRESH 模式下各键为 None（活拉没有留档，不伪造）。
     path = eng.save_models(snapshot_provenance=snap_info.get("snapshot_provenance"))
     if path is None:
-        print("[fail] save_models 返回 None（不应发生，fit 已成功）")
+        print("[fail] save_models 返回 None（fit 未全成，或目标 artifact 被 "
+              "promotion prereg 钉住拒绝覆盖——见上方 [fail] 行）")
         return 1
     print(f"[ok] 权重已落盘：{path}")
     print(f"     trained_at = {eng.loaded_at} · horizons={eng.horizons}")

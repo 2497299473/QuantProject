@@ -67,6 +67,7 @@ LAYERS: dict[str, str] = {
     "test_diag_entry_unify.py": FAST,      # B++-6：诊断入口统一（四脚本 require_fwds=() + policy 复用 cluster_bootstrap_ci），源码断言 + 合成数据零网络
     "test_stock_data_cache.py": FAST,      # P1-B：stock 缓存原子写 + 坏件回退 provider 链，tempdir + stub 零网络
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
+    "test_batch_a_hardening.py": SLOW,   # A 批加固（2026-09-24）：血统解耦/完整性门/覆写闸门；触真实 registry（备份/恢复）+ backtest_forecast 导入链，稳妥归 slow
     "test_contracts.py": SLOW,
     "test_data_fingerprint.py": SLOW,
     "test_dataset_snapshot_scope.py": FAST,   # V4.1 ①：环检测纯逻辑；现场只读 manifest

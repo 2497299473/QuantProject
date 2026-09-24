@@ -290,6 +290,14 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
                            "kfp_comparability") if sp.get(k) in (None, "")]
     if missing:
         return False, "snapshot_provenance_incomplete:" + ",".join(missing)
+    # A批 A4（2026-09-24）：bind 时核验过的 validation provenance，在授权入口
+    # 二次复核——registry 事后被改（人工/脚本）而报告未变的不一致状态在此拦截。
+    # 复用 validate_validation_provenance，不新写第二套比对；置于既有各门之后，
+    # 不改变历史条目的既有拒绝原因（V4.3.1-⑤ 测例钉死的措辞保持不变）。
+    ok_prov2, prov_reason2 = validate_validation_provenance(
+        pkl_path.name, (entry.get("validation") or {}).get("provenance"))
+    if not ok_prov2:
+        return False, f"validation_provenance_recheck:{prov_reason2}"
     return True, "ok"
 
 
@@ -307,6 +315,29 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
 
 PROMOTION_PREREG_PATH = BASE_DIR / "data" / "promotion_prereg.json"
 PROMOTION_DEGRADE_RULE_VERSION = "prereg_shadow_v1"
+
+
+def prereg_pinned_sha256(pkl_name: str, prereg_path: Path | None = None) -> str | None:
+    """A批 A5（2026-09-24）：模型名被 promotion prereg 钉住则返回钉住的 sha256。
+
+    判定只看「名字出现在 grants 中」——钉住的是 artifact 身份（model_sha256
+    链），与 enabled / expiry（降级授权开关状态）无关：授权过期不等于证据链
+    可覆写。文件缺失/不可读/结构损坏 → None（诚实无钉住记录，不阻塞正常
+    训练；绕过此闸门属于显式人为操作，不在「静默覆盖」威胁模型内）。
+    """
+    path = prereg_path or PROMOTION_PREREG_PATH
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    grants = doc.get("grants") if isinstance(doc, dict) else None
+    if not isinstance(grants, dict) or pkl_name not in grants:
+        return None
+    grant = grants[pkl_name]
+    if not isinstance(grant, dict):
+        return "pinned_malformed_grant"
+    sha = str(grant.get("model_sha256") or "").strip()
+    return sha or "pinned_without_sha"
 
 
 def evaluate_prereg_degradation(pkl_name: str,

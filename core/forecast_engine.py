@@ -265,6 +265,33 @@ class ReturnQuantileModel:
         return {"e": e, "q10": q10, "q50": q50, "q90": q90, "std": self.resid_std or 0.0}
 
 
+def payload_completeness_error(payload: dict, horizons, feature_dim: int) -> str | None:
+    """A批 A3（2026-09-24）：partial/畸形 artifact 完整性核验（fail-closed）。"""
+    raw_dir = payload.get("dirmodels") or {}
+    raw_quant = payload.get("quantmodels") or {}
+    dummy = [[0.0] * feature_dim]
+    for h in horizons:
+        clf = raw_dir.get(h, raw_dir.get(str(h)))
+        if clf is None or not hasattr(clf, "predict_proba"):
+            return f"incomplete_dir_model:T+{h}"
+        try:
+            proba = clf.predict_proba(dummy)
+            if proba is None or len(proba) != 1:
+                return f"broken_dir_model:T+{h}"
+        except Exception as exc:                              # noqa: BLE001
+            return f"dir_model_unusable:T+{h}:{type(exc).__name__}"
+        qm = raw_quant.get(h, raw_quant.get(str(h)))
+        if not isinstance(qm, dict) or qm.get("reg_e") is None:
+            return f"incomplete_quant_model:T+{h}"
+        reg_q = qm.get("reg_q") or {}
+        for q in (0.10, 0.50, 0.90):
+            if reg_q.get(q) is None and reg_q.get(str(q)) is None:
+                return f"incomplete_quant_quantile:T+{h}:q{int(q * 100)}"
+        if qm.get("resid_std") is None:
+            return f"incomplete_quant_resid:T+{h}"
+    return None
+
+
 class ForecastEngine:
     """多周期条件分布预测器：Direction(三分类) + ReturnQuantile(分位数) + 置信度。"""
 
@@ -321,6 +348,15 @@ class ForecastEngine:
                             for h, m in self.quantmodels.items()},
         }
         path = MODELS_DIR / f"forecast_v{MODEL_VERSION}.pkl"
+        # A批 A5（2026-09-24）：被 promotion prereg 钉住的 artifact 禁止普通重训
+        # 静默覆盖——覆盖即断 prereg 的 model_sha256 钉链（如 forecast_v3.pkl）。
+        # 合法新模型走版本号递增的 candidate 文件名，或人工显式流程。
+        from core import model_registry as _mr
+        pinned = _mr.prereg_pinned_sha256(path.name)
+        if pinned is not None:
+            print(f"[fail] {path.name} 被 promotion prereg 钉住（pinned sha={pinned[:12]}…），"
+                  "拒绝普通重训静默覆盖；新 candidate 请递增 MODEL_VERSION 或走人工流程")
+            return None
         tmp = path.with_suffix(".tmp")
         with open(tmp, "wb") as fh:
             pickle.dump(payload, fh)
@@ -347,7 +383,8 @@ class ForecastEngine:
         return path
 
     def load_models(self) -> bool:
-        """从 data/models/ 恢复权重。版本/特征键/horizon 任一不匹配 → 拒绝并返回 False。"""
+        """从 data/models/ 恢复权重。版本/特征键/horizon 任一不匹配，或任一周期
+        方向/quant 组件缺失或畸形（A批 A3 fail-closed）→ 拒绝并返回 False。"""
         if not _SKLEARN:
             return False
         path = MODELS_DIR / f"forecast_v{MODEL_VERSION}.pkl"
@@ -377,6 +414,13 @@ class ForecastEngine:
                 or list(payload.get("horizons", [])) != list(self.horizons)
                 or abs(float(payload.get("flat_margin", -1.0)) - self.flat_margin) > 1e-9):
             self.load_error = "payload_contract_mismatch"
+            return False
+        # A批 A3：全 horizon 完整性 fail-closed——方向模型 + quant 全件缺一即拒，
+        # 杜绝「部分加载 → 整体 _fit_ok=True → 局部输出 placeholder」的 fail-open。
+        comp_err = payload_completeness_error(
+            payload, self.horizons, feature_dim=2 * len(FEATURE_KEYS))
+        if comp_err is not None:
+            self.load_error = comp_err
             return False
         for h, clf in payload.get("dirmodels", {}).items():
             dm = self.dirmodels.get(h)

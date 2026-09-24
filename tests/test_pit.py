@@ -66,11 +66,17 @@ class TestModelPersistence(unittest.TestCase):
             old_dir = fe.MODELS_DIR
             old_mr_dir = mr.MODELS_DIR
             old_reg_path = mr.REGISTRY_PATH
+            old_prereg = mr.PROMOTION_PREREG_PATH
             fe.MODELS_DIR = Path(td)          # 隔离真实 data/models/
             # v8 修（2026-08-30）：registry 路径必须一并隔离——此前只隔离 MODELS_DIR，
             # save_models 自动登记时把 /tmp 临时 pkl 写进真实 registry.json 并覆盖原条目。
             mr.MODELS_DIR = Path(td)
             mr.REGISTRY_PATH = Path(td) / "registry.json"
+            # A批 A5（2026-09-24）：save_models 有 prereg 覆写闸门——本测试用
+            # forecast_v3.pkl 这个名字，必须一并隔离真实钉住清单，否则闸门按生产
+            # 语义正确拒绝（本测试只验往返一致性；闸门行为由
+            # tests/test_batch_a_hardening.py 覆盖）。指向不存在路径 ⇒ 无钉住记录。
+            mr.PROMOTION_PREREG_PATH = Path(td) / "prereg_absent.json"
             try:
                 e1 = fe.ForecastEngine()
                 self.assertTrue(e1.fit(self._fake_samples()))
@@ -94,6 +100,7 @@ class TestModelPersistence(unittest.TestCase):
                 fe.MODELS_DIR = old_dir
                 mr.MODELS_DIR = old_mr_dir
                 mr.REGISTRY_PATH = old_reg_path
+                mr.PROMOTION_PREREG_PATH = old_prereg
 
     def test_load_missing_file_returns_false(self):
         with tempfile.TemporaryDirectory() as td:
