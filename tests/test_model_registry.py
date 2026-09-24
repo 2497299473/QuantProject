@@ -41,7 +41,12 @@ def _full_pass_evidence_v2():
     ev["power"]["frozen"] = S.ev_ok(True)
     ev["power"]["n_power_fund"] = S.ev_ok(100)
     for k in ev["provenance"]:
-        ev["provenance"][k] = S.ev_ok(f"{k}-ok")
+        if k == "historical_feature_mode":
+            ev["provenance"][k] = S.ev_ok("PIT_1455_SNAPSHOT")
+        elif k == "kfp_comparability":
+            ev["provenance"][k] = S.ev_ok("SAME")
+        else:
+            ev["provenance"][k] = S.ev_ok(f"{k}-ok")
     return ev
 
 
@@ -148,7 +153,7 @@ class TestModelRegistry(unittest.TestCase):
         """A-final-1：bind API 不再接受 caller-supplied report/provenance。"""
         import inspect
         params = list(inspect.signature(model_registry.bind_validation).parameters)
-        self.assertEqual(params, ["pkl_name", "report_file", "decision", "metrics", "auto_promotion"])
+        self.assertEqual(params, ["pkl_name", "report_file", "decision", "metrics", "auto_promotion", "evidence"])
     def test_bind_validation_and_promotion_roundtrip(self):
         """实际报告内容→现场重算 SHA→provenance→registry 往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
