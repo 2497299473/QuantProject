@@ -415,14 +415,11 @@ def registry_summary() -> dict:
 
 
 def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tuple[bool, str]:
-    """核对 validation 报告声明与 registry 当前模型血统（A-1）。
+    """核对已从验证报告内容解析出的 provenance 与 registry 血统（A-final-1）。
 
-    这是 I/O 边界的附加校验，不参与 ``derive_promotion()`` 判据。
-    报告声明的三项必须分别等于：
-      - artifact_sha256 == registry.models[pkl_name].sha256
-      - dataset_sha256 == registry.models[pkl_name].snapshot_provenance.samples_sha256_lf
-      - git_commit == registry.models[pkl_name].git_commit（训练时代码锚点）
-    任一字段缺失、registry 血统缺失或值不一致，一律拒绝绑定（fail-closed）。
+    注意：这里不再接受“调用者声明”作为 bind_validation 的输入。
+    唯一上游是 _read_validation_report() 从 report_file 实际读取出的
+    PROVENANCE_JSON 行；本函数只负责将其与 registry 当前模型条目逐项比对。
     """
     if not isinstance(provenance, dict):
         return False, "validation_provenance_missing"
@@ -450,6 +447,94 @@ def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tu
         if declared != expected:
             return False, f"validation_provenance_{key}_mismatch"
     return True, "ok"
+
+
+def _resolve_validation_report_path(report_file: str) -> Path | None:
+    """把报告路径解析到仓库根；拒绝空路径。"""
+    if not isinstance(report_file, str) or not report_file.strip():
+        return None
+    path = Path(report_file)
+    if not path.is_absolute():
+        path = BASE_DIR / path
+    return path
+
+
+def _read_validation_report(report_file: str) -> tuple[Path | None, str | None, dict | None]:
+    """读取实际验证报告、现场计算 SHA256，并解析唯一 provenance 行。
+
+    报告必须包含恰一行 PROVENANCE_JSON={...}，JSON 至少提供
+    artifact_sha256 / dataset_sha256 / git_commit。任何读取、编码或 JSON
+    解析异常均 fail-closed。
+    """
+    path = _resolve_validation_report_path(report_file)
+    if path is None:
+        return None, None, None
+    try:
+        raw = path.read_bytes()
+        actual_sha = hashlib.sha256(raw).hexdigest()
+        text = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return path, None, None
+    prefix = "PROVENANCE_JSON="
+    payloads = [line[len(prefix):].strip()
+                for line in text.splitlines() if line.startswith(prefix)]
+    if len(payloads) != 1:
+        return path, actual_sha, None
+    try:
+        provenance = json.loads(payloads[0])
+    except (json.JSONDecodeError, TypeError):
+        return path, actual_sha, None
+    if not isinstance(provenance, dict):
+        return path, actual_sha, None
+    return path, actual_sha, provenance
+
+
+# ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
+def bind_validation(pkl_name: str, report_file: str, decision: str,
+                    metrics: dict | None = None,
+                    auto_promotion: bool = True) -> bool:
+    """把实际验证报告绑定进 registry。
+
+    A-final-1 收口：
+    - report_file 必须真实存在且可 UTF-8 读取；
+    - report SHA256 在 bind 时现场重算，调用者不再传 report_sha256；
+    - provenance 从报告唯一的 PROVENANCE_JSON=... 行解析，调用者不再传
+      provenance 字典；
+    - artifact/dataset/git 三项必须分别等于 registry 当前条目的模型 sha /
+      冻结样本 sha / 训练代码 commit；
+    - 任一缺失、不一致或重复 provenance 行均 fail-closed。
+    """
+    reg = load_registry()
+    entry = reg["models"].get(pkl_name)
+    if entry is None:
+        return False
+
+    report_path, actual_sha, provenance = _read_validation_report(report_file)
+    if report_path is None or actual_sha is None or provenance is None:
+        return False
+
+    ok_prov, _ = validate_validation_provenance(pkl_name, provenance)
+    if not ok_prov:
+        return False
+
+    entry["validation"] = {
+        "report_file": report_file,
+        "report_sha256": actual_sha,
+        "decision": decision,
+        "bound_at": datetime.now().isoformat(timespec="seconds"),
+        "provenance": {
+            "artifact_sha256": str(provenance["artifact_sha256"]).strip(),
+            "dataset_sha256": str(provenance["dataset_sha256"]).strip(),
+            "git_commit": str(provenance["git_commit"]).strip(),
+        },
+    }
+    if metrics:
+        entry["validation"]["metrics"] = metrics
+    saved = _save_registry(reg)
+    if saved and auto_promotion:
+        apply_promotion(pkl_name)
+    return saved
+
 # ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
 def bind_validation(pkl_name: str, report_file: str, report_sha256: str,
                     decision: str, metrics: dict | None = None,
