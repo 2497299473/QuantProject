@@ -561,17 +561,17 @@ def check_approval_binding(a: Audit) -> None:
           PASS if not missing else FAIL, "；".join(missing))
 
 
-def check_ssot_git_tip(a: Audit) -> None:
+def check_release_code_tip(a: Audit) -> None:
     """release code 指针校验（P1-12）。
 
     ``evidence/release_code_tip.txt`` 记录「release 收口时的代码 tip」；该指针文件本身
     会形成下一次 commit，因此正常闭合状态是 pointer == HEAD^。
-    若 HEAD 在 SSOT 收口后继续前进，则明确标 WARN，而不是把查不到/不一致当 PASS。
+    若 HEAD 在 release 收口后继续前进，则明确标 WARN，而不是把查不到/不一致当 PASS。
     """
-    pointer = BASE_DIR / "evidence" / "ssot_git_tip.txt"
+    pointer = BASE_DIR / "evidence" / "release_code_tip.txt"
     if not pointer.is_file():
         a.add("P1-12", "P1-证据链", "release code tip 对账", WARN,
-              "缺失 evidence/release_code_tip.txt（无法判断 SSOT 是否落后当前代码）")
+              "缺失 evidence/release_code_tip.txt（无法判断 release code tip 是否落后当前代码）")
         return
     try:
         declared = pointer.read_text(encoding="utf-8").strip()
@@ -1375,7 +1375,7 @@ def run_audit() -> Audit:
     check_publish_gate(a)
     check_approval_binding(a)
     check_worktree_clean(a)
-    check_ssot_git_tip(a)
+    check_release_code_tip(a)
     check_atomic_write(a)
     check_tushare_https(a)
     check_test_layering(a)
