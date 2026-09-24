@@ -229,8 +229,8 @@ def verify_model(pkl_path: Path) -> tuple[bool, str]:
 
 
 def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
-    from core import validation_schema as _vs
     """验证报告文件哈希；v2 的授权裁决由 evidence 五门法院决定，legacy 仍要求 approved。"""
+    from core import validation_schema as _vs
     entry = get_model_entry(pkl_name)
     if entry is None:
         return False, "no_entry"
