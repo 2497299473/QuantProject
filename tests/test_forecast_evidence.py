@@ -190,7 +190,8 @@ class TestAssembleValidationEvidence(unittest.TestCase):
         self.assertEqual(ev["provenance"]["dataset_sha256"]["value"], "a" * 64)
         self.assertEqual(ev["provenance"]["git_commit"]["value"], "b" * 40)
         self.assertEqual(ev["provenance"]["artifact_sha256"]["status"],
-                         S.STATUS_UNKNOWN)   # 模型未持久化 → 诚实 UNKNOWN（schema 必含此键）
+                         S.STATUS_OK)      # artifact 模式已传入持久化 sha → OK
+        self.assertEqual(ev["provenance"]["artifact_sha256"]["value"], "c" * 64)
         self.assertEqual(ev["provenance"]["historical_feature_mode"]["value"], "EOD_PROXY")
         self.assertEqual(ev["protocol"]["version"], 1)
         self.assertEqual(ev["baseline"], {"name": "est_chg", "unit": "fraction"})

@@ -14,6 +14,7 @@ fast 层纪律：纯函数 + 合成证据，零网络；registry 触点全程 te
 from __future__ import annotations
 
 import inspect
+import json
 import shutil
 import sys
 import tempfile
