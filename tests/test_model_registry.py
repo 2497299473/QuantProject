@@ -56,29 +56,30 @@ class TestModelRegistry(unittest.TestCase):
         self.test_report = self.tmp / "_test_validation_report.log"
         self._cleanup()
 
-    def _validation_provenance(self):
-        """测试夹具：从当前 registry 条目生成声明，覆盖 A-1 三重等式。
-
-        FRESH 条目（samples_sha256_lf=None）无 dataset 身份 → 诚实返回 None，
-        不回填不伪造——由 bind_validation 的 fail-closed 拒绝。注意 register_model
-        未带 provenance 时落的是五键 None 的 truthy 块，不能按真值判断是否缺身份。
-        """
+    def _report_provenance(self, overrides=None):
         entry = model_registry.get_model_entry(self.test_pkl.name)
-        if entry is None:
-            return None
         snap = entry.get("snapshot_provenance") or {}
-        if not str(snap.get("samples_sha256_lf") or "").strip():
-            return None
-        return {
+        prov = {
             "artifact_sha256": entry["sha256"],
-            "dataset_sha256": snap["samples_sha256_lf"],
-            "git_commit": entry["git_commit"],
+            "dataset_sha256": snap.get("samples_sha256_lf"),
+            "git_commit": entry.get("git_commit"),
         }
+        if overrides:
+            prov.update(overrides)
+        return prov
+    def _write_report(self, content="report-A", provenance=None, duplicate=False):
+        payload = json.dumps(provenance or self._report_provenance(),
+                             ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        lines = [content, "PROVENANCE_JSON=" + payload]
+        if duplicate:
+            lines.append("PROVENANCE_JSON=" + payload)
+        self.test_report.write_text(eol.join(lines), encoding="utf-8")
 
-    def _bind_validation(self, *args, **kwargs):
-        kwargs.setdefault("provenance", self._validation_provenance())
-        return model_registry.bind_validation(*args, **kwargs)
-
+    def _bind_report(self, pkl_name, decision="rejected", metrics=None,
+                     provenance=None, duplicate=False):
+        self._write_report(provenance=provenance, duplicate=duplicate)
+        return model_registry.bind_validation(
+            pkl_name, str(self.test_report), decision, metrics=metrics)
     def _cleanup(self):
         self.test_pkl.unlink(missing_ok=True)
         self.test_report.unlink(missing_ok=True)
@@ -133,55 +134,36 @@ class TestModelRegistry(unittest.TestCase):
         self.assertEqual(reg, {"models": {}})
 
     def test_bind_validation_and_promotion_roundtrip(self):
-        """validation 绑定 + promotion 记录 + get_model_entry 读取往返。"""
+        """实际报告内容→现场重算 SHA→provenance→registry 往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
         model_registry.register_model(self.test_pkl, meta={"n_train": 50},
                                       snapshot_provenance=self.FROZEN_PROV)
-        ok = self._bind_validation(
-            self.test_pkl.name, "output/fake.log", "a" * 64,
-            "rejected", {"5": {"rank_ic": 0.08}})
-        self.assertTrue(ok)
+        self.assertTrue(self._bind_report(
+            self.test_pkl.name, decision="rejected",
+            metrics={"5": {"rank_ic": 0.08}}))
+        entry = model_registry.get_model_entry(self.test_pkl.name)
+        self.assertEqual(entry["validation"]["report_sha256"],
+                         model_registry._file_sha256(self.test_report))
         ok2 = model_registry.update_promotion(
             self.test_pkl.name, "blocked", "CI 跨零")
         self.assertTrue(ok2)
-        entry = model_registry.get_model_entry(self.test_pkl.name)
         self.assertEqual(entry["validation"]["decision"], "rejected")
         self.assertEqual(entry["validation"]["metrics"]["5"]["rank_ic"], 0.08)
-        self.assertEqual(entry["promotion"]["status"], "blocked")
-
-    def test_validation_provenance_model_dataset_code_mismatch_rejected(self):
+        self.assertEqual(model_registry.get_model_entry(self.test_pkl.name)["promotion"]["status"], "blocked")
+    def test_validation_report_content_provenance_mismatch_rejected(self):
+        """报告侧三项 provenance 任一失配都拒绝；不接受调用者声明。"""
         self.test_pkl.write_bytes(b"model-A")
         model_registry.register_model(self.test_pkl, meta={},
                                       snapshot_provenance=self.FROZEN_PROV)
-        good = self._validation_provenance()
-        self.test_report.write_text("report-A", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
-
-        # A/A/A：通过
-        self.assertTrue(self._bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "rejected"))
-
-        # 模型 B + 报告 A：artifact 不一致
-        bad = dict(good)
-        bad["artifact_sha256"] = "b" * 64
-        self.assertFalse(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "rejected",
-            provenance=bad))
-
-        # 数据集 A + 报告 B：dataset 不一致
-        bad = dict(good)
-        bad["dataset_sha256"] = "c" * 64
-        self.assertFalse(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "rejected",
-            provenance=bad))
-
-        # 代码 A + 报告 B：git commit 不一致
-        bad = dict(good)
-        bad["git_commit"] = "f" * 40
-        self.assertFalse(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "rejected",
-            provenance=bad))
-
+        self._write_report()
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "rejected"))
+        for key, bad in (("artifact_sha256", "b" * 64),
+                         ("dataset_sha256", "c" * 64),
+                         ("git_commit", "f" * 40)):
+            self._write_report(provenance=self._report_provenance({key: bad}))
+            self.assertFalse(model_registry.bind_validation(
+                self.test_pkl.name, str(self.test_report), "rejected"))
     def test_validation_provenance_missing_rejected(self):
         self.test_pkl.write_bytes(b"model-A")
         model_registry.register_model(self.test_pkl, meta={})
@@ -189,6 +171,31 @@ class TestModelRegistry(unittest.TestCase):
         digest = model_registry._file_sha256(self.test_report)
         self.assertFalse(model_registry.bind_validation(
             self.test_pkl.name, str(self.test_report), digest, "rejected"))
+
+    def test_validation_report_missing_provenance_rejected(self):
+        self.test_pkl.write_bytes(b"model-A")
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
+        self.test_report.write_text("report-without-provenance", encoding="utf-8")
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "rejected"))
+
+    def test_validation_report_duplicate_provenance_rejected(self):
+        self.test_pkl.write_bytes(b"model-A")
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
+        self._write_report(duplicate=True)
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "rejected"))
+
+    def test_validation_report_malformed_provenance_rejected(self):
+        self.test_pkl.write_bytes(b"model-A")
+        model_registry.register_model(self.test_pkl, meta={},
+                                      snapshot_provenance=self.FROZEN_PROV)
+        self.test_report.write_text(
+            "report\nPROVENANCE_JSON={not-json}", encoding="utf-8")
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "rejected"))
 
     def test_bind_unknown_model_returns_false(self):
         """绑定不存在的模型 → False（不新增幽灵条目）。"""
@@ -202,12 +209,14 @@ class TestModelRegistry(unittest.TestCase):
         self.test_pkl.write_bytes(b"approved-model")
         model_registry.register_model(self.test_pkl, meta={},
                                       snapshot_provenance=self.FROZEN_PROV)
-        self.test_report.write_text("approved evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
+        self._write_report(content="approved evidence")
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(self._bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "approved", metrics))
+        entry = model_registry.get_model_entry(self.test_pkl.name)
+        self.assertEqual(entry["validation"]["report_sha256"],
+                         model_registry._file_sha256(self.test_report))
         ok, reason = model_registry.verify_validation_report(self.test_pkl.name)
         self.assertTrue(ok)
         self.assertEqual(reason, "ok")
@@ -215,17 +224,6 @@ class TestModelRegistry(unittest.TestCase):
         ok, reason = model_registry.verify_validation_report(self.test_pkl.name)
         self.assertFalse(ok)
         self.assertEqual(reason, "validation_report_hash_mismatch")
-
-    # V4.3.1-⑤（2026-09-22，外部复审）：生产授权新契约——FROZEN provenance
-    # 五键齐全才可对外展示；本测例按新契约带完整五键注册（正例）。
-    FROZEN_PROV = {
-        "snapshot_file": "samples_frozen_20260910.jsonl",
-        "samples_sha256_lf": "be8e" + "0" * 60,
-        "kfp_recorded_sha256": "f5a2" + "0" * 60,
-        "kfp_current_sha256": "f5a2" + "0" * 60,
-        "kfp_comparability": "SAME",
-    }
-
     def test_approval_requires_model_protocol_validation_and_promotion(self):
         self.test_pkl.write_bytes(b"approved-model")
         model_registry.register_model(self.test_pkl, meta={},
@@ -233,14 +231,11 @@ class TestModelRegistry(unittest.TestCase):
         proto = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
-        self.test_report.write_text("approved evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
+        self._write_report(content="approved evidence")
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(self._bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
-        # rule v2（B++-3）：legacy metrics 不再自动 approved——注入五门全过的
-        # schema v2 证据并重推导，approved 链路才可走通。
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "approved", metrics))
         reg = model_registry.load_registry()
         reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
         self.assertTrue(model_registry._save_registry(reg))
@@ -253,51 +248,50 @@ class TestModelRegistry(unittest.TestCase):
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertFalse(ok)
         self.assertEqual(reason, "promotion_not_approved")
-
-    # ---------- V4.3.1-⑤（2026-09-22，外部复审）：冻结 provenance 门禁 ----------
     def _bind_full_evidence(self, prov=None):
-        """注册全证据链（协议 + 三周期全过 validation）；prov=None 模拟 FRESH（五键 None）。"""
+        """注册协议 + validation；报告 provenance 来自实际文件内容。"""
         self.test_pkl.write_bytes(b"approval-provenance-bytes")
         model_registry.register_model(self.test_pkl, meta={},
                                       snapshot_provenance=prov)
         proto = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
-        self.test_report.write_text("approved evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
+        entry = model_registry.get_model_entry(self.test_pkl.name)
+        if prov is not None:
+            rp = {"artifact_sha256": entry["sha256"],
+                  "dataset_sha256": prov["samples_sha256_lf"],
+                  "git_commit": entry["git_commit"]}
+        else:
+            rp = {"artifact_sha256": entry["sha256"],
+                  "dataset_sha256": "d" * 64,
+                  "git_commit": entry["git_commit"]}
+        self._write_report(content="approved evidence", provenance=rp)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
-        self.assertTrue(self._bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "approved", metrics))
-        # rule v2（B++-3）：注入五门全过的 v2 证据并重推导，使 verify_approval
-        # 能推进到 snapshot_provenance 门（本组测例针对的就是那道门）。
+        ok = model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), "approved", metrics)
+        self.assertEqual(ok, prov is not None)
+        if prov is None:
+            return proto
         reg = model_registry.load_registry()
         reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
         self.assertTrue(model_registry._save_registry(reg))
         self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         return proto
-
     def test_approval_rejects_fresh_provenance(self):
-        """FRESH（provenance 五键 None）→ A-1 绑定层即拒，进不到展示门。
-
-        register_model 不带 provenance 落五键 None 块（无 dataset 身份）：
-        即使声明形式完备，registry 侧 samples_sha256_lf 缺失也 fail-closed
-        拒绝绑定——FRESH 防展示语义（V4.3.1-⑤）由更上游的绑定门兑现。
-        """
+        """FRESH 无冻结样本身份 → 即使报告内容完整也不能绑定。"""
         self.test_pkl.write_bytes(b"approval-provenance-bytes")
         model_registry.register_model(self.test_pkl, meta={}, snapshot_provenance=None)
-        self.test_report.write_text("approved evidence", encoding="utf-8")
-        digest = model_registry._file_sha256(self.test_report)
         entry = model_registry.get_model_entry(self.test_pkl.name)
-        declared = {"artifact_sha256": entry["sha256"],
-                    "dataset_sha256": "d" * 64,      # 形式完备的声明
-                    "git_commit": entry["git_commit"]}
+        self._write_report(provenance={
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": "d" * 64,
+            "git_commit": entry["git_commit"],
+        })
         self.assertFalse(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), digest, "approved",
-            provenance=declared))
+            self.test_pkl.name, str(self.test_report), "approved"))
         self.assertNotIn("validation",
                          model_registry.get_model_entry(self.test_pkl.name))
-
     def test_approval_rejects_legacy_entry_without_provenance_block(self):
         """历史条目（registry 无 snapshot_provenance 块）→ 同拒（不回补、不宽容）。"""
         proto = self._bind_full_evidence(prov=self.FROZEN_PROV)
@@ -358,14 +352,14 @@ class TestModelRegistry(unittest.TestCase):
 
     # ---------- v4（2026-09-01，GPT 五审 P3）：promotion 纯函数 ----------
     def _bind(self, decision, metrics, auto_promotion=False):
-        """测试辅助：注册假 pkl 并绑定 validation（默认关自动推导，单测纯函数）。"""
+        """注册假模型并用实际报告内容绑定 validation。"""
         self.test_pkl.write_bytes(b"promotion-test-bytes")
         model_registry.register_model(self.test_pkl, meta={},
                                       snapshot_provenance=self.FROZEN_PROV)
-        self.assertTrue(self._bind_validation(
-            self.test_pkl.name, "output/_test_report.log", "deadbeef" * 8,
-            decision, metrics=metrics, auto_promotion=auto_promotion))
-
+        self._write_report(provenance=self._report_provenance())
+        self.assertTrue(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), decision,
+            metrics=metrics, auto_promotion=auto_promotion))
     def test_derive_promotion_deterministic_blocked(self):
         """v2/v3 真实场景（T+1/T+3 跨零、T+5 过）→ blocked，且同输入两次调用逐字段一致。"""
         metrics = {
