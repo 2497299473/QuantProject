@@ -60,6 +60,7 @@ class TestModelRegistry(unittest.TestCase):
         entry = model_registry.get_model_entry(self.test_pkl.name)
         snap = entry.get("snapshot_provenance") or {}
         prov = {
+            "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": snap.get("samples_sha256_lf"),
             "git_commit": entry.get("git_commit"),
@@ -288,6 +289,7 @@ class TestModelRegistry(unittest.TestCase):
         model_registry.register_model(self.test_pkl, meta={}, snapshot_provenance=None)
         entry = model_registry.get_model_entry(self.test_pkl.name)
         self._write_report(provenance={
+            "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": "d" * 64,
             "git_commit": entry["git_commit"],
@@ -489,6 +491,7 @@ class TestPreregDegradation(unittest.TestCase):
         entry = model_registry.get_model_entry(self.pkl.name)
         snap = entry.get("snapshot_provenance") or {}
         return {
+            "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": snap.get("samples_sha256_lf"),
             "git_commit": entry.get("git_commit"),
