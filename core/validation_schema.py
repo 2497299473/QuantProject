@@ -13,7 +13,7 @@ B++-3（derive_promotion v2）共同引用——原则是「新增契约字段�
    calibration/baseline/provenance）；pooled 与 funds 同构的 horizon 节点
    （周期 1/3/5，JSON canonical 键 = 字符串）；funds 键集 = 契约 B §2 四基金
    精确冻结（缺一、多一都非法——§7/F3「禁止只存部分基金证据」的机器化）。
-2) 三态不可计算与真实数值正式分离（契约 B §13 尾注；B++-5 的落点）：
+2) 四态不可计算与真实数值正式分离（契约 B §13 尾注；B++-5 的落点）：
    每个 metric 槽位一律 {value, status} 双键——
    OK                 有值且可复核（value = 有限数值 / CI 对 / bool / 非空文本）；
    UNKNOWN            还没跑/还没填——「不知道」；
