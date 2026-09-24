@@ -825,28 +825,31 @@ def main() -> int:
     except Exception as e:
         print(f"\n[evidence] 证据组表/落盘失败（不影响裁决）：{type(e).__name__}: {e}")
 
-    # 特征重要性（排列重要性，HistGradientBoosting 无原生 feature_importances_）
-    try:
-        from sklearn.ensemble import HistGradientBoostingClassifier
-        from sklearn.inspection import permutation_importance
-        Xall, yall = None, None
-        for h in horizons:
-            XY = build_xy(samples_sorted, h, flat_margin)
-            if XY is None:
-                continue
-            Xh, yh, _ = XY
-            Xall = Xh if Xall is None else np.vstack([Xall, Xh])
-            yall = np.concatenate([yall, yh]) if yall is not None else yh
-        clf_all = HistGradientBoostingClassifier(max_iter=200, random_state=42)
-        clf_all.fit(Xall, yall)
-        pi = permutation_importance(clf_all, Xall, yall, n_repeats=10,
-                                    random_state=42, scoring="accuracy")
-        imp = dict(zip(forecast_engine.FEATURE_KEYS, [float(x) / 10 for x in pi.importances_mean]))
-        print(f"\n== [3] 特征重要性（全量，排列重要性，×10^2）==\n  " +
-              ", ".join(f"{k}={v:.3f}" for k, v in sorted(imp.items(), key=lambda x: -x[1])))
-    except Exception as e:
-        print(f"\n== [3] 特征重要性不可用：{e}")
-
+    # 特征重要性：artifact 验证模式严禁在评估路径中重新 fit 模型；
+    # 普通研究模式保留既有诊断，避免改变历史非 artifact 行为。
+    if artifact_ctx is not None:
+        print("\n== [3] 特征重要性跳过：--artifact 模式只评估持久化模型，不重新训练诊断模型 ==")
+    else:
+        try:
+            from sklearn.ensemble import HistGradientBoostingClassifier
+            from sklearn.inspection import permutation_importance
+            Xall, yall = None, None
+            for h in horizons:
+                XY = build_xy(samples_sorted, h, flat_margin)
+                if XY is None:
+                    continue
+                Xh, yh, _ = XY
+                Xall = Xh if Xall is None else np.vstack([Xall, Xh])
+                yall = np.concatenate([yall, yh]) if yall is not None else yh
+            clf_all = HistGradientBoostingClassifier(max_iter=200, random_state=42)
+            clf_all.fit(Xall, yall)
+            pi = permutation_importance(clf_all, Xall, yall, n_repeats=10,
+                                        random_state=42, scoring="accuracy")
+            imp = dict(zip(forecast_engine.FEATURE_KEYS, [float(x) / 10 for x in pi.importances_mean]))
+            print(f"\n== [3] 特征重要性（全量，排列重要性，×10^2）==\n  " +
+                  ", ".join(f"{k}={v:.3f}" for k, v in sorted(imp.items(), key=lambda x: -x[1])))
+        except Exception as e:
+            print(f"\n== [3] 特征重要性不可用：{e}")
     # 汇总
     print("\n========================================")
     print("v5 多周期预测验证 · 汇总")
