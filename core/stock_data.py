@@ -14,6 +14,7 @@
 但「确定性失败」（如科创板部分标的稳定无数据）不计降级——见 `base.classify_exc`。
 """
 import json
+import os
 import time
 from pathlib import Path
 
@@ -49,7 +50,13 @@ def fetch_stock_kline(code: str, market: str, ttl_hours: float = 12.0,
     """
     cache = BASE_DIR / "data" / "stock_klines" / f"{code}.json"
     if cache.exists() and time.time() - cache.stat().st_mtime < ttl_hours * 3600:
-        return json.loads(cache.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(cache.read_text(encoding="utf-8"))
+            if isinstance(payload, dict) and isinstance(payload.get("klines"), list):
+                return payload
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # 坏缓存不得在 TTL 内把整条源链锁死；继续走 provider 链。
+            pass
 
     reg = _registry()
     result = run_chain(reg.chain_for(CATEGORY), health=reg.health,
@@ -62,5 +69,11 @@ def fetch_stock_kline(code: str, market: str, ttl_hours: float = 12.0,
 
     out = result.payload
     cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    tmp = cache.with_name(cache.name + ".tmp")
+    try:
+        tmp.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, cache)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
     return out
