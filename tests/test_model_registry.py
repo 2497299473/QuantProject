@@ -80,7 +80,7 @@ class TestModelRegistry(unittest.TestCase):
 
     def _bind_validation(self, *args, **kwargs):
         kwargs.setdefault("provenance", self._validation_provenance())
-        return self._bind_validation(*args, **kwargs)
+        return model_registry.bind_validation(*args, **kwargs)
 
     def _cleanup(self):
         self.test_pkl.unlink(missing_ok=True)
@@ -150,6 +150,46 @@ class TestModelRegistry(unittest.TestCase):
         self.assertEqual(entry["validation"]["decision"], "rejected")
         self.assertEqual(entry["validation"]["metrics"]["5"]["rank_ic"], 0.08)
         self.assertEqual(entry["promotion"]["status"], "blocked")
+
+    def test_validation_provenance_model_dataset_code_mismatch_rejected(self):
+        self.test_pkl.write_bytes(b"model-A")
+        model_registry.register_model(self.test_pkl, meta={})
+        good = self._validation_provenance()
+        self.test_report.write_text("report-A", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+
+        # A/A/A：通过
+        self.assertTrue(self._bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "rejected"))
+
+        # 模型 B + 报告 A：artifact 不一致
+        bad = dict(good)
+        bad["artifact_sha256"] = "b" * 64
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "rejected",
+            provenance=bad))
+
+        # 数据集 A + 报告 B：dataset 不一致
+        bad = dict(good)
+        bad["dataset_sha256"] = "c" * 64
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "rejected",
+            provenance=bad))
+
+        # 代码 A + 报告 B：git commit 不一致
+        bad = dict(good)
+        bad["git_commit"] = "f" * 40
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "rejected",
+            provenance=bad))
+
+    def test_validation_provenance_missing_rejected(self):
+        self.test_pkl.write_bytes(b"model-A")
+        model_registry.register_model(self.test_pkl, meta={})
+        self.test_report.write_text("report-A", encoding="utf-8")
+        digest = model_registry._file_sha256(self.test_report)
+        self.assertFalse(model_registry.bind_validation(
+            self.test_pkl.name, str(self.test_report), digest, "rejected"))
 
     def test_bind_unknown_model_returns_false(self):
         """绑定不存在的模型 → False（不新增幽灵条目）。"""
