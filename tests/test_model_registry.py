@@ -492,7 +492,7 @@ class TestPreregDegradation(unittest.TestCase):
         prov = self._report_provenance()
         payload = json.dumps(prov, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         self.report.write_text(
-            "validation evidence" + eol + "PROVENANCE_JSON=" + payload,
+            "validation evidence" + "\n" + "PROVENANCE_JSON=" + payload,
             encoding="utf-8")
     def _seed(self, metrics=None, decision="rejected", model_bytes=b"v3-bytes"):
         self.pkl.write_bytes(model_bytes)
