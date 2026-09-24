@@ -397,7 +397,8 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
                                  fund_evidence: dict, horizons, snap_info: dict,
                                  *, overall_ok: bool, git_head: str | None,
                                  produced_at: str,
-                                 model_sha256: str | None = None) -> dict:
+                                 model_sha256: str | None = None,
+                                 training_git: str | None = None) -> dict:
     """本轮验证产出 → validation evidence schema v2（组表纯函数）。
 
     pooled：常规分支取 results[h]（与 stdout 逐位同源），跳过分支取
@@ -405,9 +406,11 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
     切片）；protocol 取 current_feature_protocol()（registry 同源，不另造字段）；
     power.frozen=OK(False)——功效阈值未预注册是可计算事实，其余 power 键如实
     UNKNOWN；quantile calibration 本验证器不产出 → 全 UNKNOWN；provenance
-    透传冻结件三元组 + git head + 模型 artifact sha（本验证器不持久化模型 →
-    诚实 UNKNOWN）+ EOD_PROXY 口径诚实标注。decision 只映射
-    验证器既有 overall_ok，不引入第二套裁决。
+    透传冻结件三元组 + 训练血统 git（artifact 模式 = artifact 训练 commit，
+    A批 A2；fresh 研究模式 = 本验证器 head，两者天然同源）+ 模型 artifact sha
+    （本验证器不持久化模型 → 诚实 UNKNOWN）+ EOD_PROXY 口径诚实标注；
+    验证器运行版本留痕在 produced_by。decision 只映射验证器既有 overall_ok，
+    不引入第二套裁决。
     """
     proto = forecast_engine.current_feature_protocol()
     prov_snap = snap_info.get("snapshot_provenance") or {}
@@ -444,14 +447,17 @@ def assemble_validation_evidence(results: dict, pooled_nodes: dict,
                 or snap_info.get("mode") or "unknown")),
         "dataset_sha256": (validation_schema.ev_ok(str(sha)) if sha
                            else validation_schema.ev_na(validation_schema.STATUS_UNKNOWN)),
-        "git_commit": (validation_schema.ev_ok(str(git_head)) if git_head
+        "git_commit": (validation_schema.ev_ok(str(training_git or git_head))
+                       if (training_git or git_head)
                        else validation_schema.ev_na(validation_schema.STATUS_UNKNOWN)),
         "feature_protocol": validation_schema.ev_ok(
             f"protocol_version={proto['protocol_version']};"
             f"feature_dim={proto['feature_dim']};masking={ev['protocol']['masking']}"),
         "contract_version": validation_schema.ev_ok(forecast_contract.CONTRACT_VERSION),
         "historical_feature_mode": validation_schema.ev_ok(HISTORICAL_FEATURE_MODE),
-        "produced_by": validation_schema.ev_ok("backtest_forecast.py"),
+        "produced_by": validation_schema.ev_ok(
+            "backtest_forecast.py"
+            + (f";verifier_git={git_head}" if git_head else "")),
         "produced_at": validation_schema.ev_ok(str(produced_at)),
     }
     return ev
@@ -506,9 +512,13 @@ def build_xy(samples: list[dict], horizon: int, flat_margin: float):
 def load_persisted_direction_artifact(artifact: str, horizons, flat_margin: float) -> tuple[dict | None, str | None]:
     """加载并校验 registry 中已登记的持久化方向模型；绝不触发训练。
 
-    返回 (context, None)；context 含 models/model_sha256/dataset_sha256/git_commit。
-    pickle 反序列化前先走 registry 原始字节 SHA 校验；registry 血统不完整或
-    当前代码 commit 与训练 commit 不同，均拒绝进入 artifact 验证模式。
+    返回 (context, None)；context 含 models/model_sha256/dataset_sha256/git_commit
+    /verifier_git_commit。pickle 反序列化前先走 registry 原始字节 SHA 校验；
+    registry 血统不完整（模型 sha / 冻结样本 sha / 训练 commit 任一缺失）拒绝进入
+    artifact 验证模式。A 批 A1（2026-09-24）：训练血统 commit 与验证器运行 commit
+    语义解耦——验证器版本仅在 context.verifier_git_commit 留痕，不再因「验证代码
+    比训练代码新」拒绝复核旧 artifact；artifact sha / dataset sha / feature
+    protocol / payload 契约 / model_version 门槛全部不变，防旁路重训保护不变。
     """
     from core import model_registry
 
@@ -564,15 +574,16 @@ def load_persisted_direction_artifact(artifact: str, horizons, flat_margin: floa
         return None, "registry 冻结样本 sha 缺失"
     if not train_commit:
         return None, "registry git_commit 缺失"
+    # A批 A1：verifier 版本仅留痕——「训练血统 commit」与「验证器运行 commit」
+    # 解耦，复核旧 artifact 不再被验证代码推进阻断。
     current_git = freeze_verify_tool.git_commit()
-    if not current_git or current_git != train_commit:
-        return None, f"当前代码 commit 与 artifact 训练 commit 不一致：current={current_git!s} / train={train_commit}"
     return {
         "artifact_name": artifact_name,
         "models": models,
         "model_sha256": model_sha,
         "dataset_sha256": dataset_sha,
         "git_commit": train_commit,
+        "verifier_git_commit": current_git,
         "entry": entry,
     }, None
 
@@ -799,7 +810,8 @@ def main() -> int:
             overall_ok=overall_ok,
             git_head=freeze_verify_tool.git_commit(),
             produced_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            model_sha256=(artifact_ctx["model_sha256"] if artifact_ctx else None))
+            model_sha256=(artifact_ctx["model_sha256"] if artifact_ctx else None),
+            training_git=(artifact_ctx["git_commit"] if artifact_ctx else None))
         ok_ev, errs_ev = validation_schema.validate_evidence(ev)
         if not ok_ev:
             print(f"\n[evidence] schema v2 自检未过，拒绝落盘（fail-closed）：{errs_ev[:3]}")
