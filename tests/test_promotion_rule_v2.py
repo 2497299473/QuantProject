@@ -262,7 +262,7 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             "value": "PIT_1455_SNAPSHOT", "status": S.STATUS_OK}
         ev["provenance"]["kfp_comparability"] = {
             "value": "SAME", "status": S.STATUS_OK}
-        ev["_validation_decision"] = validation_decision
+        
         return ev
 
     def _seed_real_bind(self, evidence, validation_decision="approved"):
