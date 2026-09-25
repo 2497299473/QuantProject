@@ -51,6 +51,8 @@ def _full_pass_evidence_v2():
             ev["provenance"][k] = S.ev_ok("cd" * 32)
         elif k == "git_commit":
             ev["provenance"][k] = S.ev_ok("e" * 40)
+        elif k == "contract_version":
+            ev["provenance"][k] = S.ev_ok("forecast-v1")   # R4-5：机械相等
         else:
             ev["provenance"][k] = S.ev_ok(f"{k}-ok")
     return ev
@@ -66,6 +68,14 @@ class TestModelRegistry(unittest.TestCase):
         self.test_pkl = self.tmp / "_test_registry_model.pkl"
         self.test_report = self.tmp / "_test_validation_report.log"
         self._cleanup()
+        # R4-8（Round 4）：默认提供独立功效冻结记录（frozen=True, n_pf=100，
+        # 与夹具 n_power_fund=100 一致）——apply_promotion 账面 approved 需它佐证。
+        # 注意：必须在 _cleanup() 之后写入（_cleanup 会 unlink 本文件）。
+        self._orig_freeze_path = model_registry.POWER_FREEZE_PATH
+        model_registry.POWER_FREEZE_PATH = self.tmp / "power_freeze.json"
+        model_registry.POWER_FREEZE_PATH.write_text(json.dumps(
+            {"rule_version": "power_freeze_v1", "frozen": True,
+             "n_power_fund": 100}), encoding="utf-8")
 
     # V4.3.1-⑤（2026-09-22，外部复审）：生产授权新契约——FROZEN provenance
     # 五键齐全才可对外展示；本测例按新契约带完整五键注册（正例）
@@ -106,12 +116,14 @@ class TestModelRegistry(unittest.TestCase):
         self.test_pkl.unlink(missing_ok=True)
         self.test_report.unlink(missing_ok=True)
         (self.tmp / "_approved_evidence.json").unlink(missing_ok=True)   # R2-1 文件绑定用例的落盘证据文件
+        (self.tmp / "power_freeze.json").unlink(missing_ok=True)   # R4-8 功效冻结对账夹具
         reg = model_registry.load_registry()
         reg["models"].pop(self.test_pkl.name, None)
         model_registry._save_registry(reg)
 
     def tearDown(self):
         self._cleanup()
+        model_registry.POWER_FREEZE_PATH = self._orig_freeze_path
         # 恢复原始注册表（测试期间可能删过条目）
         if self._orig_registry is not None:
             model_registry.REGISTRY_PATH.write_text(self._orig_registry, encoding="utf-8")

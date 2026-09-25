@@ -52,7 +52,7 @@ def _full_pass(prov_overrides=None):
         "dataset_sha256": "cd" * 32,
         "git_commit": "e" * 40,
         "feature_protocol": "protocol_version=1;feature_dim=14",
-        "contract_version": "C1-lineage-test",
+        "contract_version": "forecast-v1",   # R4-5：机械相等
         "produced_by": "test-lineage-fixture",
         "produced_at": "2026-09-25T00:00:00",
     }
@@ -72,12 +72,20 @@ class TestEvidenceLineage(unittest.TestCase):
         self._orig_registry = (MR.REGISTRY_PATH.read_text(encoding="utf-8")
                                if MR.REGISTRY_PATH.exists() else None)
         self._orig_models_dir = MR.MODELS_DIR
+        self._orig_freeze_path = MR.POWER_FREEZE_PATH
         MR.MODELS_DIR = self.tmp
         MR.REGISTRY_PATH = self.tmp / "registry.json"
+        # R4-8-lite：默认提供独立功效冻结记录（frozen=True, n_pf=100，与夹具一致）；
+        # S3-POWER 钉在「无记录」状态下单独验证（见 TestS3RedPins）。
+        MR.POWER_FREEZE_PATH = self.tmp / "power_freeze.json"
+        MR.POWER_FREEZE_PATH.write_text(json.dumps(
+            {"rule_version": "power_freeze_v1", "frozen": True,
+             "n_power_fund": 100}), encoding="utf-8")
 
     def tearDown(self):
         MR.MODELS_DIR = self._orig_models_dir
         MR.REGISTRY_PATH = self._orig_registry_path
+        MR.POWER_FREEZE_PATH = self._orig_freeze_path
         if self._orig_registry is not None:
             self._orig_registry_path.write_text(self._orig_registry, encoding="utf-8")
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -242,6 +250,91 @@ class TestEvidenceLineage(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(len(reasons), 1)
         self.assertTrue(reasons[0].startswith("validation_provenance_reject:"), reasons)
+
+
+class TestS3RedPins(unittest.TestCase):
+    """R4-7（Round 4）施工钉：S3 攻击场景的两个失败面（临时 registry 隔离）。
+
+    S3-POWER：真 metrics + 伪造 power.frozen=True 且系统无独立冻结记录
+    → 必须拒（R4-8-lite 本批落地，绿）——证明「功效冻结是独立治理事实，
+    不是 evidence 自报字段」。S3-ID：真身份+假指标 → 当前 bind 仍放行（红），
+    以 expectedFailure 钉住；Phase B（绑定时重算）落地翻绿即拆钉。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig_registry_path = MR.REGISTRY_PATH
+        self._orig_registry = (MR.REGISTRY_PATH.read_text(encoding="utf-8")
+                               if MR.REGISTRY_PATH.exists() else None)
+        self._orig_models_dir = MR.MODELS_DIR
+        self._orig_freeze_path = MR.POWER_FREEZE_PATH
+        MR.MODELS_DIR = self.tmp
+        MR.REGISTRY_PATH = self.tmp / "registry.json"
+        # S3 场景刻意不提供独立冻结记录（真实 fail-closed 状态）。
+        MR.POWER_FREEZE_PATH = self.tmp / "power_freeze_absent.json"
+
+    def tearDown(self):
+        MR.MODELS_DIR = self._orig_models_dir
+        MR.REGISTRY_PATH = self._orig_registry_path
+        MR.POWER_FREEZE_PATH = self._orig_freeze_path
+        if self._orig_registry is not None:
+            self._orig_registry_path.write_text(self._orig_registry, encoding="utf-8")
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _setup_model(self):
+        pkl = self.tmp / "_s3_model.pkl"
+        pkl.write_bytes(b"s3-red-pin-bytes")
+        MR.register_model(pkl, meta={}, snapshot_provenance={
+            "snapshot_file": "samples_frozen_20260910.jsonl",
+            "samples_sha256_lf": "12" * 32, "kfp_recorded_sha256": "34" * 32,
+            "kfp_current_sha256": "34" * 32, "kfp_comparability": "SAME"})
+        proto = MR.make_feature_protocol(["a"], masking=MR.B1_MASKING_PROTOCOL)
+        self.assertTrue(MR.bind_feature_protocol(pkl.name, proto))
+        entry = MR.get_model_entry(pkl.name)
+        real = {
+            "artifact_sha256": entry["sha256"],
+            "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+            "git_commit": entry["git_commit"],
+        }
+        prov = {"validation_mode": "ARTIFACT", **real}
+        report = self.tmp / "report.log"
+        payload = json.dumps(prov, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"))
+        report.write_text("S3 red pin report\nPROVENANCE_JSON=" + payload,
+                          encoding="utf-8")
+        return pkl, proto, real, report
+
+    @unittest.expectedFailure
+    def test_s3_id_real_identity_forged_metrics_must_be_rejected(self):
+        """真身份+假指标：Phase B（绑定时重算门 1-4）落地后本测转绿、拆钉。"""
+        pkl, _, real, report = self._setup_model()
+        ev = _full_pass(prov_overrides={
+            "artifact_sha256": S.ev_ok(real["artifact_sha256"]),
+            "dataset_sha256": S.ev_ok(real["dataset_sha256"]),
+            "git_commit": S.ev_ok(real["git_commit"])})
+        ok, reasons = MR.bind_validation_detailed(
+            pkl.name, str(report), "approved", evidence=ev)
+        self.assertFalse(ok)          # Phase B 前：bind 放行 → 钉住红灯
+
+    def test_s3_power_forged_frozen_true_rejected_without_freeze_record(self):
+        """真形态 metrics + 伪造 frozen=True、系统无独立冻结记录 → 必须拒。"""
+        pkl, proto, real, report = self._setup_model()
+        ev = _full_pass(prov_overrides={
+            "artifact_sha256": S.ev_ok(real["artifact_sha256"]),
+            "dataset_sha256": S.ev_ok(real["dataset_sha256"]),
+            "git_commit": S.ev_ok(real["git_commit"])})
+        ev_file = self.tmp / "ev_s3power.json"
+        ev_file.write_text(json.dumps(ev, ensure_ascii=False), encoding="utf-8")
+        ok, reasons = MR.bind_validation_detailed(
+            pkl.name, str(report), "approved", evidence=ev,
+            evidence_file=str(ev_file))
+        self.assertTrue(ok, reasons)                    # 血缘真实 → 可入档
+        written, d = MR.apply_promotion(pkl.name)
+        self.assertTrue(written)
+        self.assertEqual(d["status"], "blocked_power")
+        self.assertIn("power_freeze", d["reason"])
+        va_ok, va_reason = MR.verify_approval(pkl, proto)
+        self.assertFalse(va_ok)
 
 
 if __name__ == "__main__":

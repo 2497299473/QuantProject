@@ -58,25 +58,9 @@ def _find_model(model_name: str | None, artifact_sha: str) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def _check_evidence_against_registry(model_name: str, evidence: dict) -> tuple[bool, str]:
-    entry = model_registry.get_model_entry(model_name)
-    if entry is None:
-        return False, "no_registry_entry"
-    checks = {
-        "artifact_sha256": str(entry.get("sha256") or ""),
-        "dataset_sha256": str((entry.get("snapshot_provenance") or {}).get(
-            "samples_sha256_lf") or ""),
-        "git_commit": str(entry.get("git_commit") or ""),
-    }
-    for key, expected in checks.items():
-        declared = str(_ev_value(evidence, key) or "")
-        if not declared or not expected:
-            return False, f"{key}_missing"
-        if declared != expected:
-            return False, f"{key}_mismatch"
-    return True, "ok"
-
-
+# R4-4（Round 4）：CLI 侧业务血缘判定已删除——唯一权威在
+# core.model_registry.bind_validation_detailed() 的三向血缘核对，
+# 防两处逻辑漂移（B 的 R3-2）。
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", required=True, help="验证报告 .log 路径")
@@ -107,10 +91,7 @@ def main() -> int:
         print("[fail] 无法唯一定位 registry artifact（需 --model 或唯一 artifact_sha256）")
         return 2
 
-    ok_link, link_reason = _check_evidence_against_registry(model_name, evidence)
-    if not ok_link:
-        print(f"[fail] evidence 与 registry 血统不一致：{link_reason}")
-        return 2
+    # R4-4：registry 血统核对由 bind_validation_detailed() 唯一执行（原因可见）。
 
     report = str(args.report)
     # 唯一实际绑定入口：报告 SHA / PROVENANCE_JSON / registry 血统 / evidence
@@ -133,8 +114,35 @@ def main() -> int:
 
     entry = model_registry.get_model_entry(model_name) or {}
     promotion = entry.get("promotion") or {}
+    validation = entry.get("validation") or {}
     print(f"[ok] validation.evidence 已绑定：{model_name}")
     print(f"[promotion] status={promotion.get('status')} reason={promotion.get('reason')}")
+
+    # Phase A（Round 4，R4-2 口径）：producer receipt——身份五件套的可携带
+    # 镜像（provenance 加固）。它不是 computation proof，不构成 R3-1 关闭
+    # 条件（B 的 R4-2 裁决）；完整关闭判据 = Phase B 独立重算（单独立项）。
+    receipt = {
+        "receipt_version": 1,
+        "model": model_name,
+        "artifact_sha256": validation.get("provenance", {}).get("artifact_sha256"),
+        "dataset_sha256": validation.get("provenance", {}).get("dataset_sha256"),
+        "git_commit": validation.get("provenance", {}).get("git_commit"),
+        "report_file": validation.get("report_file"),
+        "report_sha256": validation.get("report_sha256"),
+        "evidence_file": evidence_file,
+        "evidence_sha256": validation.get("evidence_sha256"),
+        "producer": _ev_value(evidence, "produced_by"),
+        "decision": decision,
+        "promotion_status": promotion.get("status"),
+        "bound_at": validation.get("bound_at"),
+    }
+    receipt_path = Path(str(args.evidence) + ".receipt.json")
+    if not receipt_path.is_absolute():
+        receipt_path = BASE_DIR / receipt_path
+    receipt_path.write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8")
+    print(f"[ok] producer receipt 已写盘：{receipt_path}")
     return 0
 
 

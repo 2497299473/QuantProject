@@ -62,6 +62,8 @@ def _full_pass_evidence_v2(
             ev["provenance"][k] = S.ev_ok("cd" * 32)
         elif k == "git_commit":
             ev["provenance"][k] = S.ev_ok("e" * 40)
+        elif k == "contract_version":
+            ev["provenance"][k] = S.ev_ok("forecast-v1")   # R4-5：机械相等
         else:
             ev["provenance"][k] = S.ev_ok(f"{k}-ok")
     if actual_provenance is not None:
@@ -195,14 +197,20 @@ class TestRegistryIntegration(unittest.TestCase):
         self._orig_registry = (model_registry.REGISTRY_PATH.read_text(encoding="utf-8")
                                if model_registry.REGISTRY_PATH.exists() else None)
         self._orig_models_dir = model_registry.MODELS_DIR
+        self._orig_freeze_path = model_registry.POWER_FREEZE_PATH
         model_registry.MODELS_DIR = self.tmp
         model_registry.REGISTRY_PATH = self.tmp / "registry.json"
+        model_registry.POWER_FREEZE_PATH = self.tmp / "power_freeze.json"
+        model_registry.POWER_FREEZE_PATH.write_text(json.dumps(
+            {"rule_version": "power_freeze_v1", "frozen": True,
+             "n_power_fund": 100}), encoding="utf-8")
 
     def tearDown(self):
         model_registry.MODELS_DIR = self._orig_models_dir
         # 先恢复 REGISTRY_PATH 属性本身，再回写内容——否则属性留在已删的
         # 临时目录上，泄漏进后加载的测试模块（本轮 12 连红的根因）。
         model_registry.REGISTRY_PATH = self._orig_registry_path
+        model_registry.POWER_FREEZE_PATH = self._orig_freeze_path
         if self._orig_registry is not None:
             model_registry.REGISTRY_PATH.write_text(self._orig_registry, encoding="utf-8")
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -284,12 +292,18 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
         self._orig_registry = (model_registry.REGISTRY_PATH.read_text(encoding="utf-8")
                                if model_registry.REGISTRY_PATH.exists() else None)
         self._orig_models_dir = model_registry.MODELS_DIR
+        self._orig_freeze_path = model_registry.POWER_FREEZE_PATH
         model_registry.MODELS_DIR = self.tmp_root
         model_registry.REGISTRY_PATH = self.tmp_root / "registry.json"
+        model_registry.POWER_FREEZE_PATH = self.tmp_root / "power_freeze.json"
+        model_registry.POWER_FREEZE_PATH.write_text(json.dumps(
+            {"rule_version": "power_freeze_v1", "frozen": True,
+             "n_power_fund": 100}), encoding="utf-8")
 
     def tearDown(self):
         model_registry.MODELS_DIR = self._orig_models_dir
         model_registry.REGISTRY_PATH = self._orig_registry_path
+        model_registry.POWER_FREEZE_PATH = self._orig_freeze_path
         if self._orig_registry is not None:
             self._orig_registry_path.write_text(self._orig_registry, encoding="utf-8")
         shutil.rmtree(self.tmp_root, ignore_errors=True)

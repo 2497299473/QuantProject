@@ -354,6 +354,13 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
         if lineage_reasons:
             return False, lineage_reasons[0]
 
+    # R4-8（Round 4）：power.frozen 与独立冻结记录对账——evidence 可携带
+    # 「已冻结」的记录，但不能自创「已冻结」的事实（S3-POWER 攻击面）。
+    # 置于最后：既有各门与 lineage 复核的拒绝原因优先保持不变。
+    freeze_reason = _check_power_freeze_corroboration(evidence)
+    if freeze_reason:
+        return False, f"power_freeze_corroboration_fail:{freeze_reason}"
+
     return True, "ok"
 
 
@@ -371,6 +378,43 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
 
 PROMOTION_PREREG_PATH = BASE_DIR / "data" / "promotion_prereg.json"
 PROMOTION_DEGRADE_RULE_VERSION = "prereg_shadow_v1"
+
+# R4-8（Round 4）：独立功效冻结记录——power.frozen 是治理事实，
+# 不得由 evidence 自报字段自证（S3-POWER 攻击面）。文件缺失/损坏/non-frozen
+# → fail-closed（blocked_power），直到 Summer 侧正式冻结功效阈值并落盘。
+POWER_FREEZE_PATH = BASE_DIR / "data" / "power_freeze.json"
+
+
+def _load_power_freeze() -> dict | None:
+    """读独立功效冻结记录；缺失/不可读/结构损坏 → None（fail-closed）。"""
+    try:
+        doc = json.loads(POWER_FREEZE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def _check_power_freeze_corroboration(evidence: dict) -> str | None:
+    """R4-8（Round 4）：v2 证据自报 power.frozen=True 时，必须与独立冻结记录
+    对账（frozen=true 且 n_power_fund 一致）。返回失败原因（None = 通过或
+    无需核对——自报 False/UNKNOWN 时由门 1 照旧裁决）。"""
+    if not (isinstance(evidence, dict) and evidence.get("schema_version") == 2):
+        return None
+    from core import validation_schema as _vs
+    frozen = (evidence.get("power") or {}).get("frozen") or {}
+    if not (frozen.get("status") == _vs.STATUS_OK and frozen.get("value") is True):
+        return None
+    doc = _load_power_freeze()
+    if doc is None:
+        return "power_freeze_record_missing"
+    if doc.get("frozen") is not True:
+        return "power_freeze_record_not_frozen"
+    rec_n = doc.get("n_power_fund")
+    ev_slot = (evidence.get("power") or {}).get("n_power_fund") or {}
+    if ev_slot.get("status") == _vs.STATUS_OK and rec_n is not None \
+            and str(ev_slot.get("value")) != str(rec_n):
+        return "power_freeze_n_power_fund_mismatch"
+    return None
 
 
 def prereg_pinned_sha256(pkl_name: str, prereg_path: Path | None = None) -> str | None:
@@ -887,6 +931,15 @@ def _derive_promotion_v2_gates(evidence: dict, vs) -> dict:
             return _bad("blocked_provenance",
                         f"provenance.{k} 为占位文本（{val!r}）——占位-OK 不得作为授权依据")
 
+    # R4-5（Round 4）：contract_version 机械相等——「字符串合法」升级为
+    # 「与当前代码契约身份一致」，版本漂移静默通过即 blocked_provenance。
+    from core import forecast_contract as _fc
+    cv = str(evidence["provenance"]["contract_version"]["value"] or "")
+    if cv != _fc.CONTRACT_VERSION:
+        return _bad("blocked_provenance",
+                    f"provenance.contract_version 与当前契约不符（{cv!r} ≠ "
+                    f"{_fc.CONTRACT_VERSION!r}）")
+
     hmode = evidence["provenance"]["historical_feature_mode"]["value"]
     if hmode != vs.HISTORICAL_FEATURE_MODES[-1]:
         return _bad("blocked_provenance",
@@ -1009,6 +1062,17 @@ def apply_promotion(pkl_name: str, dry_run: bool = False) -> tuple[bool, dict]:
         return False, derived
     if dry_run:
         return False, derived
+    # R4-8（Round 4）：账面 approved 必须有独立功效冻结记录佐证——
+    # 防「伪造 frozen=True 的 evidence 把 promotion 账面推成 approved」。
+    if derived.get("status") == "approved":
+        evidence = (entry.get("validation") or {}).get("evidence")
+        freeze_reason = _check_power_freeze_corroboration(evidence) \
+            if isinstance(evidence, dict) else "power_freeze_record_missing"
+        if freeze_reason:
+            derived = {"status": "blocked_power",
+                       "rule_version": PROMOTION_RULE_VERSION,
+                       "failed_horizons": [],
+                       "reason": f"power_freeze_corroboration_fail:{freeze_reason}"}
     entry["promotion"] = {
         "status": derived["status"],
         "reason": derived["reason"],

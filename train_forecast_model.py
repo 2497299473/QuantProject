@@ -35,6 +35,26 @@ def main() -> int:
                     help="显式活拉样本（数字与冻结基线不可比）")
     args = ap.parse_args()
 
+    # R4-3（Round 4，clean-required）：训练入口拒绝 dirty worktree——
+    # git_commit 语义锁定为「训练代码 commit」，未提交改动会让该身份失真
+    # （B 的 R4-3 指控 + Summer 选型）。-uno 只看已跟踪文件的改动，
+    # 不受运行时产物（output/ 等 untracked 文件）干扰。fail-closed。
+    import subprocess as _sp
+    _st = _sp.run(["git", "-C", str(BASE_DIR), "status", "--porcelain", "-uno"],
+                  capture_output=True, text=True)
+    if _st.returncode != 0:
+        print("[fail] 无法读取 git 工作树状态（clean-required，fail-closed）")
+        return 2
+    if _st.stdout.strip():
+        print("[fail] 工作树存在未提交改动（clean-required，R4-3）——"
+              "训练代码身份必须无歧义；先提交或 stash 后重试：")
+        for _ln in _st.stdout.strip().splitlines()[:10]:
+            print("   ", _ln)
+        return 2
+    _head = _sp.run(["git", "-C", str(BASE_DIR), "rev-parse", "HEAD"],
+                    capture_output=True, text=True)
+    print(f"[train-git] 训练代码 commit = {_head.stdout.strip()}（clean worktree，R4-3）")
+
     print("== [1] 加载样本（PIT 口径）==")
     # B 契约 §15-B3（2026-09-23）：与 backtest_forecast 同口径——入口保留全部
     # 特征行（require_fwds=()），各 horizon 标签由引擎按 fwd{h} 逐行过滤；
