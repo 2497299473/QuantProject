@@ -86,9 +86,16 @@ def forged_evidence(identity="real", frozen=True, text_style="real"):
                 "decision_edge_ci": S.ev_ok([0.005, 0.06])})
     ev["power"]["frozen"] = S.ev_ok(frozen)
     ev["power"]["n_power_fund"] = S.ev_ok(100)
-    ids = dict(REAL) if identity == "real" else {
-        "artifact_sha256": "A" * 64, "dataset_sha256": "B" * 64,
-        "git_commit": "0" * 40}
+    # R4-7 修订：wrong_hex = hex 合法但与 registry/report 不一致——穿透 schema
+    # 白名单，直达 bind 层三向血缘核对（更深一层的拒绝面）。
+    if identity == "real":
+        ids = dict(REAL)
+    elif identity == "wrong_hex":
+        ids = {"artifact_sha256": "f" * 64, "dataset_sha256": "e" * 64,
+               "git_commit": "d" * 40}
+    else:
+        ids = {"artifact_sha256": "A" * 64, "dataset_sha256": "B" * 64,
+               "git_commit": "0" * 40}
     if text_style == "placeholder":
         texts = {"frozen_dataset": "unknown", "feature_protocol": "unknown",
                  "produced_by": "unknown", "produced_at": "unknown"}
@@ -140,10 +147,10 @@ print("== P2 真身份 + 伪造 frozen=True + 无独立冻结记录 ==")
 rc2, promo2 = run_cli(forged_evidence(identity="real", frozen=True))
 check("P2 promotion.status", promo2, "blocked_power")
 
-print("== P3 三身份伪造（--model 直达 bind 层血缘核对） ==")
-rc3, promo3 = run_cli(forged_evidence(identity="wrong", frozen=True),
+print("== P3 三身份伪造（hex 合法但与 report/registry 不一致；--model 直达 bind 层） ==")
+rc3, promo3 = run_cli(forged_evidence(identity="wrong_hex", frozen=True),
                       use_model=True)
-check("P3 CLI 退出码（拒绝绑定）", rc3, 1)
+check("P3 CLI 退出码（bind 层血缘拒绝）", rc3, 1)
 
 print("== OPEN 真身份+真文本+伪造指标+冻结记录在案（R3-1 未闭环） ==")
 freeze = TMP / "power_freeze.json"
