@@ -37,6 +37,13 @@ B++-3（derive_promotion v2）共同引用——原则是「新增契约字段�
 from __future__ import annotations
 
 import math
+import re
+
+# R2-4（审校 Round 3）：provenance 三个身份字段的 OK 态值域白名单——
+# 真实指纹格式（64-hex sha256 / 40-hex git commit）。治理约束 2：UNKNOWN
+# 仍完全合法（诚实未绑定），本白名单只约束「自称 OK」的值必须像真指纹。
+_EVIDENCE_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_GIT_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 VALIDATION_SCHEMA_VERSION = 2
 
@@ -298,6 +305,21 @@ def _check_provenance(prov, errors: list) -> None:
     _check_flat("provenance", prov, {k: "text" for k in PROVENANCE_KEYS}, errors)
     if not isinstance(prov, dict):
         return
+    # R2-4（Round 3）：身份字段 OK 态必须是真实指纹格式；占位文本（如
+    # "x-ok"/"unknown"）在这里即非法。文本字段的占位语义在 promotion
+    # 门 5 拦截（不动 schema 文本语义，保住验证器 frozen_dataset 降级回退）。
+    for _key, _pat, _fmt in (("artifact_sha256", _EVIDENCE_SHA256_RE,
+                              "64 位小写十六进制 sha256"),
+                             ("dataset_sha256", _EVIDENCE_SHA256_RE,
+                              "64 位小写十六进制 sha256"),
+                             ("git_commit", _GIT_COMMIT_RE,
+                              "40 位小写十六进制 git commit")):
+        _slot = prov.get(_key)
+        if isinstance(_slot, dict) and _slot.get("status") == STATUS_OK:
+            if not _pat.match(str(_slot.get("value") or "")):
+                errors.append(
+                    f"provenance.{_key}: OK 态 value 须为 {_fmt}（R2-4 白名单），"
+                    f"got {_slot.get('value')!r}")
     hmode = prov.get("historical_feature_mode")
     if isinstance(hmode, dict) and hmode.get("status") == STATUS_OK:
         if hmode.get("value") not in HISTORICAL_FEATURE_MODES:

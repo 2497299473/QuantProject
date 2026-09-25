@@ -333,6 +333,27 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
         if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
             return False, f"validation_provenance_report_mismatch:{key}"
 
+    # R2-1（Round 3）：A4 复核扩到 evidence——v2 证据必须文件绑定且现场重验
+    # （文件字节 SHA、schema、三向血缘逐项再核）。置于既有各门之后，历史拒绝
+    # 原因保持不变。
+    if isinstance(evidence, dict) and evidence.get(
+            "schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
+        ev_file = validation.get("evidence_file")
+        ev_sha = validation.get("evidence_sha256")
+        if not ev_file or not ev_sha:
+            return False, "evidence_lineage_unbound"
+        _ev_path, ev_actual_sha, ev_from_file = _read_evidence_file(ev_file)
+        if _ev_path is None or ev_actual_sha is None or ev_from_file is None:
+            return False, "evidence_lineage_file_unreadable"
+        if ev_actual_sha != ev_sha:
+            return False, "evidence_lineage_hash_mismatch"
+        ok_ev2, errs_ev2 = _vs.validate_evidence(ev_from_file)
+        if not ok_ev2:
+            return False, f"evidence_lineage_schema_invalid:{errs_ev2[0]}"
+        lineage_reasons = _check_evidence_lineage(ev_from_file, report_prov, entry)
+        if lineage_reasons:
+            return False, lineage_reasons[0]
+
     return True, "ok"
 
 
@@ -558,40 +579,109 @@ def _read_validation_report(report_file: str) -> tuple[Path | None, str | None, 
 
 
 # ---------- v2（2026-08-31，GPT 四审 P1）：validation/promotion 审计链 ----------
-def bind_validation(pkl_name: str, report_file: str, decision: str,
-                    metrics: dict | None = None,
-                    auto_promotion: bool = True,
-                    evidence: dict | None = None) -> bool:
-    """把实际验证报告绑定进 registry。
+def _read_evidence_file(evidence_file: str) -> tuple[Path | None, str | None, dict | None]:
+    """读取 evidence JSON 文件、现场计算 SHA256 并解析（对称 _read_validation_report）。
 
-    A-final-1 收口：
-    - report_file 必须真实存在且可 UTF-8 读取；
-    - report SHA256 在 bind 时现场重算，调用者不再传 report_sha256；
-    - provenance 从报告唯一的 PROVENANCE_JSON=... 行解析，调用者不再传
-      provenance 字典；且 validation_mode 必须为 ARTIFACT；
-    - artifact/dataset/git 三项必须分别等于 registry 当前条目的模型 sha /
-      冻结样本 sha / 训练代码 commit；
-    - 任一缺失、不一致或重复 provenance 行均 fail-closed。
+    文件必须存在、可 UTF-8 读取、顶层为 JSON object；任一异常 fail-closed。
+    evidence 身份口径（Round 3 治理约束 1）：SHA256(文件原始字节)，带外存储于
+    registry，永不写回 evidence 自身——结构上排除自哈希。
+    """
+    if not isinstance(evidence_file, str) or not evidence_file.strip():
+        return None, None, None
+    path = Path(evidence_file)
+    if not path.is_absolute():
+        path = BASE_DIR / path
+    try:
+        raw = path.read_bytes()
+        actual_sha = hashlib.sha256(raw).hexdigest()
+        evidence = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return path, None, None
+    if not isinstance(evidence, dict):
+        return path, actual_sha, None
+    return path, actual_sha, evidence
+
+
+_EVIDENCE_LINEAGE_KEYS = ("artifact_sha256", "dataset_sha256", "git_commit")
+
+
+def _check_evidence_lineage(evidence: dict, report_provenance: dict,
+                            entry: dict) -> list[str]:
+    """v2 evidence ↔ report ↔ registry 三向血缘核对（R2-1，审校 Round 3）。
+
+    三个身份字段（artifact_sha256 / dataset_sha256 / git_commit）必须 OK 态、
+    与 report 的 PROVENANCE_JSON 一致、且与 registry 当前条目一致。返回失败
+    原因列表（空 = 通过）。封堵「provenance 抄 registry、metrics 全伪造」的
+    schema-valid 证据静默入库。
+    """
+    from core import validation_schema as _vs
+    snapshot = entry.get("snapshot_provenance") or {}
+    registry_side = {
+        "artifact_sha256": str(entry.get("sha256") or "").strip(),
+        "dataset_sha256": str(snapshot.get("samples_sha256_lf") or "").strip(),
+        "git_commit": str(entry.get("git_commit") or "").strip(),
+    }
+    reasons: list[str] = []
+    for key in _EVIDENCE_LINEAGE_KEYS:
+        slot = evidence.get("provenance", {}).get(key)
+        if not (isinstance(slot, dict) and slot.get("status") == _vs.STATUS_OK):
+            reasons.append(f"evidence_lineage_{key}_not_ok")
+            continue
+        declared = str(slot.get("value") or "").strip()
+        from_report = str(report_provenance.get(key) or "").strip()
+        if declared != from_report:
+            reasons.append(f"evidence_lineage_{key}_mismatch_vs_report")
+        if declared != registry_side[key]:
+            reasons.append(f"evidence_lineage_{key}_mismatch_vs_registry")
+    return reasons
+
+
+def bind_validation_detailed(pkl_name: str, report_file: str, decision: str,
+                             metrics: dict | None = None,
+                             auto_promotion: bool = True,
+                             evidence: dict | None = None,
+                             evidence_file: str | None = None,
+                             ) -> tuple[bool, list[str]]:
+    """bind_validation 的结构化版本（R1-4/R1-12）：返回 (是否绑定, 失败原因列表)。
+
+    判定规则与 bind_validation 完全一致；evidence_file 给出时以文件解析产物为
+    权威证据，并记录 evidence_sha256（Round 3 治理约束 1：带外哈希）。
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
     if entry is None:
-        return False
+        return False, ["no_entry"]
+
+    from core import validation_schema as _vs
+
+    # evidence 文件优先：文件解析产物为权威；与显式 evidence 参数并存时必须一致。
+    ev_sha: str | None = None
+    if evidence_file is not None:
+        ev_path, ev_sha, ev_from_file = _read_evidence_file(evidence_file)
+        if ev_path is None or ev_sha is None or ev_from_file is None:
+            return False, ["evidence_file_unreadable"]
+        if evidence is not None and evidence != ev_from_file:
+            return False, ["evidence_file_content_mismatch"]
+        evidence = ev_from_file
 
     # v2 证据若随绑定提交，必须先经唯一 schema 权威校验；不合格时一字不写。
     if evidence is not None:
-        from core import validation_schema as _vs
-        ok_ev, _errs_ev = _vs.validate_evidence(evidence)
+        ok_ev, errs_ev = _vs.validate_evidence(evidence)
         if not ok_ev:
-            return False
+            return False, [f"evidence_schema_invalid:{errs_ev[0]}"]
 
     report_path, actual_sha, provenance = _read_validation_report(report_file)
     if report_path is None or actual_sha is None or provenance is None:
-        return False
+        return False, ["validation_report_unreadable_or_provenance_missing"]
 
-    ok_prov, _ = validate_validation_provenance(pkl_name, provenance)
+    ok_prov, prov_reason = validate_validation_provenance(pkl_name, provenance)
     if not ok_prov:
-        return False
+        return False, [f"validation_provenance_reject:{prov_reason}"]
+
+    if evidence is not None:
+        lineage_reasons = _check_evidence_lineage(evidence, provenance, entry)
+        if lineage_reasons:
+            return False, lineage_reasons
 
     entry["validation"] = {
         "report_file": report_file,
@@ -605,6 +695,9 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
             "git_commit": str(provenance["git_commit"]).strip(),
         },
     }
+    if evidence_file is not None:
+        entry["validation"]["evidence_file"] = evidence_file
+        entry["validation"]["evidence_sha256"] = ev_sha
     if metrics:
         entry["validation"]["metrics"] = metrics
     if evidence is not None:
@@ -612,7 +705,34 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     saved = _save_registry(reg)
     if saved and auto_promotion:
         apply_promotion(pkl_name)
-    return saved
+    return bool(saved), ([] if saved else ["registry_save_failed"])
+
+
+def bind_validation(pkl_name: str, report_file: str, decision: str,
+                    metrics: dict | None = None,
+                    auto_promotion: bool = True,
+                    evidence: dict | None = None,
+                    evidence_file: str | None = None) -> bool:
+    """把实际验证报告绑定进 registry（bool 薄壳；细因见 bind_validation_detailed）。
+
+    A-final-1 收口（不变）：
+    - report_file 必须真实存在且可 UTF-8 读取；report SHA256 现场重算；
+    - provenance 从报告唯一 PROVENANCE_JSON=... 行解析，validation_mode 必须
+      为 ARTIFACT，且 artifact/dataset/git 三项必须等于 registry 当前条目；
+    - 任一缺失、不一致或重复 provenance 行均 fail-closed。
+
+    R2-1（Round 3）新增：v2 evidence 三向血缘绑定——
+    - evidence.provenance 的三身份字段必须 OK 态且同时等于 report
+      PROVENANCE_JSON 与 registry 条目；
+    - evidence_file 给出时（生产入口必经）记录 evidence_file + evidence_sha256
+      （SHA256(文件原始字节)，带外存储，不写回 evidence——治理约束 1 禁自哈希）；
+    - A4（verify_approval）授权时对 evidence 文件现场重验。
+    """
+    ok, _reasons = bind_validation_detailed(
+        pkl_name, report_file, decision, metrics=metrics,
+        auto_promotion=auto_promotion, evidence=evidence,
+        evidence_file=evidence_file)
+    return ok
 
 def update_promotion(pkl_name: str, status: str, reason: str) -> bool:
     """手写 promotion（低层接口，仅限人工覆写/应急）。
@@ -652,6 +772,12 @@ PROMOTION_RULE_VERSION = 2
 # ok 裁决的 `calib["ace"] < 0.25`；B++-1 起该口径在 schema v2 中具名为
 # midpoint_calibration_error）。
 _PROMOTION_CALIBRATION_MAX = 0.25
+
+# R2-4（审校 Round 3）：provenance OK 态文本的占位值黑名单（小写比较）。
+# 只拦授权层：schema 仍允许这些文本入档存储（治理约束 2：占位可存、
+# 不得当 PASS），命中任一即 blocked_provenance。
+_PROMOTION_PROVENANCE_PLACEHOLDERS = frozenset(
+    {"unknown", "n/a", "na", "none", "null", "-", "--", "tbd", "todo"})
 
 
 def _derive_promotion_v2_gates(evidence: dict, vs) -> dict:
@@ -751,6 +877,15 @@ def _derive_promotion_v2_gates(evidence: dict, vs) -> dict:
         if slot["status"] != vs.STATUS_OK:
             return _bad("blocked_provenance",
                         f"provenance.{k} 不可核验（{slot['status']}）——证据链不完整")
+
+    # R2-4（Round 3）：OK 态文本的占位语义白名单——「占位-OK」不得进入授权。
+    # 命中即 blocked_provenance（可存储、不可授权，治理约束 2）。
+    for k in ("frozen_dataset", "feature_protocol", "contract_version",
+              "produced_by", "produced_at"):
+        val = str(evidence["provenance"][k]["value"] or "").strip().lower()
+        if val in _PROMOTION_PROVENANCE_PLACEHOLDERS:
+            return _bad("blocked_provenance",
+                        f"provenance.{k} 为占位文本（{val!r}）——占位-OK 不得作为授权依据")
 
     hmode = evidence["provenance"]["historical_feature_mode"]["value"]
     if hmode != vs.HISTORICAL_FEATURE_MODES[-1]:

@@ -45,6 +45,12 @@ def _full_pass_evidence_v2():
             ev["provenance"][k] = S.ev_ok("PIT_1455_SNAPSHOT")
         elif k == "kfp_comparability":
             ev["provenance"][k] = S.ev_ok("SAME")
+        elif k == "artifact_sha256":
+            ev["provenance"][k] = S.ev_ok("ab" * 32)   # R2-4：OK 态须 64-hex
+        elif k == "dataset_sha256":
+            ev["provenance"][k] = S.ev_ok("cd" * 32)
+        elif k == "git_commit":
+            ev["provenance"][k] = S.ev_ok("e" * 40)
         else:
             ev["provenance"][k] = S.ev_ok(f"{k}-ok")
     return ev
@@ -153,7 +159,10 @@ class TestModelRegistry(unittest.TestCase):
         """A-final-1：bind API 不再接受 caller-supplied report/provenance。"""
         import inspect
         params = list(inspect.signature(model_registry.bind_validation).parameters)
-        self.assertEqual(params, ["pkl_name", "report_file", "decision", "metrics", "auto_promotion", "evidence"])
+        # R2-1（Round 3）：新增 evidence_file——文件路径而非声明值；SHA 仍由 bind
+        # 现场对文件字节重算，A-final-1「不接受 caller-supplied hash/provenance」红线不变。
+        self.assertEqual(params, ["pkl_name", "report_file", "decision", "metrics",
+                                  "auto_promotion", "evidence", "evidence_file"])
     def test_bind_validation_and_promotion_roundtrip(self):
         """实际报告内容→现场重算 SHA→provenance→registry 往返。"""
         self.test_pkl.write_bytes(b"validation-test-bytes")
@@ -254,11 +263,21 @@ class TestModelRegistry(unittest.TestCase):
         self._write_report(content="approved evidence")
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
+        entry0 = model_registry.get_model_entry(self.test_pkl.name)
+        evidence = _full_pass_evidence_v2()
+        for _k, _v in (("artifact_sha256", entry0["sha256"]),
+                       ("dataset_sha256",
+                        entry0["snapshot_provenance"]["samples_sha256_lf"]),
+                       ("git_commit", entry0["git_commit"])):
+            evidence["provenance"][_k] = {"value": str(_v), "status": "OK"}
+        evidence_file = self.tmp / "_approved_evidence.json"
+        evidence_file.write_text(
+            json.dumps(evidence, ensure_ascii=False), encoding="utf-8")
+        # R2-1（Round 3）：v2 证据改走文件绑定流（三向血缘 + evidence_sha256 入档），
+        # 不再直塞 registry；A4 授权时对文件现场重验。
         self.assertTrue(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), "approved", metrics))
-        reg = model_registry.load_registry()
-        reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
-        self.assertTrue(model_registry._save_registry(reg))
+            self.test_pkl.name, str(self.test_report), "approved", metrics,
+            evidence=evidence, evidence_file=str(evidence_file)))
         self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertTrue(ok)

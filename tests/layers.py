@@ -63,6 +63,7 @@ LAYERS: dict[str, str] = {
     "test_validation_schema.py": FAST,     # B++-1：validation 证据 schema v2 纯函数 + fail-closed 校验器；仅 numpy，零网络，不碰真实 data/（契约文本只读，缺席自动 skip）
     "test_forecast_evidence.py": FAST,     # B++-2：验证器产出 schema v2 的纯函数层（evidence_node/pooled_node/assemble），合成数据零网络，不跑 main
     "test_promotion_rule_v2.py": FAST,     # B++-3：derive_promotion rule v2 五门判据纯函数 + 契约 B 反例矩阵；registry 触点 tempdir 隔离
+    "test_evidence_lineage.py": FAST,      # R2-1/R2-4/R1-4 修复验收：三向血缘 + evidence_sha256 带外入档 + 占位-OK 授权层拦截；tempdir 隔离零网络
     "test_metric_status.py": FAST,         # B++-5：指标不足/不可算与真实 0 分离（status 核心 + 遗留外壳哨兵兼容），纯函数零网络
     "test_diag_entry_unify.py": FAST,      # B++-6：诊断入口统一（四脚本 require_fwds=() + policy 复用 cluster_bootstrap_ci），源码断言 + 合成数据零网络
     "test_stock_data_cache.py": FAST,      # P1-B：stock 缓存原子写 + 坏件回退 provider 链，tempdir + stub 零网络

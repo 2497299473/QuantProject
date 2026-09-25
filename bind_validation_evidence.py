@@ -113,17 +113,22 @@ def main() -> int:
         return 2
 
     report = str(args.report)
-    # 唯一实际绑定入口：报告 SHA / PROVENANCE_JSON / registry 血统等规则全部由
-    # bind_validation() 再次执行；本脚本不复制第二套 report 绑定逻辑。
-    bound = model_registry.bind_validation(
+    # 唯一实际绑定入口：报告 SHA / PROVENANCE_JSON / registry 血统 / evidence
+    # 三向血缘等规则全部由 bind_validation_detailed() 执行；本脚本不复制第二套
+    # 绑定逻辑，只把失败原因如实打印（R1-4/R1-12：原因可见）。
+    evidence_file = str(args.evidence)
+    bound, fail_reasons = model_registry.bind_validation_detailed(
         model_name,
         report,
         decision,
         auto_promotion=True,
         evidence=evidence,
+        evidence_file=evidence_file,
     )
     if not bound:
-        print("[fail] bind_validation 拒绝绑定（report/provenance/evidence 任一门未过）")
+        print("[fail] bind_validation 拒绝绑定：")
+        for reason in fail_reasons:
+            print(f"  - {reason}")
         return 1
 
     entry = model_registry.get_model_entry(model_name) or {}

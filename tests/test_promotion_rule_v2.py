@@ -56,6 +56,12 @@ def _full_pass_evidence_v2(
             ev["provenance"][k] = S.ev_ok("PIT_1455_SNAPSHOT")
         elif k == "kfp_comparability":
             ev["provenance"][k] = S.ev_ok("SAME")
+        elif k == "artifact_sha256":
+            ev["provenance"][k] = S.ev_ok("ab" * 32)   # R2-4：OK 态须 64-hex
+        elif k == "dataset_sha256":
+            ev["provenance"][k] = S.ev_ok("cd" * 32)
+        elif k == "git_commit":
+            ev["provenance"][k] = S.ev_ok("e" * 40)
         else:
             ev["provenance"][k] = S.ev_ok(f"{k}-ok")
     if actual_provenance is not None:
@@ -202,6 +208,8 @@ class TestRegistryIntegration(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _seed(self, evidence):
+        """注册 + 绑定。R2-1 后 bind 强制三向血缘一致：evidence 三身份就地
+        覆写为真实条目值，并改走文件绑定流（evidence_file/evidence_sha256 入档）。"""
         pkl = self.tmp / "_v2_gate_model.pkl"
         pkl.write_bytes(b"b3-gate-bytes")
         model_registry.register_model(pkl, meta={}, snapshot_provenance={
@@ -212,6 +220,11 @@ class TestRegistryIntegration(unittest.TestCase):
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(pkl.name, proto))
         entry = model_registry.get_model_entry(pkl.name)
+        for _k, _v in (("artifact_sha256", entry["sha256"]),
+                       ("dataset_sha256",
+                        entry["snapshot_provenance"]["samples_sha256_lf"]),
+                       ("git_commit", entry["git_commit"])):
+            evidence["provenance"][_k] = {"value": str(_v), "status": "OK"}
         provenance = {
             "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
@@ -221,13 +234,14 @@ class TestRegistryIntegration(unittest.TestCase):
         report = self.tmp / "report.log"
         payload = json.dumps(provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         report.write_text("evidence" + "\n" + "PROVENANCE_JSON=" + payload, encoding="utf-8")
+        evidence_file = self.tmp / "seed_evidence.json"
+        evidence_file.write_text(
+            json.dumps(evidence, ensure_ascii=False), encoding="utf-8")
         self.assertTrue(model_registry.bind_validation(
             pkl.name, str(report), "approved",
             {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
-             for h in (1, 3, 5)}))
-        reg = model_registry.load_registry()
-        reg["models"][pkl.name]["validation"]["evidence"] = evidence
-        self.assertTrue(model_registry._save_registry(reg))
+             for h in (1, 3, 5)},
+            evidence=evidence, evidence_file=str(evidence_file)))
         return pkl, proto
     def test_apply_promotion_writes_v2_approved_and_verify_passes(self):
         pkl, proto = self._seed(_full_pass_evidence_v2())
@@ -304,6 +318,12 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(pkl.name, proto))
         entry = model_registry.get_model_entry(pkl.name)
+        # R2-1：bind 强制三向血缘一致——evidence 三身份就地覆写为真实条目值。
+        for _k, _v in (("artifact_sha256", entry["sha256"]),
+                       ("dataset_sha256",
+                        entry["snapshot_provenance"]["samples_sha256_lf"]),
+                       ("git_commit", entry["git_commit"])):
+            evidence["provenance"][_k] = {"value": str(_v), "status": "OK"}
         provenance = {
             "validation_mode": "ARTIFACT",
             "artifact_sha256": entry["sha256"],
