@@ -105,6 +105,7 @@ class TestModelRegistry(unittest.TestCase):
     def _cleanup(self):
         self.test_pkl.unlink(missing_ok=True)
         self.test_report.unlink(missing_ok=True)
+        (self.tmp / "_approved_evidence.json").unlink(missing_ok=True)   # R2-1 文件绑定用例的落盘证据文件
         reg = model_registry.load_registry()
         reg["models"].pop(self.test_pkl.name, None)
         model_registry._save_registry(reg)
