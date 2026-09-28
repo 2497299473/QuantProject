@@ -53,8 +53,9 @@ import os
 import re
 import subprocess
 import sys
+import warnings
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -63,6 +64,7 @@ OUTPUT = BASE_DIR / "output"
 
 PASS, FAIL, WARN = "PASS", "FAIL", "WARN"
 REGISTRY = DATA / "model_registry" / "registry.json"
+PREREG = DATA / "promotion_prereg.json"      # shadow 降级授权登记（P1-14，D-09）
 MANIFEST = DATA / "manifest.json"
 MANIFEST_HIST = DATA / "manifest_history"
 ACTIVE_JOURNAL = OUTPUT / "shadow_actions.jsonl"
@@ -71,7 +73,6 @@ RUN_MANIFEST_DIR = OUTPUT / "run_manifest"
 HOLDINGS = BASE_DIR / "holdings.json"      # 发布资格的持仓范围（本地私有，不入库）
 AUDIT_CURRENT = OUTPUT / "audit_current.json"
 AUDIT_HISTORY = OUTPUT / "audit_history"
-AUDIT_SELF = Path(__file__).resolve()      # 排除本脚本自身字面量，避免自指误报
 
 EXPECTED_CHANNELS = ("approved_full", "prereg_degraded", "legacy_invalid")
 AXIS_ORDER = {"P0-研究有效性": 0, "P1-证据链": 1, "P2-工程卫生": 2}
@@ -160,7 +161,9 @@ def git_worktree_clean() -> tuple[bool | None, str]:
 def classify(rec: dict) -> str:
     """镜像 shadow_policy.record_channel 的极小判定。
 
-    不直接 import shadow_policy，避免审计脚本拉起 forecast_engine 等重依赖。
+    不直接 import shadow_policy，避免审计脚本拉起 forecast_engine 等重依赖
+    （2026-09-28 实证：import shadow_policy 会带起 numpy+sklearn+forecast_engine，
+    故 P1-13 只惰性 import core.model_registry——仅 netutil+stdlib，零重依赖）。
     shadow_policy 侧的通道定义存在性由 P1-5 单独检查，防止两边悄悄漂移。
     """
     if rec.get("evidence_validity") == "legacy_invalid":
@@ -305,15 +308,66 @@ def check_pit(a: Audit) -> None:
               f"下界 {floors}；当前 {lag} 均达标；已声明为法定时限下界（非真实公告日）")
 
 
+CONFIG_HOLDINGS_FORBIDDEN_KEYS = ("holdings", "fund_codes", "positions", "shares")
+"""config.json 禁键（D-07，2026-09-28）：真实持仓语义（份额/成本/仓位）不得进入库配置。
+``fund_pool`` **不在禁列**——它是公开研究论域（别名掩码基础设施依赖它；
+evidence/README 纪律 5：基金代码是公开研究标的，非持仓隐私）。"""
+
+
+def _sensitive_tracked_hits(tracked) -> list[str]:
+    """git 跟踪清单 → 敏感文件命中（D-07：.env 及变体 + holdings*.json）。
+
+    模板白名单：``*.example`` / ``*.example.json`` 是占位模板（已核实
+    .env.example 与 holdings.example.json 无真实值），属上手必需品，不算泄露。
+    """
+    hits = []
+    for t in tracked:
+        name = t.rsplit("/", 1)[-1].lower()
+        if name.endswith((".example", ".example.json")):
+            continue
+        if name == ".env" or name.startswith(".env."):
+            hits.append(t)
+        elif name.startswith("holdings") and name.endswith(".json"):
+            hits.append(t)
+    return hits
+
+
+def _config_holdings_paths(cfg, prefix: str = "config") -> list[str]:
+    """递归扫 config 禁键 → JSON path 列表。只报 path 不报值——audit_current.json
+    入库，detail 写值即二次泄露。"""
+    found = []
+    if isinstance(cfg, dict):
+        for k, v in cfg.items():
+            p = f"{prefix}.{k}"
+            if str(k).lower() in CONFIG_HOLDINGS_FORBIDDEN_KEYS:
+                found.append(p)
+            found.extend(_config_holdings_paths(v, p))
+    elif isinstance(cfg, list):
+        for i, v in enumerate(cfg):
+            found.extend(_config_holdings_paths(v, f"{prefix}[{i}]"))
+    return found
+
+
 def check_holdings_privacy(a: Audit) -> None:
+    """P0-2（D-07 扩展，2026-09-28）：持仓与密钥文件未入库 + config 无内嵌持仓键。
+
+    旧实现只查 ``holdings.json`` 一个文件名——持仓换名入库（holdings_real.json /
+    .env.local）或内嵌进 config.json 都会漏报。现三面覆盖：
+    ① ``.env`` 及变体（.env.local / .env.*）；② ``holdings*.json``；
+    ③ config.json 递归禁键（CONFIG_HOLDINGS_FORBIDDEN_KEYS）。
+    任一命中 ⇒ FAIL（隐私红线，不降 WARN）。
+    """
+    cid, axis = "P0-2", "P0-研究有效性"
+    title = "持仓与密钥文件未入库（含 config 内嵌键）"
     tracked, err = git_lines("ls-files")
     if tracked is None:
-        a.add("P0-2", "P0-研究有效性", "持仓文件未进入版本库", WARN, f"git 不可用：{err}")
+        a.add(cid, axis, title, WARN, f"git 不可用：{err}")
         return
-    hits = [t for t in tracked if t.endswith("holdings.json")]
-    a.add("P0-2", "P0-研究有效性", "持仓文件未进入版本库",
-          PASS if not hits else FAIL,
-          "；".join(hits) if hits else "未被跟踪")
+    bad = [f"入库 tracked：{h}" for h in _sensitive_tracked_hits(tracked)]
+    bad += [f"config.json 内嵌禁键：{p}" for p in _config_holdings_paths(_config())]
+    a.add(cid, axis, title, PASS if not bad else FAIL,
+          "；".join(bad) if bad
+          else "holdings.json / .env* 未被跟踪（*.example 模板白名单）；config 无持仓禁键")
 
 
 def check_manifest_resolvable(a: Audit) -> None:
@@ -525,6 +579,74 @@ def check_promotion_consistency(a: Audit) -> None:
         if hist:
             note += f"；历史 blocked {len(hist)} 个（不参与当前裁决）"
         a.add("P1-3", "P1-证据链", "promotion 与 config.model_ready 一致", PASS, note)
+
+
+def _derive_status_or_none(validation):
+    """derive_promotion(validation).status；不可导入/推导异常 → (None, 原因)。
+
+    惰性 import core.model_registry（D-02，2026-09-28）：只触发 core/__init__→
+    netutil（2026-09-28 socket 守卫实证：import 过程零 connect、不拉
+    numpy/sklearn；netutil 的 DNS patch 属进程级副作用，但审计自身零网络
+    调用，补丁保持惰性）——审计「零网络」纪律不变。
+    不 import core.forecast_engine 的既有边界不动。
+    """
+    try:
+        from core import model_registry as _mr
+    except Exception as exc:                      # noqa: BLE001
+        return None, f"core.model_registry 不可导入：{type(exc).__name__}: {exc}"
+    try:
+        return _mr.derive_promotion(validation).get("status"), ""
+    except Exception as exc:                      # noqa: BLE001
+        return None, f"derive_promotion 异常：{type(exc).__name__}: {exc}"
+
+
+def check_promotion_gate_consistency(a: Audit) -> None:
+    """P1-13（D-02，2026-09-28）：审计状态机与真实授权门的一致性前哨。
+
+    verify_approval（真实门）会现场重推 derive_promotion（promotion_evidence_
+    inconsistent 门），而审计侧 model_promotion 只读 promotion.status——两者
+    可能因手填而分叉。本检查对 **active model** 做同款推导：
+      - stored=approved ∧ derived≠approved ⇒ FAIL（手填伪造：真实门必拒，审计先暴露）；
+      - derived=approved ∧ stored≠approved ⇒ WARN（可能漏升级）；
+      - 其余不一致（均非 approved 但状态词不同）⇒ WARN（断言失败，不构成放行）；
+      - 一致 ⇒ PASS；不可核验（active 缺位/import 失败）⇒ WARN（不把「查不到」当「一致」）。
+
+    取问题单「或至少」分支（derive_promotion 一致性断言），不做 verify_approval
+    全量现场调用：后者需重建 expected_protocol（拿条目自身 feature_protocol
+    自比属循环论证），且其 hash/协议/provenance 门已分别由 P1-1/P1-2/P1-8
+    覆盖，重复调用只增耦合不增信息。
+    """
+    cid, axis = "P1-13", "P1-证据链"
+    title = "active model promotion 与纯函数推导一致（授权门一致性前哨）"
+    fc = _config().get("forecast") or {}
+    active = str(fc.get("active_model") or "").strip()
+    models = _models()
+    if not active or active not in models:
+        a.add(cid, axis, title, WARN,
+              f"active={active or '未声明'} 未登记，无法核验一致性"
+              "（promotion 裁决由 P1-3 另行处理）")
+        return
+    entry = models[active] or {}
+    stored = (entry.get("promotion") or {}).get("status")
+    derived, err = _derive_status_or_none(entry.get("validation"))
+    if derived is None:
+        a.add(cid, axis, title, WARN, f"不可核验：{err}")
+    elif stored == derived:
+        a.add(cid, axis, title, PASS,
+              f"{active}：stored={stored} · derived={derived} 一致")
+    elif stored == "approved":
+        a.add(cid, axis, title, FAIL,
+              f"{active}：promotion.status=approved 但 derive_promotion 推导为 "
+              f"{derived}——手填伪造嫌疑（verify_approval 将以 "
+              "promotion_evidence_inconsistent 拒绝）")
+    elif derived == "approved":
+        a.add(cid, axis, title, WARN,
+              f"{active}：derive_promotion 推导为 approved 但 promotion.status="
+              f"{stored}——可能漏升级（apply_promotion 未落盘）")
+    else:
+        a.add(cid, axis, title, WARN,
+              f"{active}：stored={stored} ≠ derived={derived}"
+              "（均非 approved，状态词漂移，建议 apply_promotion 复核）")
 
 
 def check_history_validated(a: Audit) -> None:
@@ -1119,42 +1241,161 @@ def check_atomic_write(a: Audit) -> None:
           "" if ok else "未见 tmp + replace 原子写模式")
 
 
-def check_tushare_https(a: Audit) -> None:
+_TUSHARE_INSECURE = "http:" + "//api.tushare.pro"
+# 拼接成常量：本脚本自身也在 AST 扫描面内（根级 *.py），拼接保证任何单一字符串
+# 常量都不含完整明文 URL——旧的 AUDIT_SELF 自指排除机制随之退役（D-05）。
+
+TUSHARE_SCAN_DIRS = ("core", "experiments")
+"""P2-2 扫描面（D-05，2026-09-28）：只扫**可能实际发起 HTTP 请求的层**——
+core/ 数据源层、experiments/ 探针脚本、根级入口（*.py）。backups/ 档案与
+tests/ 夹具不在扫描面（前者是冻结历史，后者是测试素材，均不发请求）。
+
+旧实现全仓 rglob 按**文本行**查：注释/文档出现字面量会误报，URL 封装进
+拼接/配置会漏报。现改 AST 字符串常量判据——注释与 docstring 命中不算，
+代码里的常量必算。判级同步上调：明文 URL 属真实缺陷 ⇒ FAIL（不再 WARN）。"""
+
+
+def _ast_insecure_url_hits(p: Path) -> list[str] | None:
+    """AST 扫描单文件的明文 tushare URL 字符串常量 → ["L<行号>"]。
+
+    返回 None = 文件不可解析（**不可核验 ≠ 无**，调用方须判 WARN）。
+    docstring 排除（文档性质文本，与注释同权）；其余字符串常量全算。
+    SyntaxWarning 就地抑制：被扫描文件自身的转义卫生（实证：
+    experiments/channel_diag/diag_20260908.py L20 含非法转义序列）不得污染
+    审计 stderr——审计不修改被扫文件，只抑制其告警。
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+        return None
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef,
+                             ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", None) or []
+            if (body and isinstance(body[0], ast.Expr)
+                    and isinstance(body[0].value, ast.Constant)
+                    and isinstance(body[0].value.value, str)):
+                docstrings.add(id(body[0].value))
     hits = []
-    for p in BASE_DIR.rglob("*.py"):
-        if any(part in (".venv", ".venv-lab", "__pycache__", ".git", "backups")
-               for part in p.parts):
-            continue
-        if p.resolve() == AUDIT_SELF:       # 本脚本含该字面量做检查，不自指误报
-            continue
-        try:
-            txt = p.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        for i, ln in enumerate(txt.splitlines(), 1):
-            if "http://api.tushare.pro" in ln:
-                hits.append(f"{p.relative_to(BASE_DIR)}:L{i}")
-    a.add("P2-2", "P2-工程卫生", "Tushare 走 HTTPS", PASS if not hits else WARN,
-          "；".join(hits) if hits else "")
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and id(node) not in docstrings
+                and _TUSHARE_INSECURE in node.value):
+            hits.append(f"L{node.lineno}")
+    return hits
+
+
+def check_tushare_https(a: Audit) -> None:
+    cid, axis, title = "P2-2", "P2-工程卫生", "Tushare 走 HTTPS"
+    files = list(BASE_DIR.glob("*.py"))
+    for d in TUSHARE_SCAN_DIRS:
+        dp = BASE_DIR / d
+        if dp.is_dir():
+            files.extend(dp.rglob("*.py"))
+    files = [p for p in sorted(files) if "__pycache__" not in p.parts]
+    hits, unparsable = [], []
+    for p in files:
+        r = _ast_insecure_url_hits(p)
+        if r is None:
+            unparsable.append(str(p.relative_to(BASE_DIR)))
+        else:
+            hits.extend(f"{p.relative_to(BASE_DIR)}:{loc}" for loc in r)
+    if hits:
+        # D-05 判级上调 WARN→FAIL：明文 URL = token 可被 MITM 嗅探，
+        # 属真实请求路径缺陷（D-05 验收明确要求 FAIL），不是卫生建议。
+        a.add(cid, axis, title, FAIL,
+              f"明文 {_TUSHARE_INSECURE} 字符串常量：" + "；".join(hits))
+    elif unparsable:
+        a.add(cid, axis, title, WARN,
+              "以下文件 AST 不可解析，无法核验：" + "；".join(unparsable))
+    else:
+        a.add(cid, axis, title, PASS,
+              f"扫描 {len(files)} 个文件（AST 常量判据，注释/docstring 不计），零明文命中")
+
+
+def _layers_map() -> tuple[dict | None, str]:
+    """惰性 import tests.layers（纯数据 stdlib 模块，无重依赖）→ LAYERS 副本。
+
+    失败返回 (None, err)——分层事实源不可读时判 WARN，不猜。"""
+    try:
+        from tests.layers import LAYERS
+        return dict(LAYERS), ""
+    except Exception as exc:                      # noqa: BLE001
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def _conftest_wires_layer_of() -> bool:
+    """AST 判据：tests/conftest.py 从 tests.layers import 了 layer_of。
+
+    这是 pytest 侧 marker 自动打标的接线；断线 = 「markers 定义了但测试
+    未打标」的空转态（D-06 验收标准第 1 条）。用 AST 不用子串，与 P2-2 同则。"""
+    src = BASE_DIR / "tests" / "conftest.py"
+    if not src.is_file():
+        return False
+    try:
+        tree = ast.parse(src.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+        return False
+    return any(isinstance(node, ast.ImportFrom) and node.module == "tests.layers"
+               and any(al.name == "layer_of" for al in node.names)
+               for node in ast.walk(tree))
 
 
 def check_test_layering(a: Audit) -> None:
-    cfg_present = any((BASE_DIR / n).is_file()
-                      for n in ("pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"))
-    n_tests = len(list((BASE_DIR / "tests").glob("test_*.py"))) if (BASE_DIR / "tests").is_dir() else 0
-    markers = False
+    """P2-3（D-06 重写，2026-09-28）：分层**实际生效**，不是配置里有 markers 字样。
+
+    旧实现只查 pytest.ini 存在且含 "markers" 子串——markers 定义了但测试
+    未打标的空转态照样 PASS。本仓分层机制（实证）：tests/layers.py 的 LAYERS
+    是唯一事实源；tests/conftest.py 按清单经 layer_of 自动打标（环境未装
+    pytest，unittest 主路径 run_tests.py --layer 用同一份清单）。故
+    「实际生效」= 四环不断：
+      ① 每个 tests/test_*.py 都在 LAYERS 登记（未登记 ⇒ layer_of 默认 slow，
+        fast 白名单失真 ⇒ WARN，验收标准第 2 条）；
+      ② LAYERS 无死条目（文件已不存在 ⇒ WARN）；
+      ③ conftest.py 存在且 AST 确认接线 layer_of（断线 ⇒ pytest marker
+        不会自动打 ⇒ WARN）；
+      ④ pytest 配置注册了 fast/slow markers（缺失 ⇒ WARN）。
+    分层失真不阻断生产（WARN 不 FAIL），但必须可见。
+    """
+    cid, axis, title = "P2-3", "P2-工程卫生", "测试分层（fast/slow 实际生效）"
+    layers, err = _layers_map()
+    if layers is None:
+        a.add(cid, axis, title, WARN,
+              f"tests/layers.py 不可导入（分层不可核验）：{err}")
+        return
+    tests_dir = BASE_DIR / "tests"
+    files = ({p.name for p in tests_dir.glob("test_*.py")}
+             if tests_dir.is_dir() else set())
+    problems = []
+    unregistered = sorted(files - set(layers))
+    if unregistered:
+        problems.append(f"未登记（layer_of 默认 slow，fast 白名单失真）：{unregistered}")
+    stale = sorted(set(layers) - files)
+    if stale:
+        problems.append(f"LAYERS 死条目（测试文件已不存在）：{stale}")
+    if not _conftest_wires_layer_of():
+        problems.append("conftest.py 缺失/未接线 layer_of（pytest marker 不会自动打）")
+    ini_txt = ""
     for n in ("pytest.ini", "pyproject.toml", "setup.cfg"):
         p = BASE_DIR / n
         if p.is_file():
             try:
-                if "markers" in p.read_text(encoding="utf-8"):
-                    markers = True
+                ini_txt = p.read_text(encoding="utf-8")
+                break
             except (OSError, UnicodeDecodeError):
-                pass
-    a.add("P2-3", "P2-工程卫生", "测试分层（fast/slow）",
-          PASS if (cfg_present and markers) else WARN,
-          f"测试文件 {n_tests} 个；pytest 配置 {'有' if cfg_present else '无'}；"
-          f"markers {'有' if markers else '无'}")
+                continue
+    if not ("markers" in ini_txt and "fast" in ini_txt and "slow" in ini_txt):
+        problems.append("pytest 配置缺 markers 注册（fast/slow）")
+    n_fast = sum(1 for v in layers.values() if v == "fast")
+    detail = f"测试文件 {len(files)} 个；LAYERS 登记 {len(layers)} 条（fast {n_fast}）"
+    if problems:
+        a.add(cid, axis, title, WARN, detail + "；" + "；".join(problems))
+    else:
+        a.add(cid, axis, title, PASS,
+              detail + "；四环完整（登记/死条目/conftest 接线/markers）")
 
 
 def check_env_untracked(a: Audit) -> None:
@@ -1165,6 +1406,56 @@ def check_env_untracked(a: Audit) -> None:
     hits = [t for t in tracked if t == ".env"]
     a.add("P2-4", "P2-工程卫生", "密钥文件未入库",
           PASS if not hits else FAIL, "；".join(hits))
+
+
+def check_prereg_grants(a: Audit) -> None:
+    """P1-14（D-09，2026-09-28）：shadow 降级授权（prereg）登记卫生的可见性。
+
+    事实校正（代码实证，core/model_registry.py evaluate_prereg_degradation）：
+    D6 门在**运行时**现场拒绝过期 grant（prereg_expired）——过期授权不可能
+    继续产出 shadow 记录，问题单描述的「过期未清理仍继续产出」不成立。
+    因此本检查补的不是放行漏洞，而是**可见性**：过期但 enabled 未清理的
+    grant = 卫生债（登记文件 review_nodes 承诺「到期未复核=自动阻断」，
+    登记面应同步清理/重签），审计须 WARN。只 WARN 不 FAIL：过期 grant
+    无授权效力，不值得阻断 audit_health。
+
+    「过期 grant 已从 registry 中标记」（问题单原文）不实施——审计只读
+    （铁律：不写 registry）；WARN 呈现即标记，运行时拦截由 D6 门独立完成。
+    """
+    cid, axis = "P1-14", "P1-证据链"
+    title = "shadow 降级授权（prereg）无过期未清理项"
+    if not PREREG.is_file():
+        a.add(cid, axis, title, PASS, "无降级授权登记（文件不存在，降级通道关闭）")
+        return
+    doc = load_json(PREREG)
+    if not isinstance(doc, dict):
+        a.add(cid, axis, title, WARN, "promotion_prereg.json 存在但不可解析/非映射")
+        return
+    grants = doc.get("grants")
+    if not isinstance(grants, dict):
+        a.add(cid, axis, title, WARN,
+              "prereg 结构异常（grants 非映射）——降级通道现场会 fail-closed，但登记需修复")
+        return
+    today = date.today()
+    expired, unparsable, valid = [], [], []
+    for name in sorted(grants):
+        g = grants[name] if isinstance(grants[name], dict) else {}
+        exp = str(g.get("expiry", ""))
+        try:
+            exp_d = date.fromisoformat(exp)
+        except ValueError:
+            unparsable.append(f"{name}（expiry={exp or '缺失'}）")
+            continue
+        (expired if today > exp_d else valid).append(f"{name}（expiry={exp}）")
+    detail = (f"enabled={doc.get('enabled') is True}；有效 {len(valid)} 条"
+              + (f"：{valid}" if valid else ""))
+    problems = []
+    if expired:
+        problems.append(f"过期未清理（D6 门已现场拦截，登记应清理/重签）：{expired}")
+    if unparsable:
+        problems.append(f"expiry 不可解析：{unparsable}")
+    a.add(cid, axis, title, WARN if problems else PASS,
+          detail + ("；" + "；".join(problems) if problems else ""))
 
 
 # ---------------------------------------------------------------- 四层状态
@@ -1243,7 +1534,9 @@ def derive_states(a: Audit) -> dict:
     # registry，model_promotion 仍是 BLOCKED。历史模型的 promotion 是档案事实，
     # 不是当前生产的否决权。
     # active 由 config.forecast.active_model 显式声明（不靠 MODEL_VERSION 字符串
-    # 推断：audit 侧保持 stdlib-only，不 import core.forecast_engine）。
+    # 推断：audit 侧不 import core.forecast_engine；唯一 core 触点是 P1-13 的
+    # 惰性 import core.model_registry——仅 netutil+stdlib，2026-09-28 socket
+    # 守卫实证 import 过程零 connect、不拉 numpy/sklearn）。
     promotion, basis = resolve_model_promotion(fc.get("active_model"),
                                                _models(), model_ready)
     model_promotion = "APPROVED" if promotion == "APPROVED" else "BLOCKED"
@@ -1255,7 +1548,15 @@ def derive_states(a: Audit) -> dict:
     else:
         action_enable = "BLOCKED"        # 门禁缺失/不可判 ⇒ 更严
 
-    if (model_promotion == "APPROVED" and hv is True and audit_health != "FAIL"):
+    # D-01（2026-09-28）：READY 条件显式含 model_ready。
+    # 原写法只靠 model_promotion == "APPROVED" 隐式传递 model_ready
+    # （resolve_model_promotion 内 model_ready=False ⇒ 必 BLOCKED）。一旦有人
+    # 重构 resolve_model_promotion（例如把 model_promotion 判据拆成不含
+    # model_ready 的独立分支），READY 就会与 model_ready 静默脱钩——这是旁路，
+    # 不是风格问题。此处把不变式钉在代码层：model_ready 是 READY 的独立必要条件，
+    # 与「APPROVED ⟺ model_ready ∧ active approved」的推导链解耦。
+    if (model_ready and model_promotion == "APPROVED" and hv is True
+            and audit_health != "FAIL"):
         production_status = "READY"
     else:
         production_status = "BLOCKED"
@@ -1368,6 +1669,8 @@ def run_audit() -> Audit:
     check_registry_paths(a)
     check_validation_binding(a)
     check_promotion_consistency(a)
+    check_promotion_gate_consistency(a)
+    check_prereg_grants(a)
     check_history_validated(a)
     check_shadow_channels(a)
     check_legacy_archived(a)

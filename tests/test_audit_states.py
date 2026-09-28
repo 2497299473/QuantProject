@@ -92,6 +92,46 @@ class TestDerivedStates(unittest.TestCase):
         self.assertEqual(st["action_enable"], "BLOCKED")
         self.assertEqual(st["production_status"], "BLOCKED")
 
+    # --- D-01（2026-09-28）：READY 显式要求 model_ready ----------------------
+    def test_model_ready_false_blocks_ready_even_if_all_else_true(self):
+        """model_ready=False + 其余全真（hv=True/审计 PASS）⇒ 必为 BLOCKED。"""
+        self._inject(False, True, promotion="approved")
+        st = ap.derive_states(self._audit("PASS"))
+        self.assertEqual(st["audit_health"], "PASS")
+        self.assertEqual(st["action_enable"], "ENABLED")
+        self.assertEqual(st["model_promotion"], "BLOCKED",
+                         "model_ready=false ⇒ promotion 必 BLOCKED")
+        self.assertEqual(st["production_status"], "BLOCKED")
+
+    def test_model_ready_true_active_unapproved_blocked(self):
+        """model_ready=True 但 active 未获批（pending）⇒ 必为 BLOCKED。"""
+        self._inject(True, True, promotion="pending")
+        st = ap.derive_states(self._audit("PASS"))
+        self.assertEqual(st["model_promotion"], "BLOCKED")
+        self.assertEqual(st["production_status"], "BLOCKED")
+
+    def test_ready_condition_survives_promotion_refactor(self):
+        """D-01 核心防线：即便 resolve_model_promotion 未来被重构成
+        「不看 model_ready 也返回 APPROVED」，derive_states 的 READY 条件
+        仍因显式 model_ready 项拦住——静默旁路不成立。
+
+        手法与 test_provenance_binding 的 ap.git_worktree_clean 注入同构：
+        替换模块级名字，derive_states 运行时查找即生效。
+        """
+        orig = ap.resolve_model_promotion
+        ap.resolve_model_promotion = lambda *a, **k: ("APPROVED", {
+            "active_model": "v3", "active_promotion": "approved", "reason": "ok",
+            "historical_blocked": [], "all_blocked": []})
+        try:
+            self._inject(False, True)
+            st = ap.derive_states(self._audit("PASS"))
+            self.assertEqual(st["model_promotion"], "APPROVED",
+                             "前提：重构已使 promotion 与 model_ready 解耦")
+            self.assertEqual(st["production_status"], "BLOCKED",
+                             "READY 必须被显式 model_ready 条件拦住")
+        finally:
+            ap.resolve_model_promotion = orig
+
 
 # --- V4.1 ②（2026-09-18）：active / historical 分离 -------------------------
 # 背景：旧实现把「registry 里所有 blocked 模型」当否决权。历史失败记录
@@ -192,22 +232,49 @@ class TestActiveVsHistoricalModel(unittest.TestCase):
 
 
 class TestJsonCompatibility(unittest.TestCase):
-    """V4 明确不做 breaking change：旧字段保留 + 新字段增加 + schema_version。"""
+    """V4 明确不做 breaking change：旧字段保留 + 新字段增加 + schema_version。
 
-    def test_source_declares_legacy_and_new_fields(self):
-        src = (BASE_DIR / "audit_project.py").read_text(encoding="utf-8")
-        self.assertIn('"schema_version": "2.0"', src)
-        for key in ('"production_status"', '"audit_health"',
-                    '"model_promotion"', '"action_enable"'):
-            self.assertIn(key, src)
+    D-03（2026-09-28）：由「读源码文本 assertIn」改为**行为断言**——构造
+    Audit/counts/states 后调用 audit_payload，断言返回字典的键与值。源码文本
+    断言的两类失真（改名误报 / 语义漂移假通过）随之消除：字段改名但语义保留
+    ⇒ 行为断言跟着语义走；语义改掉 ⇒ production 值断言直接红。
+    """
+
+    def _payload(self, statuses=("PASS",), model_ready=False,
+                 history_validated=False, promotion="blocked"):
+        orig_cfg, orig_models = ap._config, ap._models
+        ap._config = lambda: {
+            "forecast": {"model_ready": model_ready, "active_model": "v3"},
+            "decision": {"gates": {"history_validated": history_validated}},
+        }
+        ap._models = lambda: {"v3": {"promotion": {"status": promotion}}}
+        try:
+            a = ap.Audit()
+            for i, s in enumerate(statuses):
+                a.add(f"T{i}", "P0-研究有效性", "占位", s)
+            return ap.audit_payload(a, a.counts(), ap.derive_states(a))
+        finally:
+            ap._config, ap._models = orig_cfg, orig_models
+
+    def test_payload_declares_legacy_and_new_fields(self):
+        p = self._payload(("PASS", "WARN"))
+        self.assertEqual(p["schema_version"], "2.0")
+        for key in ("production_status", "audit_health",
+                    "model_promotion", "action_enable"):
+            self.assertIn(key, p)
         # 旧字段必须仍在（消费方兼容），且带兼容说明
-        self.assertIn('"production":', src)
-        self.assertIn("legacy_note", src)
+        self.assertIn("production", p)
+        self.assertIn("legacy_note", p)
 
     def test_production_field_semantics_unchanged(self):
-        # 旧字段语义 = FAIL 计数，不得被改写成四层状态
-        src = (BASE_DIR / "audit_project.py").read_text(encoding="utf-8")
-        self.assertIn('"production": "BLOCKED" if n[FAIL] else "NOT BLOCKED"', src)
+        # 旧字段语义 = FAIL 计数（0 FAIL ⇒ NOT BLOCKED；≥1 ⇒ BLOCKED），
+        # 不得被改写成四层状态
+        p0 = self._payload(("PASS", "WARN"))
+        self.assertEqual(p0["summary"]["FAIL"], 0)
+        self.assertEqual(p0["production"], "NOT BLOCKED")
+        p1 = self._payload(("PASS", "FAIL"))
+        self.assertEqual(p1["summary"]["FAIL"], 1)
+        self.assertEqual(p1["production"], "BLOCKED")
 
 
 if __name__ == "__main__":

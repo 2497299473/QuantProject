@@ -25,6 +25,7 @@ RESEARCH = "research"
 LAYERS: dict[str, str] = {
     # ---- fast：纯函数 / 契约 / 解析（无重依赖，不碰真实 data/ 与 output/）----
     "test_a158lite.py": FAST,
+    "test_audit_hygiene.py": FAST,   # D 批（2026-09-28）：审计检查项行为测试，全程注入+tempdir 零网络
     "test_audit_states.py": FAST,
     "test_chanlun.py": FAST,
     "test_datasource_chain.py": FAST,   # fake provider 纯内存，零网络不碰 data/

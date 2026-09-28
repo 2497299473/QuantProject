@@ -1,0 +1,489 @@
+== fast layer (run_tests.py --layer fast) ==
+
+....................................................................................[append] ERROR: 内容文件为空：C:\Users\Turn-\AppData\Local\Temp\tmptgt32maj\body.md
+....................................................................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  r, _ = spearmanr(xs, ys)
+................[run_tests] 45 个测试文件（layer=fast）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpt1skja_b\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpt1skja_b\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpb0mxw409\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[append] SKIP：2099-01-02.md 已存在小节「[23:00 日汇总]」，拒绝重复追加（确要再加用 --force）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpb0mxw409\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpvg2om99x\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不存在：kline_fingerprint_20260910.bak.json —— fail-closed 判 UNKNOWN（拒绝回退同目录兄弟/meta 字段：显式指定意味着调用方已知该用哪份）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpvg2om99x\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3ov81iiv\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910_explicit.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3ov81iiv\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpgstocugu\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp cutoff 不符（侧车=None / meta scope='2026-09-10'）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpgstocugu\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpblgljrmn\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp stock_n 不符（meta=3 / 侧车=all）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpblgljrmn\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpsr41yjrm\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 与样本日期标签不符（kline_fingerprint_20260101.json vs samples_frozen_20260910）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpsr41yjrm\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpv3qeft_q\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不可解析（JSONDecodeError）—— fail-closed 判 UNKNOWN（坏文件比缺失更危险：半读的聚合会静默改变比对口径）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpv3qeft_q\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260928.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-28（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp520ycies\forecast_outputs\samples_frozen_20260928.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp520ycies\forecast_outputs\samples_frozen_20260928.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp_3gzozcf\forecast_outputs\freeze_failed_20260928_215031........................
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpjb4yuyh4\forecast_outputs\freeze_failed_20260928_215031
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260928.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-28（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpjb4yuyh4\forecast_outputs\samples_frozen_20260928.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpjb4yuyh4\forecast_outputs\samples_frozen_20260928.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 当日冻结件已存在，拒绝重采：samples_frozen_20260928.jsonl
+        复用既有件（阶段 2 直接读它），或显式 --force 重采并在报告记录「已重采」。
+        校验既有件：python -X utf8 freeze_verify_tool.py verify --jsonl forecast_outputs/samples_frozen_20260928.jsonl
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260928.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-28（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpnq0pcshc\forecast_outputs\samples_frozen_20260928.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpnq0pcshc\forecast_outputs\samples_frozen_20260928.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpqykgr2k3\forecast_outputs\freeze_failed_20260928_215031_commit
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260928.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-28（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp8nf1n9b8\forecast_outputs\samples_frozen_20260928.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp8nf1n9b8\forecast_outputs\samples_frozen_20260928.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: ['999999.json(stock:requested-missing)']
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpv0pluwkj\forecast_outputs\freeze_failed_20260928_215031_kfp
+
+[ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：
+    ! 000001 (0): ValueError: 全部数据源失败
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmppmnoib82\forecast_outputs\freeze_failed_20260928_215031_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpjnps03h8\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 冻结时带降级/频控征兆 : ['DegradedResponse']
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmprj9n_qtm\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmph5jkzrzg\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmph5jkzrzg\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmph30jivhz\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 行数 不一致 : meta=99 实际=2
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp7frwltap\samples_frozen_20260910.jsonl
+[freeze] rows     : 3
+[freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 归一，判定口径)
+[freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : MISMATCH
+[freeze] G-A 行数 不一致 : meta=2 实际=3
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpt4k03oh8\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- (无)
+[freeze] kfp 当前 : cccc000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp7vemg0_u\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpyspehdfj\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6o4twz23\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp6o4twz23\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpd_nz8776\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpd_nz8776\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmptp1fadr8\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmptp1fadr8\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphdji93co\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : INCOMPLETE（当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']）（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmphdji93co\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = INCOMPLETE）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3zol1154\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8bk7guq6\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)...........................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  r, _ = spearmanr(xs, ys)
+.........................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 692 tests in 17.783s
+
+OK
+
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp8bk7guq6\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpcg94ib5u\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- gone.json
+[freeze] kfp 当前 : aaaa000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpcg94ib5u\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带降级/频控征兆: ['DegradedResponse']）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B UNKNOWN: 缺留档或重算聚合 sha
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260915.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（行数不符（meta=99 / 实际=2））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B kfp 留档 REJECT: V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带个股K线失败（1 码，数据质量门禁）: [{'code': '000001', 'error': 'x'}]）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（样本 sha 不符（记录 89fca06abec0… / 实际 28460b632d65…））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B INCOMPLETE: 当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']
+[frozen] G-B K线指纹    : INCOMPLETE（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：ValueError 清单掩码后仍残留基金代码 ['999999']（P0-2：run_manifest 随仓库跟踪，不得写代码）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：ValueError 清单掩码后仍残留基金代码 ['999999']（P0-2：run_manifest 随仓库跟踪，不得写代码）
+[exit] DEGRADED（1 项降级：run_manifest_write_failed）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=SUCCESS）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[exit] DEGRADED（1 项降级：fund_data_fallback:002112）
+[ok] validation.evidence 已绑定：_explicit_entry_model.pkl
+[promotion] status=approved reason=schema v2 证据五门全过（power/performance/baseline_edge/calibration/provenance）——证据合格；config.forecast.model_ready 仍需人工复核措辞红线后置 true
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:ValueError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmphia7_q5p\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] FAILED（exception:TypeError）——兜底清单亦未落盘，监控侧以「exit=1 且本次 run_id 无对应清单」识别
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=SUCCESS）
+[exit] FAILED（exception:TypeError）——本次已有清单在档，不重复落盘
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp0vghi9ze\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp2dv9joci\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] DEGRADED（1 项降级：run_manifest_write_failed）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 510300 实时行情不可用：network down
+[rt  ] 159915 当日估算 +0.50%（前十大覆盖 80%，持仓截至 2026-06-30）
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[rt  ] 510300 当日估算 +1.20%（前十大覆盖 80%，持仓截至 2026-06-30）
+[rt  ] 159915 当日估算 -0.40%（前十大覆盖 80%，持仓截至 2026-06-30）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_145500_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_183000_post.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpviucyduw\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[obs ] 未配置 Obsidian 信号流水路径（notify.obsidian_signal_log 留空）→ 跳过追加
+[obs ] 当日流水行已就地更新（幂等：不追加第二行，归并 2 行重复）
+[obs ] 当日流水行已就地更新（幂等：不追加第二行）
+[obs ] 当日流水行已就地更新（幂等：不追加第二行）
+
+
+
+== slow layer (run_tests.py --layer slow) ==
+
+...................................................................sss................................C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=2884, family=2, type=1, proto=0, laddr=('127.0.0.1', 10669)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=2820, family=2, type=1, proto=0, laddr=('127.0.0.1', 10671)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............D:\PythonProject\QuantV1\tests\test_path_and_store.py:177: ResourceWarning: unclosed <socket.socket fd=2760, family=2, type=1, proto=0, laddr=('127.0.0.1', 10673)>
+  "date": f"2024-{1 + i // 28:02d}-{1 + i % 28:02d}",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......................................................................
+----------------------------------------------------------------------
+Ran 188 tests in 17.756s
+
+OK (skipped=3)
+[run_tests] 15 个测试文件（layer=slow）
+
+
+
+== audit_project.py --no-write (stdout) ==
+
+== V4 审计契约 ==
+项目：D:\PythonProject\QuantV1
+
+-- P0-研究有效性 --
+[PASS] P0-1 PIT 无前视（生效日滞后 ≥ 法定披露时限） —— 下界 {'03-31': 25, '06-30': 60, '09-30': 29, '12-31': 90}；当前 {'03-31': 25, '06-30': 65, '09-30': 30, '12-31': 95} 均达标；已声明为法定时限下界（非真实公告日）
+[PASS] P0-2 持仓与密钥文件未入库（含 config 内嵌键） —— holdings.json / .env* 未被跟踪（*.example 模板白名单）；config 无持仓禁键
+[PASS] P0-3 数据快照可回溯（内嵌 hash 可解析） —— 当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（40 条记录）
+[WARN] P0-4 数据快照新鲜度 —— generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 10 天（>7 天，建议重生成）
+[PASS] P0-5 数据快照 scope 无自指环 —— scope=dataset_inputs · snapshot_id=e70f299bb2cd485c · 355 项均为数据输入（registry/models 已出清单）
+
+-- P1-证据链 --
+[PASS] P1-1 模型权重 sha256 与注册表一致 —— 2 个模型
+[PASS] P1-10 registry 路径字段可判读 —— 2 个模型路径均为仓库相对路径
+[WARN] P1-11 工作区干净度（代码锚点可比） —— 17 项未提交改动（前 5：M audit_project.py；M data/intraday_features.jsonl；M data/market_context/history.jsonl；M output/audit_current.json；M output/daily_runs/2026-09-24.md）——registry 绑定的 git_commit 未必等于当前运行代码
+[WARN] P1-12 release code tip 对账 —— release code tip=b49e125a250e；当前 HEAD^=f9b14955e0d7… ⇒ release code tip 可能落后当前代码
+[PASS] P1-13 active model promotion 与纯函数推导一致（授权门一致性前哨） —— forecast_v3.pkl：stored=blocked · derived=blocked 一致
+[PASS] P1-14 shadow 降级授权（prereg）无过期未清理项 —— enabled=True；有效 1 条：['forecast_v3.pkl（expiry=2026-10-12）']
+[FAIL] P1-2 验证报告 sha256 与注册表绑定一致 —— 2 份报告已核验；active=forecast_v3.pkl；forecast_v2.pkl 报告缺失 output/backtest_forecast_v8_quantile_20260830.log；forecast_v3.pkl 报告缺失 output/backtest_forecast_v3_b1mask_20260831.log
+[PASS] P1-3 promotion 与 config.model_ready 一致 —— model_ready=False；active=forecast_v3.pkl；历史 blocked 1 个（不参与当前裁决）
+[PASS] P1-4 动作层历史验证硬门禁 —— history_validated=False
+[PASS] P1-5 影子证据通道隔离
+[PASS] P1-6 legacy_invalid 已移出活跃流 —— 活跃流分布 {'prereg_degraded': 40}
+[PASS] P1-7 运行清单已实际产出 —— 13 份；最新 run_manifest_20260928_145515_post.json status=SUCCESS · 证据截至 2026-09-28
+[PASS] P1-8 审批绑定数据快照 + 代码版本
+[PASS] P1-9 飞书发布资格（当日逐基金证据干净） —— 当日 2 次证据运行（2 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布
+
+-- P2-工程卫生 --
+[PASS] P2-1 manifest 原子写
+[PASS] P2-2 Tushare 走 HTTPS —— 扫描 122 个文件（AST 常量判据，注释/docstring 不计），零明文命中
+[PASS] P2-3 测试分层（fast/slow 实际生效） —— 测试文件 60 个；LAYERS 登记 60 条（fast 45）；四环完整（登记/死条目/conftest 接线/markers）
+[PASS] P2-4 密钥文件未入库
+
+RESULT: 19 PASS / 1 FAIL / 3 WARN
+AUDIT_HEALTH:      FAIL
+MODEL_PROMOTION:   BLOCKED（model_ready=False）
+ACTION_ENABLE:     HOLD_ONLY（history_validated=False）
+PRODUCTION_STATUS: BLOCKED
+  ↳ 审计健康与生产资格是两回事：本次审计可读、可信，但模型未获批/动作层锁死 ⇒ 不得据此启用动作。
+PUBLISH_GATE:      PASS（clean 2/2 只；拦截器在 run.py 推送前置，此处仅呈现）
+[json] --no-write：未落盘（本次仅内存结论）
+
+
+
+== audit stderr (0 bytes expected) ==
+
+
+
