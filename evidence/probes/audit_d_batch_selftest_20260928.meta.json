@@ -1,0 +1,27 @@
+{
+  "command": [
+    ".venv\\\\Scripts\\\\python.exe -X utf8 run_tests.py --layer fast",
+    ".venv\\\\Scripts\\\\python.exe -X utf8 run_tests.py --layer slow",
+    ".venv\\\\Scripts\\\\python.exe -X utf8 audit_project.py --no-write"
+  ],
+  "inputs": {
+    "changed_files": [
+      "audit_project.py",
+      "tests/test_audit_states.py",
+      "tests/test_audit_hygiene.py",
+      "tests/layers.py"
+    ],
+    "log_sha256": "d4b1df2a042565b4926266a78de1b47c28771e41ca72a62db054709a58bd2a49",
+    "baseline_fast_before": "654 tests OK (exit 0, run at 230e0a3 worktree)"
+  },
+  "code_commit": "230e0a34e7eabbf430b6be172ee61d00578e2177",
+  "code_commit_note": "HEAD at selftest time = baseline 230e0a34 (pre-commit); batch commit hash recorded in commit message and daily_runs",
+  "verdict": {
+    "fast": "692 tests OK, exit 0 (baseline 654 + 38 new: test_audit_hygiene 32 + test_audit_states 6)",
+    "slow": "188 tests OK (skipped=3), exit 0",
+    "audit": "exit 2 = 1 FAIL: P1-2 historical report missing (pre-existing, registered 09-22, not introduced by this batch); stderr 0 bytes; P0-2/P1-13/P1-14/P2-2/P2-3 all PASS; four-layer states unchanged vs baseline",
+    "bound_to_registry": false,
+    "bound_note": "self-test evidence for D-batch audit hardening; no bind_validation implied"
+  },
+  "generated_at": "2026-09-28T21:52:15"
+}

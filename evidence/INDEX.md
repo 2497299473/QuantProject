@@ -23,6 +23,7 @@
 
 | 日期 | 主题 | 文件 | 状态 | 备注 |
 |:--|:--|:--|:--|:--|
+| 2026-09-28 | 审计 D 批修复自测（D-01/02/03/05/06/07/09） | `probes/audit_d_batch_selftest_20260928.log` + `.meta.json` | FRESH | fast 692 OK / slow 188 OK / audit 零 stderr；P1-2 FAIL 为既有预留项非本批引入 |
 | — | （待落档） | — | — | 探针输出仍在 `output/`（gitignored），后续按需迁入 |
 
 ## incidents/ · 事故取证
