@@ -254,11 +254,12 @@ class TestModelRegistry(unittest.TestCase):
         self._write_report(content="approved evidence")
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
+        # D-04（2026-09-29 面 2 审查）：evidence 一律经 bind_validation 的 schema
+        # 校验入口写入（不合格则整体拒绑、一字不写）；旧夹具直改 registry 注入
+        # 会掩盖「evidence 只能经 bind 写入」的通道唯一性。
         self.assertTrue(model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), "approved", metrics))
-        reg = model_registry.load_registry()
-        reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
-        self.assertTrue(model_registry._save_registry(reg))
+            self.test_pkl.name, str(self.test_report), "approved", metrics,
+            evidence=_full_pass_evidence_v2()))
         self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertTrue(ok)
@@ -290,14 +291,14 @@ class TestModelRegistry(unittest.TestCase):
         self._write_report(content="approved evidence", provenance=rp)
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
+        # D-04：evidence 经 bind_validation 写入（非直改 registry）；prov=None 时
+        # 不传 evidence，保持原夹具「报告 provenance 失配 → bind 拒」语义。
         ok = model_registry.bind_validation(
-            self.test_pkl.name, str(self.test_report), "approved", metrics)
+            self.test_pkl.name, str(self.test_report), "approved", metrics,
+            evidence=(_full_pass_evidence_v2() if prov is not None else None))
         self.assertEqual(ok, prov is not None)
         if prov is None:
             return proto
-        reg = model_registry.load_registry()
-        reg["models"][self.test_pkl.name]["validation"]["evidence"] = _full_pass_evidence_v2()
-        self.assertTrue(model_registry._save_registry(reg))
         self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         return proto
     def test_approval_rejects_fresh_provenance(self):
@@ -672,6 +673,230 @@ class TestPreregDegradation(unittest.TestCase):
             self.pkl.name, prereg_path=self.prereg)
         self.assertFalse(ok)
         self.assertEqual(reason, "prereg_rule_version_mismatch_file")
+
+
+class TestMalformedRegistryFailClosed(unittest.TestCase):
+    """D-01（2026-09-29 面 2 审查）：malformed registry 注入 → 结构化拒绝，绝不崩溃。
+
+    威胁模型（A 问题单 D-01/D-08）：registry.json 是普通 JSON 文件，可被手工
+    编辑/半途损坏——畸形是**可达输入**而非假设。旧实现对 int() 强转、.get 链
+    裸信任，注入即抛 ValueError/AttributeError/TypeError，(False, reason) 契约
+    失效；'1'/True 等类型污染值还会被 int() 静默放行。
+    本类逐注入点断言「不崩溃 + (False, malformed_*)」双条件（不用 assertRaises
+    ——崩溃本身就是被测缺陷）。全程 tempdir 隔离，不触真实 registry。
+    """
+
+    TRAIN_COMMIT = "d" * 40
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig = (model_registry.MODELS_DIR,
+                      model_registry.REGISTRY_PATH, model_registry.PKL_DIR)
+        model_registry.MODELS_DIR = self.tmp
+        model_registry.REGISTRY_PATH = self.tmp / "registry.json"
+        model_registry.PKL_DIR = self.tmp
+        self.proto = model_registry.make_feature_protocol(
+            ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
+        self.pkl = self._seed_green()
+
+    def tearDown(self):
+        (model_registry.MODELS_DIR, model_registry.REGISTRY_PATH,
+         model_registry.PKL_DIR) = self._orig
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _seed_green(self) -> Path:
+        """全绿条目（register+protocol+report+bind+promotion），verify_approval 先证 (True,'ok')。"""
+        from unittest import mock
+        pkl = self.tmp / "_malformed_probe.pkl"
+        pkl.write_bytes(b"malformed-probe-bytes")
+        with mock.patch("core.model_registry.capture_provenance",
+                        return_value={"data_manifest_sha256": "m" * 16,
+                                      "git_commit": self.TRAIN_COMMIT}):
+            digest = model_registry.register_model(
+                pkl, meta={}, snapshot_provenance=TestModelRegistry.FROZEN_PROV)
+        self.assertIsNotNone(digest)
+        self.assertTrue(model_registry.bind_feature_protocol(pkl.name, self.proto))
+        entry = model_registry.get_model_entry(pkl.name)
+        report = self.tmp / "report.log"
+        prov = {"validation_mode": "ARTIFACT",
+                "artifact_sha256": entry["sha256"],
+                "dataset_sha256": TestModelRegistry.FROZEN_PROV["samples_sha256_lf"],
+                "git_commit": self.TRAIN_COMMIT}
+        report.write_text(
+            "evidence\nPROVENANCE_JSON="
+            + json.dumps(prov, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8")
+        metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
+                   for h in (1, 3, 5)}
+        self.assertTrue(model_registry.bind_validation(
+            pkl.name, str(report), "approved", metrics,
+            evidence=_full_pass_evidence_v2()))
+        written, derived = model_registry.apply_promotion(pkl.name)
+        self.assertTrue(written)
+        self.assertEqual(derived["status"], "approved")
+        ok, reason = model_registry.verify_approval(pkl, self.proto)
+        self.assertTrue(ok, reason)          # 基线绿：后续每个注入都从全绿出发
+        self.report = report
+        self.metrics = metrics
+        return pkl
+
+    def _mutate(self, path: list, value) -> None:
+        reg = model_registry.load_registry()
+        node = reg["models"][self.pkl.name]
+        for key in path[:-1]:
+            node = node[key]
+        node[path[-1]] = value
+        self.assertTrue(model_registry._save_registry(reg))
+
+    def _restore_green(self) -> None:
+        model_registry.bind_validation(
+            self.pkl.name, str(self.report), "approved", self.metrics,
+            evidence=_full_pass_evidence_v2())
+        model_registry.apply_promotion(self.pkl.name)
+
+    def _assert_rejected_malformed(self, result) -> str:
+        ok, reason = result
+        self.assertFalse(ok)
+        self.assertIn("malformed", reason)
+        return reason
+
+    # ---- verify_feature_protocol：类型收口 + int() 强转删除 ----
+    def test_protocol_version_non_numeric_string_rejected(self):
+        self._mutate(["feature_protocol", "protocol_version"], "abc")
+        self._assert_rejected_malformed(
+            model_registry.verify_feature_protocol(self.pkl.name, self.proto))
+
+    def test_protocol_version_numeric_string_no_longer_passthrough(self):
+        """'1' 类型污染：旧实现 int('1')==1 静默放行 → 现 malformed 拒绝。"""
+        self._mutate(["feature_protocol", "protocol_version"], "1")
+        self._assert_rejected_malformed(
+            model_registry.verify_feature_protocol(self.pkl.name, self.proto))
+
+    def test_protocol_version_bool_no_longer_passthrough(self):
+        """True 类型污染：旧实现 int(True)==1 静默放行 → 现 malformed 拒绝。"""
+        self._mutate(["feature_protocol", "protocol_version"], True)
+        self._assert_rejected_malformed(
+            model_registry.verify_feature_protocol(self.pkl.name, self.proto))
+
+    def test_expected_none_rejected_not_crash(self):
+        ok, reason = model_registry.verify_feature_protocol(self.pkl.name, None)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "malformed_expected_protocol")
+
+    def test_registry_protocol_whole_block_string_rejected(self):
+        self._mutate(["feature_protocol"], "not-a-dict")
+        self._assert_rejected_malformed(
+            model_registry.verify_feature_protocol(self.pkl.name, self.proto))
+
+    def test_feature_keys_non_list_rejected(self):
+        self._mutate(["feature_protocol", "feature_keys"], "str")
+        self._assert_rejected_malformed(
+            model_registry.verify_feature_protocol(self.pkl.name, self.proto))
+
+    # ---- verify_approval：promotion / snapshot_provenance / validation 畸形 ----
+    def test_promotion_string_rejected_not_crash(self):
+        self._mutate(["promotion"], "approved")
+        ok, reason = model_registry.verify_approval(self.pkl, self.proto)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "malformed_promotion")
+
+    def test_snapshot_provenance_string_rejected_not_crash(self):
+        self._mutate(["snapshot_provenance"], "SAME")
+        ok, reason = model_registry.verify_approval(self.pkl, self.proto)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "malformed_snapshot_provenance")
+
+    def test_validation_string_rejected_not_crash(self):
+        """validation 手改成 str → 结构化拒绝，不崩溃。
+
+        门序事实：verify_approval 先走 verify_validation_report，其非 dict 收口
+        （no_validation）在前；verify_approval 自身的 malformed_validation 分支
+        是纵深防御（正常门序下不可达）。本用例钉住实际拒绝 reason。
+        """
+        self._mutate(["validation"], "approved")
+        ok, reason = model_registry.verify_approval(self.pkl, self.proto)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "no_validation")
+        # 同一注入下 verify_validation_report 自身也不崩溃
+        ok2, reason2 = model_registry.verify_validation_report(self.pkl.name)
+        self.assertFalse(ok2)
+        self.assertEqual(reason2, "no_validation")
+
+    def test_expected_protocol_none_rejected_not_crash(self):
+        ok, reason = model_registry.verify_approval(self.pkl, None)
+        self.assertFalse(ok)
+        self.assertIn("feature_protocol:malformed_expected_protocol", reason)
+
+    def test_validation_provenance_string_rejected_not_crash(self):
+        """validation.provenance 手改成 str：旧实现 stored_prov.get 崩溃。
+
+        注入点在 A4 报告复核段之后才取值，前置各门（promotion 重推导等）仍
+        全绿——畸形必须被结构化拒绝而非 AttributeError。
+        """
+        self._mutate(["validation", "provenance"], "not-a-dict")
+        ok, reason = model_registry.verify_approval(self.pkl, self.proto)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "malformed_validation_provenance")
+
+    # ---- verify_validation_report：report_file 类型注入 ----
+    def test_report_file_int_rejected_not_crash(self):
+        self._mutate(["validation", "report_file"], 123)
+        ok, reason = model_registry.verify_validation_report(self.pkl.name)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "validation_report_unbound")
+
+    # ---- entry 整体畸形：get_model_entry / read_verified_model_bytes / register_model ----
+    def test_entry_string_get_model_entry_returns_none(self):
+        reg = model_registry.load_registry()
+        reg["models"]["_bad_neighbor.pkl"] = "not-a-dict"
+        self.assertTrue(model_registry._save_registry(reg))
+        (self.tmp / "_bad_neighbor.pkl").write_bytes(b"bad-neighbor")
+        self.assertIsNone(model_registry.get_model_entry("_bad_neighbor.pkl"))
+
+    def test_entry_string_read_verified_model_bytes_rejected(self):
+        reg = model_registry.load_registry()
+        reg["models"]["_bad_neighbor.pkl"] = "not-a-dict"
+        self.assertTrue(model_registry._save_registry(reg))
+        (self.tmp / "_bad_neighbor.pkl").write_bytes(b"bad-neighbor")
+        raw, reason = model_registry.read_verified_model_bytes(
+            self.tmp / "_bad_neighbor.pkl")
+        self.assertIsNone(raw)
+        self.assertEqual(reason, "malformed_entry")
+
+    def test_register_model_survives_malformed_neighbor(self):
+        """畸形邻居条目不阻断正常登记（组合风险 D-01+D-05 链：旧实现归一化循环崩溃）。"""
+        reg = model_registry.load_registry()
+        reg["models"]["_bad_neighbor.pkl"] = "not-a-dict"
+        self.assertTrue(model_registry._save_registry(reg))
+        new_pkl = self.tmp / "_new_model.pkl"
+        new_pkl.write_bytes(b"new-model-bytes")
+        digest = model_registry.register_model(new_pkl, meta={})
+        self.assertIsNotNone(digest)
+        entry = model_registry.get_model_entry(new_pkl.name)
+        self.assertEqual(entry["sha256"], digest)
+
+    # ---- 写入通道同族收口：畸形条目上 bind/update/apply 不崩溃 ----
+    def test_write_channels_reject_malformed_entry(self):
+        reg = model_registry.load_registry()
+        reg["models"]["_bad_neighbor.pkl"] = "not-a-dict"
+        self.assertTrue(model_registry._save_registry(reg))
+        self.assertFalse(model_registry.bind_validation(
+            "_bad_neighbor.pkl", str(self.report), "approved"))
+        self.assertFalse(model_registry.update_promotion(
+            "_bad_neighbor.pkl", "approved", "x"))
+        written, derived = model_registry.apply_promotion("_bad_neighbor.pkl")
+        self.assertFalse(written)
+        self.assertEqual(derived["status"], "unknown")
+        self.assertFalse(model_registry.bind_feature_protocol(
+            "_bad_neighbor.pkl", self.proto))
+
+    # ---- 全绿对照：注入-复原后授权链必须回到 (True, 'ok') ----
+    def test_green_baseline_restored_after_mutations(self):
+        self._mutate(["promotion"], "approved")
+        self._restore_green()
+        ok, reason = model_registry.verify_approval(self.pkl, self.proto)
+        self.assertTrue(ok, reason)
+        self.assertEqual(reason, "ok")
 
 
 if __name__ == "__main__":

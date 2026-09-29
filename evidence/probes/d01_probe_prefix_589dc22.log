@@ -1,0 +1,17 @@
+HEAD-ANCHOR: probe runs against working tree at D:\PythonProject\QuantV1
+[PROBE] verify_feature_protocol protocol_version='abc': CRASH ValueError (ValueError: invalid literal for int() with base 10: 'abc')
+[PROBE] verify_feature_protocol protocol_version='1' (类型污染): PASSED-THROUGH (True, 'ok')  <-- 注意：放行
+[PROBE] verify_feature_protocol protocol_version=True (类型污染): PASSED-THROUGH (True, 'ok')  <-- 注意：放行
+[PROBE] verify_feature_protocol feature_keys='str' (非列表): REJECTED (False, 'feature_keys_mismatch')
+[PROBE] verify_feature_protocol expected=None: CRASH AttributeError (AttributeError: 'NoneType' object has no attribute 'get')
+[PROBE] verify_feature_protocol feature_protocol=str (整块畸形): CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] verify_approval promotion='approved' (str): CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] verify_approval snapshot_provenance='SAME' (str): CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] verify_approval validation.provenance=str: CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] verify_approval expected=None: CRASH AttributeError (AttributeError: 'NoneType' object has no attribute 'get')
+[PROBE] verify_validation_report report_file=123: CRASH TypeError (TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'int')
+[PROBE] get_model_entry entry=str: RETURNED 'not-a-dict'
+[PROBE] read_verified_model_bytes entry=str: RETURNED (None, 'file_missing')
+[PROBE] verify_feature_protocol entry=str: CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] register_model 畸形邻居在场: CRASH AttributeError (AttributeError: 'str' object has no attribute 'get')
+[PROBE] verify_approval 全绿对照: PASSED-THROUGH (True, 'ok')  <-- 注意：放行

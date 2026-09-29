@@ -11,8 +11,13 @@
    时 load 拒绝加载——宁缺毋滥）。
 2. load_models 三重校验之外追加 sha256 校验；registry 缺失/hash 不符 →
    拒绝加载并保持未训练占位（不阻断主流程）。
-3. 注册表本身只追加当前版本条目；历史版本条目保留（审计用），load 只认
+3. 注册表条目按 pkl 文件名寻址：同名重训是**就地覆盖**（register_model 直接
+   替换旧条目，registry 内不保留历史版本；跨版本追溯靠 forecast_v{N}.pkl
+   不同文件名各自留条 + git 历史），load 只认
    forecast_v{MODEL_VERSION}.pkl 对应的条目。
+   （D-05，2026-09-29 面 2 审查：旧措辞「历史版本条目保留（审计用）」与实现
+   不符——同名 key 就地覆盖后旧 sha/旧 meta 永久丢失，同名覆盖的审计追溯依赖
+   git 历史考古与 bind_provenance.py 回填；如实改文档，不改行为。）
 4. registry 写入失败不删已落盘 pkl（留孤儿文件由下次 save 覆盖），但会显式
    返回 False 让调用方知道「权重在、注册缺失」。
 """
@@ -134,6 +139,8 @@ def normalize_registry_paths(dry_run: bool = False) -> tuple[bool, list[str]]:
     reg = load_registry()
     details: list[str] = []
     for name, entry in (reg.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue      # D-01：畸形条目（被手工编辑成非 dict）跳过，不阻断其余条目归一
         raw = str(entry.get("path") or "")
         if not _is_absolute_path_str(raw):
             continue
@@ -196,6 +203,8 @@ def register_model(pkl_path: Path, meta: dict,
     # 历史条目的旧绝对路径在此就地归一（V4.5，2026-09-23）：下次登记该 pkl 时
     # 自动把 WSL 时代绝对路径改成仓库相对路径，无需单独跑迁移脚本。
     for old_name, old_entry in reg["models"].items():
+        if not isinstance(old_entry, dict):
+            continue      # D-01：畸形邻居条目不阻断本次登记（旧实现在此 AttributeError 崩溃）
         if _is_absolute_path_str(str(old_entry.get("path") or "")):
             old_entry["path"] = tracked_path(PKL_DIR / old_name)
     reg["models"][key] = entry
@@ -213,6 +222,9 @@ def read_verified_model_bytes(pkl_path: Path) -> tuple[bytes | None, str]:
     entry = load_registry()["models"].get(pkl_path.name)
     if entry is None:
         return None, "no_entry"
+    if not isinstance(entry, dict):
+        # D-01：条目被手工编辑成非 dict（字符串/列表…）→ 结构化拒绝，不崩溃。
+        return None, "malformed_entry"
     try:
         raw = pkl_path.read_bytes()
     except OSError:
@@ -244,11 +256,11 @@ def verify_validation_report(pkl_name: str) -> tuple[bool, str]:
         return False, "validation_not_approved"
     report_file = validation.get("report_file")
     expected_sha = validation.get("report_sha256")
-    if not report_file or not expected_sha:
+    # D-01：类型收口——report_file 非 str（如手改成 123）时 Path() 抛 TypeError；
+    # 统一走 _resolve_validation_report_path 的 isinstance 通道，畸形视同未绑定。
+    report_path = _resolve_validation_report_path(report_file)
+    if report_path is None or not expected_sha:
         return False, "validation_report_unbound"
-    report_path = Path(report_file)
-    if not report_path.is_absolute():
-        report_path = BASE_DIR / report_path
     if not report_path.exists():
         return False, "validation_report_missing"
     try:
@@ -267,6 +279,19 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     同时通过（V4.3.1-⑤：``snapshot_provenance`` 五键齐全 = FROZEN 训练件；
     FRESH/历史无此块的条目 → research-only，不得对外展示）；调用方再与
     ``config.forecast.model_ready`` 取 AND，形成最终原子授权。
+
+    双轨串联设计（D-06，2026-09-29 面 2 审查补记，零行为改动）：
+    - **evidence 轨**（schema v2）：``validation.evidence`` 为 v2 块时执行
+      ``validate_evidence`` 结构自检 + PIT_1455 / KFP=SAME 硬门，只信 evidence
+      声明值；
+    - **legacy 轨**（registry ``snapshot_provenance``）：五键完整性门 + registry
+      侧 KFP 门，只信 registry 字段值。
+    两轨**串联 AND、各自独立必过**，判定来源不同且互不复核，任一条都不得删除：
+    删 evidence 轨会丢 PIT 14:55 时点语义；删 legacy 轨则手改/历史条目可绕过
+    冻结件完整性门。双轨反例由 tests/test_promotion_rule_v2.py::
+    test_07_verify_approval_requires_kfp_same_and_pit_mode 钉住
+    （registry KFP=DRIFTED 时 evidence 轨不查它仍被 legacy 轨拒；
+    PIT 证据违例时 legacy 轨全绿仍被 evidence 轨拒）。
     """
     from core import validation_schema as _vs
 
@@ -280,8 +305,18 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
     if not ok:
         return False, reason
     entry = get_model_entry(pkl_path.name) or {}
-    validation = entry.get("validation") or {}
-    promotion = entry.get("promotion") or {}
+    validation = entry.get("validation")
+    if validation is not None and not isinstance(validation, dict):
+        # D-01：validation 被手改成非 dict → 结构化拒绝，不崩溃。
+        # 门序注：正常路径下前置 verify_validation_report 已先落 no_validation，
+        # 本分支是纵深防御（防未来门序调整/直调）。
+        return False, "malformed_validation"
+    validation = validation or {}
+    promotion = entry.get("promotion")
+    if promotion is not None and not isinstance(promotion, dict):
+        # D-01：promotion 被手改成字符串（如 "approved"）→ 结构化拒绝，不崩溃。
+        return False, "malformed_promotion"
+    promotion = promotion or {}
     if promotion.get("status") != "approved":
         return False, "promotion_not_approved"
     if derive_promotion(validation).get("status") != "approved":
@@ -302,7 +337,11 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
             return False, f"kfp_comparability_not_same:{kfp.get('value')!r}"
 
     # V4.3.1-⑤：冻结训练件完整性（legacy 与 v2 共同保留）。
-    sp = entry.get("snapshot_provenance") or {}
+    sp = entry.get("snapshot_provenance")
+    if sp is not None and not isinstance(sp, dict):
+        # D-01：snapshot_provenance 被手改成字符串（如 "SAME"）→ 结构化拒绝。
+        return False, "malformed_snapshot_provenance"
+    sp = sp or {}
     missing = [k for k in ("snapshot_file", "samples_sha256_lf",
                            "kfp_recorded_sha256", "kfp_current_sha256",
                            "kfp_comparability") if sp.get(k) in (None, "")]
@@ -328,7 +367,11 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
         pkl_path.name, report_prov)
     if not ok_report_prov:
         return False, f"validation_provenance_recheck:{report_prov_reason}"
-    stored_prov = validation.get("provenance") or {}
+    stored_prov = validation.get("provenance")
+    if stored_prov is not None and not isinstance(stored_prov, dict):
+        # D-01：validation.provenance 被手改成非 dict → 结构化拒绝，不崩溃。
+        return False, "malformed_validation_provenance"
+    stored_prov = stored_prov or {}
     for key in ("validation_mode", "artifact_sha256", "dataset_sha256", "git_commit"):
         if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
             return False, f"validation_provenance_report_mismatch:{key}"
@@ -419,10 +462,14 @@ def evaluate_prereg_degradation(pkl_name: str,
     if str(entry.get("sha256", "")) != str(grant.get("model_sha256", "")):
         return False, "model_sha_mismatch_vs_prereg"
 
-    validation = entry.get("validation") or {}
+    validation = entry.get("validation")
+    if not isinstance(validation, dict):
+        validation = {}   # D-01：畸形 validation 视同缺失 → 后续门自然 fail-closed
     if str(validation.get("report_sha256", "")) != str(grant.get("report_sha256", "")):
         return False, "report_sha_mismatch_vs_prereg"
-    metrics = validation.get("metrics") or {}
+    metrics = validation.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}      # D-01：畸形 metrics → t5_not_approved fail-closed
 
     # D4：T+5 必须 approved 且 CI 下界 > 0
     m5 = metrics.get("5") if isinstance(metrics.get("5"), dict) else None
@@ -464,10 +511,14 @@ def registry_summary() -> dict:
     reg = load_registry()
     out = {}
     for name, entry in reg["models"].items():
-        meta = entry.get("meta", {})
-        proto = entry.get("feature_protocol") or {}
+        if not isinstance(entry, dict):
+            entry = {}    # D-01：畸形条目在摘要里按空值呈现，诊断路径不崩溃
+        meta = entry.get("meta")
+        proto = entry.get("feature_protocol")
+        meta = meta if isinstance(meta, dict) else {}
+        proto = proto if isinstance(proto, dict) else {}
         out[name] = {
-            "sha256": entry.get("sha256", "")[:16] + "…",
+            "sha256": str(entry.get("sha256") or "")[:16] + "…",  # D-01：非 str sha 不崩
             "trained_at": meta.get("trained_at"),
             "oos_start": meta.get("oos_start"),
             "n_train": meta.get("n_train"),
@@ -499,7 +550,9 @@ def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tu
     if entry is None:
         return False, "no_entry"
     artifact_sha = str(entry.get("sha256") or "").strip()
-    snapshot = entry.get("snapshot_provenance") or {}
+    snapshot = entry.get("snapshot_provenance")
+    if not isinstance(snapshot, dict):
+        snapshot = {}     # D-01：畸形 snapshot_provenance → dataset_sha 缺失 fail-closed，不崩溃
     dataset_sha = str(snapshot.get("samples_sha256_lf") or "").strip()
     train_commit = str(entry.get("git_commit") or "").strip()
     if not artifact_sha:
@@ -575,7 +628,8 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
-    if entry is None:
+    if not isinstance(entry, dict):
+        # D-01：无条目或畸形条目（非 dict）一律拒绑，不崩溃、不新增幽灵条目。
         return False
 
     # v2 证据若随绑定提交，必须先经唯一 schema 权威校验；不合格时一字不写。
@@ -636,8 +690,8 @@ def update_promotion(pkl_name: str, status: str, reason: str) -> bool:
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
-    if entry is None:
-        return False
+    if not isinstance(entry, dict):
+        return False      # D-01：畸形条目拒写（与无条目同路径）
     entry["promotion"] = {
         "status": status,
         "reason": reason,
@@ -647,8 +701,14 @@ def update_promotion(pkl_name: str, status: str, reason: str) -> bool:
 
 
 def get_model_entry(pkl_name: str) -> dict | None:
-    """按文件名取条目（含 validation/promotion）。"""
-    return load_registry()["models"].get(pkl_name)
+    """按文件名取条目（含 validation/promotion）。
+
+    D-01（2026-09-29 面 2 审查）：条目被手工编辑成非 dict（字符串/列表…）时
+    一律返回 None——调用方对 None 已有 fail-closed 处理（no_entry /
+    no_registry_entry / 拒绝加载），从源头杜绝下游 ``.get`` 崩溃。
+    """
+    entry = load_registry()["models"].get(pkl_name)
+    return entry if isinstance(entry, dict) else None
 
 
 # ---------- v4（2026-09-01，GPT 五审 P3）：promotion 纯函数化 ----------
@@ -820,7 +880,10 @@ def derive_promotion(validation: dict | None) -> dict:
         return _derive_promotion_v2_gates(evidence, _vs)
 
     # ---- legacy 兼容路径（无 schema v2 证据块）----
-    metrics = validation.get("metrics") or {}
+    metrics = validation.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}      # D-01：畸形 metrics（被手改成 str 等）视同缺失，不崩溃；
+                          # decision=approved 时落 pending（无依据不强判），rejected 时落 blocked。
     if decision == "approved" and not metrics:
         return {"status": "pending", "rule_version": PROMOTION_RULE_VERSION,
                 "failed_horizons": [],
@@ -879,7 +942,8 @@ def apply_promotion(pkl_name: str, dry_run: bool = False) -> tuple[bool, dict]:
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
-    if entry is None:
+    if not isinstance(entry, dict):
+        # D-01：畸形条目与无条目同路径（unknown，不崩溃）。
         return False, {"status": "unknown", "rule_version": PROMOTION_RULE_VERSION,
                        "failed_horizons": [], "reason": "no_entry"}
     derived = derive_promotion(entry.get("validation"))
@@ -905,8 +969,11 @@ def apply_promotion(pkl_name: str, dry_run: bool = False) -> tuple[bool, dict]:
 
 FEATURE_PROTOCOL_VERSION = 1
 
-# B1 缺失掩码布局（与 forecast_engine.MASKING_PROTOCOL 同构，两处须同步维护）：
-#   每特征输出 (值, missing_mask) 双列 → 7 逻辑特征 = 14 实际维
+# B1 缺失掩码布局（单一事实源，D-02 2026-09-29 面 2 审查）：
+#   每特征输出 (值, missing_mask) 双列 → 7 逻辑特征 = 14 实际维。
+#   forecast_engine.MASKING_PROTOCOL 自 D-02 起直接引用本常量（同一对象），
+#   不再有第二份字面量；守护测试钉住同源性（test_feature_protocol_strict.py::
+#   TestMaskingProtocolSingleSource，改字段值即红灯）。
 B1_MASKING_PROTOCOL = {
     "enabled": True,
     "layout": "value_then_mask",   # [v0, m0, v1, m1, ...]
@@ -934,13 +1001,46 @@ def make_feature_protocol(feature_keys: list[str],
 
 
 def bind_feature_protocol(pkl_name: str, protocol: dict) -> bool:
-    """把特征协议绑进注册表条目。未知模型返回 False（不新增幽灵条目）。"""
+    """把特征协议绑进注册表条目。未知/畸形条目返回 False（不新增幽灵条目、不崩溃）。"""
     reg = load_registry()
     entry = reg["models"].get(pkl_name)
-    if entry is None:
+    if not isinstance(entry, dict):
+        # D-01：无条目或畸形条目（被手改成非 dict）一律拒绝——旧实现在此
+        # TypeError 崩溃（str 不支持 item assignment）。
         return False
     entry["feature_protocol"] = protocol
     return _save_registry(reg)
+
+
+def _protocol_type_error(proto, expected) -> str | None:
+    """D-01（2026-09-29 面 2 审查）：协议双侧类型收口。
+
+    返回 malformed_* reason；全部合法返回 None。类型纪律与
+    ``validation_schema._check_protocol`` 对齐：
+    - 协议块必须是 dict；
+    - protocol_version / n_features / feature_dim 必须是 int 且非 bool——
+      **不再做 int() 强转**：'1' / True 等类型污染值旧实现静默放行
+      （int('1')==1、int(True)==1），现一律拒绝；缺键同样 malformed
+      （旧实现用 -1/-2 哨兵归入 mismatch，现区分「类型坏」与「值不同」，审计可辨）；
+    - feature_keys 必须是全 str 列表；
+    - masking 只允许 None（纯值布局，v2 及更早）或 dict（B1 双列布局）。
+    """
+    if not isinstance(proto, dict):
+        return "malformed_registry_protocol"
+    if not isinstance(expected, dict):
+        return "malformed_expected_protocol"
+    for tag, d in (("registry", proto), ("expected", expected)):
+        for field in ("protocol_version", "n_features", "feature_dim"):
+            v = d.get(field)
+            if isinstance(v, bool) or not isinstance(v, int):
+                return f"malformed_{tag}_{field}"
+        keys = d.get("feature_keys")
+        if not (isinstance(keys, list) and all(isinstance(k, str) for k in keys)):
+            return f"malformed_{tag}_feature_keys"
+        masking = d.get("masking")
+        if masking is not None and not isinstance(masking, dict):
+            return f"malformed_{tag}_masking"
+    return None
 
 
 def verify_feature_protocol(pkl_name: str, expected: dict) -> tuple[bool, str]:
@@ -951,7 +1051,15 @@ def verify_feature_protocol(pkl_name: str, expected: dict) -> tuple[bool, str]:
     旧实现只比 keys/dim/enabled——布局翻转（value_then_mask → mask_then_value）
     或填充值漂移在维度不变时无法被发现，属于「契约在、语义已漂」。
 
-    ok=False 的 reason ∈ {"no_entry", "no_protocol", "protocol_version_mismatch",
+    D-01（2026-09-29 面 2 审查）：malformed 输入一律结构化拒绝、绝不抛异常——
+    registry.json 可被手工编辑（D-08 裁决接受此威胁模型），畸形是可达输入。
+    双侧先过 ``_protocol_type_error`` 类型收口（含删除 int() 强转：'1'/True
+    等类型污染不再静默放行），再逐字段比较。
+
+    ok=False 的 reason ∈ {"no_entry", "malformed_entry", "no_protocol",
+    "malformed_registry_protocol" / "malformed_expected_protocol"（整块非 dict）,
+    "malformed_{registry|expected}_{protocol_version|n_features|feature_dim|
+    feature_keys|masking}"（D-01 类型收口族）, "protocol_version_mismatch",
     "feature_keys_mismatch", "n_features_mismatch", "feature_dim_mismatch",
     "masking_mismatch"}。
     """
@@ -959,16 +1067,22 @@ def verify_feature_protocol(pkl_name: str, expected: dict) -> tuple[bool, str]:
     entry = reg["models"].get(pkl_name)
     if entry is None:
         return False, "no_entry"
-    proto = entry.get("feature_protocol")
+    if not isinstance(entry, dict):
+        # D-01：条目被手改成非 dict → 结构化拒绝（旧实现在 proto.get 崩溃）。
+        return False, "malformed_entry"
+    proto = entry.get("feature_protocol") if isinstance(entry, dict) else None
     if proto is None:
         return False, "no_protocol"
-    if int(proto.get("protocol_version", -1)) != int(expected.get("protocol_version", -2)):
+    type_err = _protocol_type_error(proto, expected)
+    if type_err is not None:
+        return False, type_err
+    if proto["protocol_version"] != expected["protocol_version"]:
         return False, "protocol_version_mismatch"
-    if list(proto.get("feature_keys", [])) != list(expected.get("feature_keys", [])):
+    if proto["feature_keys"] != expected["feature_keys"]:
         return False, "feature_keys_mismatch"
-    if int(proto.get("n_features", -1)) != int(expected.get("n_features", -2)):
+    if proto["n_features"] != expected["n_features"]:
         return False, "n_features_mismatch"
-    if int(proto.get("feature_dim", -1)) != int(expected.get("feature_dim", -2)):
+    if proto["feature_dim"] != expected["feature_dim"]:
         return False, "feature_dim_mismatch"
     if proto.get("masking") != expected.get("masking"):
         return False, "masking_mismatch"
