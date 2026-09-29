@@ -737,16 +737,90 @@ def check_worktree_clean(a: Audit) -> None:
               PASS if clean else WARN, detail)
 
 
+def _shadow_channel_defs(p: Path) -> tuple[tuple[str, ...] | None, bool, str]:
+    """AST 提取 shadow_policy 侧通道定义 → ``(channels, has_loader, err)``。
+
+    - ``channels``：模块级 ``CHANNELS`` 常量元组的字面量元素；缺失 / 非字面量
+      （动态表达式）⇒ ``None``——判据读不出定义就是漂移，不猜。
+    - ``has_loader``：``load_records_by_channel`` 是否有模块级函数定义。
+    - ``err``：非空 = 文件不可读 / 不可解析（**不可核验 ≠ 无**，调用方判 WARN）。
+
+    D-04（2026-09-29 Summer 裁决：选项 2 AST 判据，不 import shadow_policy）。
+    实测代价对比（2026-09-28，子进程隔离计时）：``import shadow_policy`` 耗时
+    9.88s / 新增 1245 模块 / 带起 numpy+scipy+sklearn+forecast_engine；对照
+    ``import core.model_registry``（P1-13 用的）仅 0.55s / 84 模块 / 零重依赖。
+    审计 CLI 是独立入口（run.py post 之外的 A 复核、开发自检都直接跑它），
+    不为一条「通道定义是否漂移」的存在性检查付 18 倍启动代价——这也是
+    ``classify()`` 注释里既有约束（不 import shadow_policy）的同一取舍。
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+        return None, False, f"{type(exc).__name__}: {exc}"
+    channels: tuple[str, ...] | None = None
+    has_loader = False
+    for node in tree.body:                      # 只看模块级：不认函数内局部定义
+        if isinstance(node, ast.FunctionDef):
+            if node.name == "load_records_by_channel":
+                has_loader = True
+        elif isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if not (isinstance(tgt, ast.Name) and tgt.id == "CHANNELS"):
+                    continue
+                try:
+                    val = ast.literal_eval(node.value)
+                except (ValueError, TypeError, SyntaxError):
+                    val = None                  # 动态构造 ⇒ 判据读不出字面量
+                if isinstance(val, (tuple, list)) and all(
+                        isinstance(x, str) for x in val):
+                    channels = tuple(val)
+    return channels, has_loader, ""
+
+
 def check_shadow_channels(a: Audit) -> None:
+    """P1-5：shadow_policy 侧通道定义与本脚本 ``EXPECTED_CHANNELS`` 未漂移。
+
+    D-04（2026-09-29）：由「源码子串匹配」改为 AST 结构判据（见
+    ``_shadow_channel_defs``）。子串匹配的两个失效面都被堵上：
+      ① 通道名只出现在注释 / 无关字符串里也算「命中」⇒ **假 PASS**；
+      ② 通道改名但语义仍在 ⇒ 误报 FAIL。
+    现判据读的是 ``CHANNELS`` 常量元组的**元素集合**与
+    ``load_records_by_channel`` 的**模块级定义**：定义漂移（缺通道 / 多通道 /
+    动态化 / 函数消失）必 FAIL，注释里写字面量不再影响结论。
+
+    诚实边界：函数体内部逻辑坏（定义在、实现错）AST 测不出——那不是 P1-5 的
+    职责（P1-5 只管通道定义与 audit 侧镜像未漂移），行为正确性由
+    ``tests/test_shadow_policy.py`` 覆盖。
+    """
+    cid, axis, title = "P1-5", "P1-证据链", "影子证据通道隔离"
     src = BASE_DIR / "shadow_policy.py"
-    txt = src.read_text(encoding="utf-8") if src.is_file() else ""
-    if not txt:
-        a.add("P1-5", "P1-证据链", "影子证据通道隔离", WARN, "shadow_policy.py 未找到")
+    if not src.is_file():
+        a.add(cid, axis, title, WARN, "shadow_policy.py 未找到")
         return
-    ok = all(c in txt for c in EXPECTED_CHANNELS) and "load_records_by_channel" in txt
-    a.add("P1-5", "P1-证据链", "影子证据通道隔离",
-          PASS if ok else FAIL,
-          "" if ok else "未见 CHANNELS / load_records_by_channel")
+    channels, has_loader, err = _shadow_channel_defs(src)
+    if err:
+        a.add(cid, axis, title, WARN, f"shadow_policy.py 不可解析，无法核验：{err}")
+        return
+    problems = []
+    if channels is None:
+        problems.append("CHANNELS 常量元组缺失或非字面量（定义已漂移/动态化）")
+    else:
+        missing = [c for c in EXPECTED_CHANNELS if c not in channels]
+        extra = [c for c in channels if c not in EXPECTED_CHANNELS]
+        if missing:
+            problems.append(f"缺通道 {missing}")
+        if extra:
+            # audit 侧 classify() 是 shadow_policy.record_channel 的镜像：
+            # 多出的通道会被镜像判成 unclassified，属两侧漂移，必须同步。
+            problems.append(f"多出未登记通道 {extra}（audit 侧 EXPECTED_CHANNELS 需同步）")
+    if not has_loader:
+        problems.append("load_records_by_channel 无模块级定义")
+    detail = (f"CHANNELS={list(channels)}" if channels is not None
+              else "CHANNELS 不可判读")
+    a.add(cid, axis, title, PASS if not problems else FAIL,
+          detail + ("；" + "；".join(problems) if problems else ""))
 
 
 def check_legacy_archived(a: Audit) -> None:

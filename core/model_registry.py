@@ -620,6 +620,19 @@ def update_promotion(pkl_name: str, status: str, reason: str) -> bool:
     ⚠️ P3（2026-09-01）后正常路径是 bind_validation(auto_promotion=True)
     自动推导；本接口保留用于人工复核后的例外覆写，覆写会在 derived_by
     字段缺失上与纯函数产物可区分（审计可辨）。
+
+    D-08（2026-09-29 Summer 裁决：维持现状，**不加 approved 白名单**）。
+    外部复审曾提议在此禁写 approved，理由是「先写 approved、后补 evidence」
+    的时间窗。裁决维持下游拦截，依据三条代码实证：
+      ① 唯一真实授权门 verify_approval() 现场重推 derive_promotion，
+         手填 approved 而证据不过五门 ⇒ promotion_evidence_inconsistent 拒绝
+         （契约测试 test_promotion_rule_v2.py::test_hand_forged_approved_
+         cannot_survive_rederivation 钉死，B++-4）；
+      ② 审计 P1-13 使该时间窗**可见**：手填 approved 与推导不一致 ⇒ FAIL 示众，
+         下次审计即曝光，不再是隐形状态；
+      ③ 白名单挡不住真攻击者——直接改 registry.json 文件即绕过，它只挡误手填，
+         而误手填已由 ①② 兜住；代价却是砍掉应急覆写通道 + 改 B++-4 契约测试。
+    故：上游保持可写（应急通道），安全性由「硬门 + 审计可见性」双层承担。
     """
     reg = load_registry()
     entry = reg["models"].get(pkl_name)

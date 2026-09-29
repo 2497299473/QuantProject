@@ -1,6 +1,12 @@
 """审计检查项行为测试（D 批修复，2026-09-28）。
 
-覆盖本轮问题单落到 audit_project.py 的五个改动面：
+覆盖本轮问题单落到 audit_project.py / core/model_registry.py 的六个改动面：
+- D-04  P1-5 影子通道隔离：AST 结构判据（CHANNELS 常量元组 + 模块级函数定义），
+        不 import shadow_policy（实测 9.88s/1245 模块/带起 numpy+scipy+sklearn）；
+        注释里出现通道名不再构成假 PASS。
+- D-08  update_promotion 维持下游拦截（Summer 裁决）：零逻辑改动，裁决依据写入
+        docstring 留痕；安全性由 verify_approval 硬门 + 审计 P1-13 双层承担，
+        既有契约测试 test_promotion_rule_v2.py 保持原样即为回归证据。
 - D-05  P2-2 Tushare HTTPS：AST 字符串常量判据（注释/docstring 不计、常量必算、
         命中 FAIL、不可解析 WARN）；扫描面限定 core/experiments/根级入口。
 - D-06  P2-3 测试分层：四环链（LAYERS 登记覆盖 / 死条目 / conftest 接线 /
@@ -339,6 +345,117 @@ class TestPreregGrantHygiene(unittest.TestCase):
         c = self._check({"enabled": True, "grants": ["x"]})
         self.assertEqual(c.status, ap.WARN)
         self.assertIn("fail-closed", c.detail)
+
+
+# ---------------------------------------------------------------- D-04 P1-5
+
+class TestShadowChannelsAST(unittest.TestCase):
+    """AST 结构判据：读 CHANNELS 常量元组与函数定义，不 import shadow_policy。
+
+    D-04（2026-09-29 裁决选项 2）。核心回归：**通道名只出现在注释/字符串里**
+    时旧子串匹配会假 PASS，新判据必须 FAIL——这是 A 提出 D-04 的原点。
+    """
+
+    REAL = "CHANNELS = ('approved_full', 'prereg_degraded', 'legacy_invalid')\n"
+    LOADER = "def load_records_by_channel(path):\n    return {}\n"
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._td.name)
+        self.src = self.tmp / "shadow_policy.py"
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def _check(self):
+        return _run(ap.check_shadow_channels, BASE_DIR=self.tmp)
+
+    def test_real_repo_passes(self):
+        """真仓 shadow_policy.py：判据必须 PASS（不得因改写引入误报）。"""
+        c = _run(ap.check_shadow_channels)
+        self.assertEqual(c.status, ap.PASS, c.detail)
+        self.assertEqual(c.cid, "P1-5")
+        self.assertIn("approved_full", c.detail)
+
+    def test_wellformed_passes(self):
+        self.src.write_text(self.REAL + self.LOADER, encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.PASS, c.detail)
+
+    def test_comment_only_fakes_no_longer_pass(self):
+        """D-04 验收核心：通道名仅在注释/docstring ⇒ FAIL（旧判据会假 PASS）。"""
+        self.src.write_text(
+            '"""影子记录器。\n'
+            "通道有 approved_full / prereg_degraded / legacy_invalid 三条。\n"
+            '"""\n'
+            "# 另有 load_records_by_channel 负责分桶\n"
+            "X = 1\n", encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL,
+                         "通道定义缺失却因注释命中而 PASS = 假 PASS，必须堵死")
+        self.assertIn("CHANNELS", c.detail)
+
+    def test_missing_channel_fails(self):
+        self.src.write_text(
+            "CHANNELS = ('approved_full', 'legacy_invalid')\n" + self.LOADER,
+            encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL)
+        self.assertIn("缺通道", c.detail)
+        self.assertIn("prereg_degraded", c.detail)
+
+    def test_extra_channel_fails_and_asks_sync(self):
+        """多出通道 = 两侧镜像漂移（audit classify() 会判成 unclassified）。"""
+        self.src.write_text(
+            "CHANNELS = ('approved_full', 'prereg_degraded', 'legacy_invalid',"
+            " 'new_channel')\n" + self.LOADER, encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL)
+        self.assertIn("new_channel", c.detail)
+        self.assertIn("EXPECTED_CHANNELS", c.detail)
+
+    def test_dynamic_channels_fails(self):
+        """动态构造（非字面量）⇒ 判据读不出定义，按漂移 FAIL 不猜。"""
+        self.src.write_text(
+            "CHANNELS = tuple(ch for ch in _discover())\n" + self.LOADER,
+            encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL)
+        self.assertIn("非字面量", c.detail)
+
+    def test_loader_missing_fails(self):
+        self.src.write_text(self.REAL, encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL)
+        self.assertIn("load_records_by_channel", c.detail)
+
+    def test_function_local_channels_not_counted(self):
+        """函数内局部 CHANNELS 不是模块级定义 ⇒ FAIL（判据只看模块级）。"""
+        self.src.write_text(
+            "def f():\n"
+            "    CHANNELS = ('approved_full', 'prereg_degraded', 'legacy_invalid')\n"
+            "    return CHANNELS\n" + self.LOADER, encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.FAIL)
+
+    def test_file_missing_warns(self):
+        c = self._check()
+        self.assertEqual(c.status, ap.WARN)
+        self.assertIn("未找到", c.detail)
+
+    def test_unparsable_warns_not_fails(self):
+        self.src.write_text("def f(:\n", encoding="utf-8")
+        c = self._check()
+        self.assertEqual(c.status, ap.WARN, "不可核验 ≠ 漂移：WARN 不 FAIL")
+        self.assertIn("不可解析", c.detail)
+
+    def test_no_heavy_import_side_effect(self):
+        """裁决依据留痕：判据不得把 shadow_policy 拉进 sys.modules（18 倍代价）。"""
+        self.src.write_text(self.REAL + self.LOADER, encoding="utf-8")
+        self.assertNotIn("shadow_policy", sys.modules)
+        self._check()
+        self.assertNotIn("shadow_policy", sys.modules,
+                         "P1-5 必须零依赖：import shadow_policy 实测 9.88s/1245 模块")
 
 
 # ---------------------------------------------------------------- 接线与排序
