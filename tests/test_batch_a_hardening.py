@@ -199,6 +199,134 @@ class TestArtifactVerifierDecoupling(unittest.TestCase):
         self.assertEqual(err, "registry git_commit 缺失")
 
 
+# ---------- D-03（2026-09-29 面 2 审查）：training_git 接缝负向用例 ----------
+
+
+class TestTrainingGitSeamNegative(unittest.TestCase):
+    """钉住「验证器产出 → bind 对账」接缝（D-03）。
+
+    旧现状：assemble_validation_evidence 的 provenance.git_commit 是纯参数透传，
+    test_artifact_mode_uses_training_git 只有正向断言；伪造的 training_git 会
+    平静进入 evidence 留档，直到 bind 时才被拦。本类钉住两件事：
+    ① 伪造 training_git 构造的 report/evidence 经 bind 接缝必被拒，且拒绝
+      reason 含 git_commit（validate_validation_provenance 与
+      bind_validation_evidence 双接缝）；
+    ② 混合态 model_sha256 有值但 training_git=None 且无 verifier head 时，
+      evidence 的 provenance.git_commit 必落 UNKNOWN（不编造），且该形态
+      进 derive_promotion 必 blocked_provenance（UNKNOWN 不得静默变可授权）。
+    """
+
+    def setUp(self):
+        model_registry.PKL_DIR.mkdir(parents=True, exist_ok=True)
+        self._orig_registry = (
+            model_registry.REGISTRY_PATH.read_text(encoding="utf-8")
+            if model_registry.REGISTRY_PATH.exists() else None)
+        self.pkl = model_registry.PKL_DIR / "_test_d03_seam.pkl"
+        self._cleanup()
+        # 带完整血统登记（训练 commit = d×40，同 TestArtifactVerifierDecoupling 惯例）
+        self.train_commit = "d" * 40
+        payload = {
+            "model_version": forecast_engine.MODEL_VERSION,
+            "feature_keys": list(forecast_engine.FEATURE_KEYS),
+            "horizons": [1, 3, 5], "flat_margin": 0.003,
+            "dirmodels": {h: _StubDirModel() for h in (1, 3, 5)},
+        }
+        self.pkl.write_bytes(pickle.dumps(payload))
+        with mock.patch("core.model_registry.capture_provenance",
+                        return_value={"data_manifest_sha256": "test-manifest",
+                                      "git_commit": self.train_commit}):
+            digest = model_registry.register_model(
+                self.pkl, meta={},
+                snapshot_provenance={"snapshot_file": "samples_frozen_x.jsonl",
+                                     "samples_sha256_lf": "a" * 64,
+                                     "kfp_recorded_sha256": "b" * 64,
+                                     "kfp_current_sha256": "b" * 64,
+                                     "kfp_comparability": "SAME"})
+        self.assertIsNotNone(digest)
+        model_registry.bind_feature_protocol(
+            self.pkl.name,
+            model_registry.make_feature_protocol(
+                forecast_engine.FEATURE_KEYS,
+                masking=forecast_engine.MASKING_PROTOCOL))
+
+    def tearDown(self):
+        self._cleanup()
+        if self._orig_registry is not None:
+            model_registry.REGISTRY_PATH.write_text(self._orig_registry, encoding="utf-8")
+        else:
+            model_registry.REGISTRY_PATH.unlink(missing_ok=True)
+
+    def _cleanup(self):
+        self.pkl.unlink(missing_ok=True)
+        reg = model_registry.load_registry()
+        reg["models"].pop(self.pkl.name, None)
+        model_registry._save_registry(reg)
+
+    def _write_report(self, git_commit: str) -> Path:
+        entry = model_registry.get_model_entry(self.pkl.name)
+        prov = {"validation_mode": "ARTIFACT",
+                "artifact_sha256": entry["sha256"],
+                "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                "git_commit": git_commit}
+        report = model_registry.PKL_DIR / "_test_d03_report.log"
+        report.write_text(
+            "evidence\nPROVENANCE_JSON="
+            + json.dumps(prov, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8")
+        return report
+
+    def test_forged_training_git_rejected_by_validate_provenance(self):
+        """① 接缝一：validate_validation_provenance 对伪造 git_commit 给出含 git_commit 的 reason。"""
+        entry = model_registry.get_model_entry(self.pkl.name)
+        forged = {"validation_mode": "ARTIFACT",
+                  "artifact_sha256": entry["sha256"],
+                  "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
+                  "git_commit": "f" * 40}          # 伪造训练血统
+        ok, reason = model_registry.validate_validation_provenance(
+            self.pkl.name, forged)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "validation_provenance_git_commit_mismatch")
+
+    def test_forged_training_git_rejected_by_bind_validation(self):
+        """① 接缝二：伪造 training_git 的 report 经 bind_validation 必被拒，一字不写。"""
+        report = self._write_report("f" * 40)       # 伪造训练血统
+        try:
+            self.assertFalse(model_registry.bind_validation(
+                self.pkl.name, str(report), "approved"))
+            entry = model_registry.get_model_entry(self.pkl.name)
+            self.assertNotIn("validation", entry)   # 拒绑后无残留
+            # 对照：真实血统可绑（证明拒绝确由 git_commit 失配触发，非其他门）
+            report_ok = self._write_report(self.train_commit)
+            self.assertTrue(model_registry.bind_validation(
+                self.pkl.name, str(report_ok), "approved"))
+        finally:
+            report.unlink(missing_ok=True)
+            (model_registry.PKL_DIR / "_test_d03_report.log").unlink(missing_ok=True)
+
+    def test_mixed_state_sha_without_training_git_falls_unknown(self):
+        """② 混合态：model_sha256 有值但 training_git=None 且无 verifier head
+        → provenance.git_commit 必落 UNKNOWN（不拿 sha 或空值编造 commit），
+        且该形态进 derive_promotion 必 blocked_provenance。"""
+        from tests.test_promotion_rule_v2 import _full_pass_evidence_v2
+        ev = B.assemble_validation_evidence(
+            {}, {}, {}, [1],
+            {"mode": "FROZEN", "file": "samples_frozen_x.jsonl",
+             "snapshot_provenance": {"snapshot_file": "samples_frozen_x.jsonl",
+                                     "samples_sha256_lf": "a" * 64}},
+            overall_ok=True, git_head=None, produced_at="t",
+            model_sha256="c" * 64, training_git=None)
+        self.assertEqual(ev["provenance"]["artifact_sha256"]["status"], S.STATUS_OK)
+        self.assertEqual(ev["provenance"]["git_commit"]["status"], S.STATUS_UNKNOWN)
+        self.assertIsNone(ev["provenance"]["git_commit"]["value"])
+        ok, errs = S.validate_evidence(ev)
+        self.assertTrue(ok, errs)
+        # UNKNOWN 血统不得静默变可授权：五门全过夹具仅改此键 → blocked_provenance
+        full = _full_pass_evidence_v2()
+        full["provenance"]["git_commit"] = S.ev_na(S.STATUS_UNKNOWN)
+        d = model_registry.derive_promotion({"decision": "approved", "evidence": full})
+        self.assertEqual(d["status"], "blocked_provenance")
+
+
 # ---------- A5：prereg 覆写闸门 ----------
 
 

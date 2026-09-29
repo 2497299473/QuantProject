@@ -221,13 +221,14 @@ class TestRegistryIntegration(unittest.TestCase):
         report = self.tmp / "report.log"
         payload = json.dumps(provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         report.write_text("evidence" + "\n" + "PROVENANCE_JSON=" + payload, encoding="utf-8")
+        # D-04（2026-09-29 面 2 审查）：evidence 经 bind_validation 的 schema 校验
+        # 入口写入（不合格则整体拒绑）；旧夹具直改 registry["validation"]["evidence"]
+        # 注入会掩盖通道唯一性（若 bind 校验被放松，直改夹具仍绿）。
         self.assertTrue(model_registry.bind_validation(
             pkl.name, str(report), "approved",
             {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
-             for h in (1, 3, 5)}))
-        reg = model_registry.load_registry()
-        reg["models"][pkl.name]["validation"]["evidence"] = evidence
-        self.assertTrue(model_registry._save_registry(reg))
+             for h in (1, 3, 5)},
+            evidence=evidence))
         return pkl, proto
     def test_apply_promotion_writes_v2_approved_and_verify_passes(self):
         pkl, proto = self._seed(_full_pass_evidence_v2())

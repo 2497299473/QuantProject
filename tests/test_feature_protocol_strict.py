@@ -122,5 +122,41 @@ class TestFeatureProtocolStrictVerify(unittest.TestCase):
         self.assertEqual(reason, "feature_dim_mismatch")
 
 
+class TestMaskingProtocolSingleSource(unittest.TestCase):
+    """D-02（2026-09-29 面 2 审查）：掩码协议单一事实源守护。
+
+    旧现状：model_registry.B1_MASKING_PROTOCOL 与 forecast_engine.MASKING_PROTOCOL
+    是两份字面重复的 dict，只靠注释「两处须同步维护」约束；任一侧漂移（如改
+    mask_value）会使 save_models 登记协议与 load_models 期望协议全量失配，
+    所有模型静默落 masking_mismatch。
+    现 forecast_engine.MASKING_PROTOCOL 直接引用同一对象；本测试钉住：
+    ① 同源（is 同一对象，非 == 副本）；② 具体字段值（改任一侧字段值即红灯）。
+    """
+
+    def test_constants_are_same_object(self):
+        from core import forecast_engine
+        self.assertIs(forecast_engine.MASKING_PROTOCOL,
+                      model_registry.B1_MASKING_PROTOCOL)
+
+    def test_field_values_pinned(self):
+        """漂移场景红灯：改任一字段值，本断言失败（同源之上再钉具体值）。"""
+        from core import forecast_engine
+        for mod in (model_registry.B1_MASKING_PROTOCOL,
+                    forecast_engine.MASKING_PROTOCOL):
+            self.assertEqual(mod, {"enabled": True,
+                                   "layout": "value_then_mask",
+                                   "missing_value": 0.0,
+                                   "mask_value": 1.0})
+
+    def test_protocol_uses_single_source(self):
+        """make_feature_protocol 消费同源常量：双列布局 feature_dim = n×2。"""
+        from core import forecast_engine
+        proto = model_registry.make_feature_protocol(
+            forecast_engine.FEATURE_KEYS, masking=forecast_engine.MASKING_PROTOCOL)
+        self.assertEqual(proto["feature_dim"], 2 * len(forecast_engine.FEATURE_KEYS))
+        self.assertEqual(proto["masking"], model_registry.B1_MASKING_PROTOCOL)
+        self.assertEqual(forecast_engine.current_feature_protocol(), proto)
+
+
 if __name__ == "__main__":
     unittest.main()

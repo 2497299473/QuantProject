@@ -120,13 +120,15 @@ FEATURE_KEYS = [
 BASE_FEATURE_KEYS = list(FEATURE_KEYS)
 
 # B1 缺失掩码布局（2026-08-31）：推理/训练同协议——每特征 (值, missing_mask) 双列，
-# 7 逻辑特征 = 14 实际维。与 model_registry.B1_MASKING_PROTOCOL 同构，两处须同步。
-MASKING_PROTOCOL = {
-    "enabled": True,
-    "layout": "value_then_mask",
-    "missing_value": 0.0,
-    "mask_value": 1.0,
-}
+# 7 逻辑特征 = 14 实际维。
+# D-02（2026-09-29 面 2 审查）：单一事实源——此前本常量与
+# model_registry.B1_MASKING_PROTOCOL 是两份字面重复，只靠「两处须同步维护」
+# 注释约束；任一侧漂移会使 save_models 登记协议与 load_models 期望协议全量
+# 失配（所有模型静默落 masking_mismatch）。现直接引用同一对象，结构上不可能
+# 漂移；同源守护测试见 tests/test_feature_protocol_strict.py::
+# TestMaskingProtocolSingleSource（改字段值即红灯）。
+# import 方向：model_registry 不 import forecast_engine，顶层引入不成环。
+from core.model_registry import B1_MASKING_PROTOCOL as MASKING_PROTOCOL
 
 
 def current_feature_protocol() -> dict:

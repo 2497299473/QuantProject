@@ -1,0 +1,17 @@
+HEAD-ANCHOR: probe runs against working tree at D:\PythonProject\QuantV1
+[PROBE] verify_feature_protocol protocol_version='abc': REJECTED (False, 'malformed_registry_protocol_version')
+[PROBE] verify_feature_protocol protocol_version='1' (类型污染): REJECTED (False, 'malformed_registry_protocol_version')
+[PROBE] verify_feature_protocol protocol_version=True (类型污染): REJECTED (False, 'malformed_registry_protocol_version')
+[PROBE] verify_feature_protocol feature_keys='str' (非列表): REJECTED (False, 'malformed_registry_protocol_version')
+[PROBE] verify_feature_protocol expected=None: REJECTED (False, 'malformed_expected_protocol')
+[PROBE] verify_feature_protocol feature_protocol=str (整块畸形): REJECTED (False, 'malformed_registry_protocol')
+[PROBE] verify_approval promotion='approved' (str): REJECTED (False, 'malformed_promotion')
+[PROBE] verify_approval snapshot_provenance='SAME' (str): REJECTED (False, 'malformed_snapshot_provenance')
+[PROBE] verify_approval validation.provenance=str: REJECTED (False, 'malformed_validation_provenance')
+[PROBE] verify_approval expected=None: REJECTED (False, 'feature_protocol:malformed_expected_protocol')
+[PROBE] verify_validation_report report_file=123: REJECTED (False, 'validation_report_unbound')
+[PROBE] get_model_entry entry=str: RETURNED None
+[PROBE] read_verified_model_bytes entry=str: RETURNED (None, 'malformed_entry')
+[PROBE] verify_feature_protocol entry=str: REJECTED (False, 'malformed_entry')
+[PROBE] register_model 畸形邻居在场: RETURNED '7a247c591317c3833375afc49fb2b2bfe861b4c19d594f8f87c944f610dc0fc1'
+[PROBE] verify_approval 全绿对照: PASSED-THROUGH (True, 'ok')  <-- 注意：放行
