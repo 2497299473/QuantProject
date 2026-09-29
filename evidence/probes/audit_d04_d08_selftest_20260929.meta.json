@@ -1,0 +1,51 @@
+{
+  "topic": "审计 D-04/D-08 批次修复自测（外部复审问题单收尾）",
+  "date": "2026-09-29",
+  "command": [
+    "py_compile audit_project.py core/model_registry.py tests/test_audit_hygiene.py",
+    "python -X utf8 -m unittest tests.test_audit_hygiene -v",
+    "python -X utf8 run_tests.py --layer fast",
+    "python -X utf8 run_tests.py --layer slow",
+    "python -X utf8 audit_project.py --no-write",
+    "import 代价探针（core.model_registry vs shadow_policy）"
+  ],
+  "base_commit": "e72c3a3549206c0293b8cefd409c752fe3ef264c",
+  "scope": {
+    "D-04": "P1-5 check_shadow_channels 由源码子串匹配改为 AST 结构判据；新增 _shadow_channel_defs；不 import shadow_policy（裁决选项2）",
+    "D-08": "update_promotion 维持现状（裁决选项2，零逻辑改动）；裁决依据写入 docstring 留痕；B++-4 契约测试不动"
+  },
+  "inputs": {
+    "files_changed": [
+      "audit_project.py",
+      "core/model_registry.py",
+      "tests/test_audit_hygiene.py"
+    ],
+    "note": "本轮为静态判据与测试改动，无数据输入；审计冒烟读真实 data/ 与 output/（只读）"
+  },
+  "verdict": {
+    "py_compile": "PASS (rc=0)",
+    "test_audit_hygiene": null,
+    "fast_layer": "见 log（Ran 703 tests / OK）",
+    "slow_layer": "见 log（Ran 188 tests / OK (skipped=3)）",
+    "audit_smoke_stderr_bytes": 0,
+    "audit_smoke_note": "exit=2 属预期：唯一 FAIL 为 P1-2 历史报告缺失（09-22 已登记预留项，非本批引入）；P1-9 WARN 为时间敏感项（09-29 11:30 mid 槽尚未跑）",
+    "d04_import_cost": {
+      "core.model_registry": "0.55s / 84 模块 / 零重依赖（P1-13 已用）",
+      "shadow_policy": "9.88s / 1245 模块 / numpy+scipy+sklearn+forecast_engine",
+      "ratio": "18x —— 裁决选项2（AST 判据）的量化依据"
+    },
+    "bound_to_registry": false,
+    "bound_note": "静态判据与测试批次，不涉及模型授权链，无 bind_validation"
+  },
+  "returncodes": {
+    "$ git rev-parse HEAD": 0,
+    "$ git status --porcelain": 0,
+    "$ .venv python -X utf8 -m py_compile audit_project.py core/m": 0,
+    "$ .venv python -X utf8 -m unittest tests.test_audit_hygiene ": 0,
+    "$ .venv python -X utf8 run_tests.py --layer fast": 0,
+    "$ .venv python -X utf8 run_tests.py --layer slow": 0,
+    "$ .venv python -X utf8 audit_project.py --no-write": 2,
+    "D-04 import cost probe": null
+  },
+  "log_sha256": "7252f4fc23d2de7232d37435848feb8a26d2f801b3989655792573eb7dd3732d"
+}

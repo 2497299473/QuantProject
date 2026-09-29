@@ -23,6 +23,7 @@
 
 | 日期 | 主题 | 文件 | 状态 | 备注 |
 |:--|:--|:--|:--|:--|
+| 2026-09-29 | 审计 D-04/D-08 裁决落地自测 | `probes/audit_d04_d08_selftest_20260929.log` + `.meta.json` | FRESH | P1-5 改 AST 结构判据（import 代价实测 18× 为裁决依据）；D-08 维持下游拦截零逻辑改动；fast 703 OK / slow 188 OK(skipped=3) / audit stderr 0 字节；P1-2 FAIL 与 P1-9 WARN 均为既有项非本批引入 |
 | 2026-09-28 | 审计 D 批修复自测（D-01/02/03/05/06/07/09） | `probes/audit_d_batch_selftest_20260928.log` + `.meta.json` | FRESH | fast 692 OK / slow 188 OK / audit 零 stderr；P1-2 FAIL 为既有预留项非本批引入 |
 | — | （待落档） | — | — | 探针输出仍在 `output/`（gitignored），后续按需迁入 |
 
