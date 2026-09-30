@@ -64,11 +64,55 @@ def _empty_provenance(snapshot_file: str | None) -> dict:
     return d
 
 
+def _select_latest(cands: list[tuple[str, float, Path]]) -> Path | None:
+    """D-04（2026-09-30 面 4 审计）：候选冻结件选择策略（纯函数，可测缝）。
+
+    输入 (tag, mtime, path) 候选列表（已过滤为规范 8 位标签），返回选中件或 None。
+    旧行为：按 (tag, mtime) 排序取尾 —— mtime 可被文件操作（copy/restore）
+    扰动，非内容权威。新策略：最大 tag 内逐件过 G-A（sha/行数/降级征兆，
+    与消费时同一判据 verify_internal）：
+    - 恰一件合法 → 取之（自动跳过坏件）；
+    - 多件均合法 → 显式警告列出候选（供人工裁决），取 mtime 新者（不阻断）；
+    - 全部不合法 → None（调用方走 MISSING fail-closed，不选坏件充数）。
+
+    诚实标注：当前命名约定下 tag 派生自文件名（samples_frozen_<tag>.jsonl），
+    同目录同 tag 必同文件名 ⇒ 「同日多件」经文件系统**结构不可达**（重冻结
+    =覆写同名件）；本函数是防御性收口 + 把「按内容权威选件」策略变成可测
+    纯函数。可达路径的保障不变：resolve_samples 消费前必过 G-A（INVALID 即
+    fail-closed），本函数不替代那道门。
+    """
+    if not cands:
+        return None
+    cands = sorted(cands, key=lambda t: (t[0], t[1]))
+    top_tag = cands[-1][0]
+    same_tag = [c for c in cands if c[0] == top_tag]
+    if len(same_tag) == 1:
+        return same_tag[0][2]
+    valid: list[tuple[float, Path]] = []
+    for _tag, mt, p in same_tag:
+        ok, detail, _sha = verify_internal(p)
+        if ok:
+            valid.append((mt, p))
+        else:
+            print(f"[frozen] 同日多件候选 G-A 不合格，跳过 {p}：{detail}")
+    if not valid:
+        print(f"[frozen] 标签 {top_tag} 同日 {len(same_tag)} 件全部 G-A 不合格 → "
+              f"MISSING fail-closed（不选坏件充数）")
+        return None
+    if len(valid) > 1:
+        print(f"[frozen][WARN] 标签 {top_tag} 同日有 {len(valid)} 件均通过 G-A："
+              f"{[str(p) for _mt, p in valid]}（mtime 新者将被选用；"
+              f"请人工确认是否清理冗余件）")
+        return max(valid)[1]
+    return valid[0][1]
+
+
 def latest_frozen_samples(base_dir: Path) -> Path | None:
-    """选最新 canonical 冻结件：按文件名日期标签（YYYYMMDD），同标签按 mtime。
+    """选最新 canonical 冻结件：发现规范命名候选 → 交 _select_latest 策略选件。
 
     只认 8 位数字标签——`freeze_failed_*` 留证目录、临时件、非规范命名一律
     不选（静默选错件比选不到更危险；选不到走 MISSING fail-closed）。
+    选择策略（D-04：同 tag 多件按 G-A 内容权威而非 mtime）见 _select_latest。
     """
     outdir = base_dir / SNAPSHOT_DIRNAME
     if not outdir.is_dir():
@@ -78,10 +122,7 @@ def latest_frozen_samples(base_dir: Path) -> Path | None:
         tag = p.stem.replace(SNAPSHOT_PREFIX, "")
         if len(tag) == 8 and tag.isdigit():
             cands.append((tag, p.stat().st_mtime, p))
-    if not cands:
-        return None
-    cands.sort(key=lambda t: (t[0], t[1]))
-    return cands[-1][2]
+    return _select_latest(cands)
 
 
 def verify_internal(jsonl: Path) -> tuple[bool, str, str]:

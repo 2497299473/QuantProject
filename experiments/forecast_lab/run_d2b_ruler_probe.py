@@ -47,6 +47,7 @@ sys.path.insert(0, str(BASE / "experiments" / "forecast_lab"))
 
 import numpy as np                                             # noqa: E402
 
+from core import no_net_guard                                  # noqa: E402  D-06 共享守卫
 import run_t3_panel_power as t3                                # noqa: E402 复用存量
 from run_m0_power import (PairedBoot, LGB_PARAMS, N_ROUNDS, HORIZON,  # noqa: E402
                           SEED, N_BOOT, N_DRAW, N_PERM, RHO_GRID,
@@ -267,26 +268,11 @@ def _selftest() -> int:
     rows_m = [{"rho": 0.0, "mean_delta_obs": 0.01, "power": 0.0},
               {"rho": 0.1, "mean_delta_obs": 0.05, "power": 1.0}]
     chk("10 MDE 插值 = 0.042", mde_from_rows(rows_m, 0.8) == 0.042)
-    # 11. 零网络守卫
-    import socket as _socket
-
-    class _NoNet(_socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(t3._BLOCK_MSG)
-
-    orig = _socket.socket
-    _socket.socket = _NoNet
-    msg = None
-    try:
-        try:
-            _socket.socket().connect(("127.0.0.1", 1))
-        except RuntimeError as e:
-            msg = str(e)
-        except OSError as e:
-            msg = f"OS:{type(e).__name__}"
-    finally:
-        _socket.socket = orig
-    chk("11 socket 守卫拦截 connect", msg == t3._BLOCK_MSG)
+    # 11. 零网络守卫（收敛到 no_net_guard 单一实现，D-06；
+    # 结果写入局部变量，不得覆写 nonlocal 计数器 ok/fail）
+    _g_ok, _g_detail = no_net_guard.selftest("[run_d2b] 零网络守卫自检")
+    chk("11 socket 守卫拦截 connect/sendto", _g_ok and "connect" in _g_detail
+        and "sendto" in _g_detail)
     print(f"[run_d2b_ruler_probe SELFTEST] {ok} passed, {fail} failed")
     return 0 if fail == 0 else 1
 
@@ -301,14 +287,8 @@ def main(argv=None) -> int:
     if args.selftest:
         return _selftest()
 
-    # 零网络守卫（装载期后装；本脚本全程不联网）
-    import socket as _socket
-
-    class _NoNet(_socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(t3._BLOCK_MSG)
-
-    _socket.socket = _NoNet
+    # 零网络守卫（装载期后装；本脚本全程不联网）——委托共享实现（D-06）
+    no_net_guard.install(t3._BLOCK_MSG, block_construction=False)
 
     t0 = datetime.now()
     stamp = t0.strftime("%Y%m%d")

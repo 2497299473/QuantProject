@@ -62,6 +62,28 @@ class TestContract(unittest.TestCase):
         self.assertFalse(C.est_chg_live_is_fraction(None))
         self.assertFalse(C.est_chg_live_is_fraction(""))
 
+    def test_est_chg_fraction_suspect(self):
+        """D-01：值域守卫三档（A 验收单指定 5.0 / -3.2 / 0.08）。
+
+        语义：日期判别是「声明」，本函数是「实测」——切换日后误落 pct 量级值
+        （5.0 = 500%？还是 5% 错位？）必须被抓出，不得静默透传进模型。
+        """
+        # 档位 1/2：pct 量级误落 fraction 位 ⇒ 可疑（|v| > 0.25）
+        self.assertTrue(C.est_chg_fraction_suspect(5.0))
+        self.assertTrue(C.est_chg_fraction_suspect(-3.2))
+        # 档位 3：合法 fraction ⇒ 放行
+        self.assertFalse(C.est_chg_fraction_suspect(0.08))
+        self.assertFalse(C.est_chg_fraction_suspect(-0.079))   # 现磁盘实测最大绝对值
+        self.assertFalse(C.est_chg_fraction_suspect(0.0))
+        # 边界：上界内放行、越界拒绝（含等值边界）
+        self.assertFalse(C.est_chg_fraction_suspect(C.EST_CHG_FRACTION_ABS_MAX))
+        self.assertTrue(C.est_chg_fraction_suspect(C.EST_CHG_FRACTION_ABS_MAX + 1e-9))
+        # 缺失是合法态（B1 mask 管），不归守卫拒绝
+        self.assertFalse(C.est_chg_fraction_suspect(None))
+        # 畸形行一律可疑：非数值 / NaN
+        self.assertTrue(C.est_chg_fraction_suspect("5.0"))
+        self.assertTrue(C.est_chg_fraction_suspect(float("nan")))
+
 
 class TestRecomputeRow(unittest.TestCase):
     def setUp(self):
@@ -121,6 +143,58 @@ class TestRecomputeRow(unittest.TestCase):
         for k, v in s.items():
             self.assertEqual(out[k], v)                  # 原行不动，新增并存
         self.assertIn("fwd5_1455", out)
+
+
+class TestDisclosureLag(unittest.TestCase):
+    """D-05（2026-09-30 面 4 审计）：披露滞后档位——prev_nav = nav_rows[i-lag]。"""
+
+    def setUp(self):
+        self.idx = {d: n for n, (d, _) in enumerate(NAV)}
+
+    def test_default_lag1_unchanged(self):
+        """现行境内基金（domestic_t1）行为逐位不变：显式 lag=1 == 缺省调用。"""
+        s = {"date": "2026-01-07", "est_chg": 0.01}
+        a = D.recompute_row(s, NAV, self.idx)             # 缺省 lag=1
+        b = D.recompute_row(s, NAV, self.idx, lag=1)
+        self.assertEqual(a, b)
+        self.assertAlmostEqual(a["_nav_hat_1455"], NAV[1][1] * 1.01, places=9)
+
+    def test_qdii_lag2_uses_t_minus_2_nav(self):
+        """qdii_t2：T=01-07（i=2）的分母基准 = navs[T-2]=NAV[0]，非 NAV[1]。"""
+        s = {"date": "2026-01-07", "est_chg": 0.01}
+        out = D.recompute_row(s, NAV, self.idx, lag=2)
+        self.assertAlmostEqual(out["_nav_hat_1455"], NAV[0][1] * 1.01, places=9)
+        self.assertNotAlmostEqual(out["_nav_hat_1455"], NAV[1][1] * 1.01, places=9)
+
+    def test_lag2_insufficient_history_skips(self):
+        """序列头部不足 lag 支（i < lag）→ None 跳行，不硬造（i=1, lag=2）。"""
+        s = {"date": "2026-01-06", "est_chg": 0.01}
+        self.assertIsNone(D.recompute_row(s, NAV, self.idx, lag=2))
+
+    def test_lag_below_one_rejected(self):
+        """lag<1 拒绝：防误传 0 把 T 日未披露净值当分母（静默前视）。"""
+        s = {"date": "2026-01-07", "est_chg": 0.01}
+        with self.assertRaises(ValueError):
+            D.recompute_row(s, NAV, self.idx, lag=0)
+
+    def test_disclosure_lag_config_driven(self):
+        """档位解析：default / overrides / 缺键回退 / 未知档位 fail-closed。"""
+        cfg = {"nav_disclosure": {"default": "domestic_t1",
+                                  "overrides": {"118002": "qdii_t2"}}}
+        self.assertEqual(D.disclosure_lag("002112", cfg), 1)
+        self.assertEqual(D.disclosure_lag("118002", cfg), 2)
+        self.assertEqual(D.disclosure_lag("002112", {}), 1)       # 无键 → 缺省档
+        with self.assertRaises(ValueError):                       # 写错档位名即炸
+            D.disclosure_lag("002112", {"nav_disclosure": {"default": "moon_t5"}})
+        self.assertEqual(D.DISCLOSURE_PROFILES,
+                         {"domestic_t1": 1, "qdii_t2": 2})
+
+    def test_real_config_four_funds_are_domestic(self):
+        """现行 config.json：四基金全走 default domestic_t1（overrides 空）。"""
+        import json as _json
+        cfg = _json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+        for code in cfg["fund_pool"]:
+            self.assertEqual(D.disclosure_lag(code, cfg), 1, msg=f"fund={code}")
 
 
 if __name__ == "__main__":

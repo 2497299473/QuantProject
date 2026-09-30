@@ -1,0 +1,108 @@
+{
+ "kind": "d07_est_chg_error_band",
+ "produced_at": "2026-09-30",
+ "spec": "err = est_chg - a_T; a_T = navs[T]/navs[T-1]-1（缓存官方净值）",
+ "tracks": [
+  {
+   "label": "frozen_pool(close-approx est_chg)",
+   "overall": {
+    "n": 3371,
+    "mean_abs": 0.006327,
+    "p50_abs": 0.003998,
+    "p90_abs": 0.01445,
+    "max_abs": 0.144582,
+    "mean_signed": 0.000237
+   },
+   "skipped": {
+    "no_cache": 0,
+    "no_a_t": 0
+   },
+   "n_dates": 1530,
+   "per_fund": {
+    "002112": {
+     "n": 1530,
+     "mean_abs": 0.00907,
+     "p50_abs": 0.006821,
+     "p90_abs": 0.018668,
+     "max_abs": 0.144582,
+     "mean_signed": 0.000352
+    },
+    "002207": {
+     "n": 1530,
+     "mean_abs": 0.003213,
+     "p50_abs": 0.002394,
+     "p90_abs": 0.00693,
+     "max_abs": 0.031613,
+     "mean_signed": 0.000285
+    },
+    "022853": {
+     "n": 276,
+     "mean_abs": 0.008467,
+     "p50_abs": 0.00655,
+     "p90_abs": 0.018022,
+     "max_abs": 0.040728,
+     "mean_signed": -0.000662
+    },
+    "025687": {
+     "n": 35,
+     "mean_abs": 0.005663,
+     "p50_abs": 0.004979,
+     "p90_abs": 0.01017,
+     "max_abs": 0.021024,
+     "mean_signed": 0.000177
+    }
+   }
+  },
+  {
+   "label": "live_post(fraction, PROVISIONAL)",
+   "overall": {
+    "n": 16,
+    "mean_abs": 0.001982,
+    "p50_abs": 0.001477,
+    "p90_abs": 0.005418,
+    "max_abs": 0.006732,
+    "mean_signed": -0.001584
+   },
+   "skipped": {
+    "no_cache": 0,
+    "no_a_t": 4
+   },
+   "n_dates": 5,
+   "per_fund": {
+    "002112": {
+     "n": 4,
+     "mean_abs": 0.002845,
+     "p50_abs": 0.00298,
+     "p90_abs": 0.006732,
+     "max_abs": 0.006732,
+     "mean_signed": -0.002749
+    },
+    "002207": {
+     "n": 4,
+     "mean_abs": 0.001411,
+     "p50_abs": 0.00097,
+     "p90_abs": 0.003361,
+     "max_abs": 0.003361,
+     "mean_signed": -0.001045
+    },
+    "022853": {
+     "n": 4,
+     "mean_abs": 0.002986,
+     "p50_abs": 0.00443,
+     "p90_abs": 0.005418,
+     "max_abs": 0.005418,
+     "mean_signed": -0.001938
+    },
+    "025687": {
+     "n": 4,
+     "mean_abs": 0.000687,
+     "p50_abs": 0.000179,
+     "p90_abs": 0.002257,
+     "max_abs": 0.002257,
+     "mean_signed": -0.000601
+    }
+   },
+   "provisional_reason": "切换日 2026-09-23 起 live fraction 行仅 5 个交易日 < 验收要求 30；满 30 日后重跑本脚本刷新（零网络）"
+  }
+ ]
+}

@@ -348,5 +348,80 @@ class TestResolveSamples(unittest.TestCase):
         self.assertTrue(all(v is None for v in info2["snapshot_provenance"].values()))
 
 
+class TestSelectLatestD04(unittest.TestCase):
+    """D-04（2026-09-30 面 4 审计）：同日多件按 G-A 内容权威选件，不按 mtime 静默二选一。
+
+    直接测策略纯函数 ``fd._select_latest``（可测缝）——当前命名约定下同目录
+    同 tag 必同文件名，「同日多件」经 glob 结构不可达，故用多目录构造候选。
+    """
+
+    ROWS = [{"fund": "002112", "date": "2020-04-27", "est_chg": 0.1}]
+
+    def _mk(self, root: Path, sub: str, tag: str, corrupt: bool = False) -> Path:
+        p = _write_frozen(root / sub, tag, self.ROWS)
+        if corrupt:                          # 追加一行 ⇒ sha 不符 ⇒ G-A INVALID
+            with open(p, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"fund": "X", "date": "2020-04-28"}) + "\n")
+        return p
+
+    def test_single_valid_skips_bad_sibling(self):
+        """验收 ①：同日两件（一件 sha 不符）⇒ 自动选合法件，跳过坏件。"""
+        import io, contextlib
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            good = self._mk(root, "a", "20260910")
+            bad = self._mk(root, "b", "20260910", corrupt=True)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(err):
+                # bad 的 mtime 故意更新（若按 mtime 会错选坏件）
+                picked = fd._select_latest([("20260910", 1.0, good),
+                                            ("20260910", 2.0, bad)])
+            self.assertEqual(picked, good)
+            self.assertIn("G-A 不合格", err.getvalue())
+
+    def test_all_invalid_returns_none(self):
+        """全部不合法 ⇒ None（调用方走 MISSING fail-closed，不选坏件充数）。"""
+        import io, contextlib
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            b1 = self._mk(root, "a", "20260910", corrupt=True)
+            b2 = self._mk(root, "b", "20260910", corrupt=True)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(err):
+                picked = fd._select_latest([("20260910", 1.0, b1),
+                                            ("20260910", 2.0, b2)])
+            self.assertIsNone(picked)
+            self.assertIn("fail-closed", err.getvalue())
+
+    def test_both_valid_warns_and_picks_newer_mtime(self):
+        """验收 ②：同日两件均合法 ⇒ 显式警告列出候选 + 取 mtime 新者（不阻断）。"""
+        import io, contextlib
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            older = self._mk(root, "a", "20260910")
+            newer = self._mk(root, "b", "20260910")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(err):
+                picked = fd._select_latest([("20260910", 1.0, older),
+                                            ("20260910", 5.0, newer)])
+            self.assertEqual(picked, newer)
+            out = err.getvalue()
+            self.assertIn("WARN", out)
+            # 警告里是 list 的 repr（反斜杠转义）⇒ 用 repr(str(...)) 匹配；
+            # 关键断言：两件都以全路径列出（同 tag 必同文件名，仅路径可区分）。
+            self.assertIn(repr(str(older)), out)
+            self.assertIn(repr(str(newer)), out)
+
+    def test_top_tag_only_and_single_candidate_unchanged(self):
+        """旧行为兼容：最大 tag 单候选 ⇒ 原样返回（不过 G-A、不警告）。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            old = self._mk(root, "a", "20260901")
+            new = self._mk(root, "b", "20260910")
+            self.assertEqual(fd._select_latest([("20260901", 1.0, old),
+                                                ("20260910", 2.0, new)]), new)
+            self.assertIsNone(fd._select_latest([]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

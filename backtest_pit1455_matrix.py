@@ -56,6 +56,7 @@ from backtest_forecast import (build_xy, rank_ic, brier_multiclass,
                                split_date_oos)
 from frozen_dataset import load_snapshot
 from core import forecast_engine as FE
+from core import no_net_guard
 from core import pit1455_contract as PIT
 
 HORIZONS = (1, 3, 5)
@@ -84,13 +85,15 @@ def _sha12(p: Path) -> str:
 
 
 def _block_network() -> None:
-    import socket
+    """零网络守卫（频控纪律，铁律 1/7/8）——委托 core.no_net_guard 单一实现（D-06）。
 
-    class NoNet(socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError("[no-net] 本脚本零网络：socket.connect 已封锁")
-
-    socket.socket = NoNet      # type: ignore[misc]
+    由 main() 按 --no-net（dest=net_guard，默认开）条件调用；不在模块级 install，
+    否则 import 本模块即封 socket（test_pit1455_matrix 收集时会污染整个测试进程）。
+    注意：本守卫只防误触网（东财 IP 级频控），**不是** PIT 防穿越机制
+    （见 no_net_guard 模块 docstring 的职责边界声明）。
+    """
+    no_net_guard.install("[pit1455_matrix] 零网络作业：socket 已封锁",
+                         block_construction=False)
 
 
 # ---------- 数据装载与血缘 ----------

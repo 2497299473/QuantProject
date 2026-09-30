@@ -205,8 +205,13 @@ def load_post_inputs(date: str | None = None) -> tuple[str | None, dict[str, dic
     V4.4 步 2（量纲迁移）：store 只追加不覆写 ⇒ 磁盘上 est_chg 两种量纲并存
     （切换日前百分数 / 切换日后 fraction）。读取端按行 date 判别：早于切换日
     的行过唯一桥 ``est_chg_from_pct`` 归一到契约量纲，之后的行原样透传。
+
+    D-01（2026-09-30 面 4 审计）：日期判别之外加**值域实测守卫**——切换日后
+    的行若 |est_chg| 超契约上界（= pct 量级误落 fraction 位），拒绝该行值
+    （置 None 走 B1 mask）并打显式警告，不再单线依赖「落盘端写对」。
     """
-    from core.pit1455_contract import est_chg_from_pct, est_chg_live_is_fraction
+    from core.pit1455_contract import (est_chg_from_pct, est_chg_live_is_fraction,
+                                       est_chg_fraction_suspect)
     records = feature_store.load_history(slot="post")
     if not records:
         return None, {}
@@ -222,6 +227,13 @@ def load_post_inputs(date: str | None = None) -> tuple[str | None, dict[str, dic
         raw_est = raw_features.get("est_chg")
         if est_chg_live_is_fraction(decision_date):
             est = raw_est                    # 切换日后落盘：已是 fraction
+            if est_chg_fraction_suspect(est):
+                # D-01：声明 fraction 但实测越界（pct 误落 / 畸形）⇒ fail-closed
+                print(f"[shadow][WARN] est_chg 值域守卫拒绝：date={decision_date} "
+                      f"fund={rec.get('fund')} est_chg={est!r}（fraction 合理上界 "
+                      f"±0.25；疑 pct 量纲误落或畸形）→ 置 None 走 B1 mask",
+                      file=sys.stderr)
+                est = None
         else:
             est = est_chg_from_pct(raw_est)  # 旧行：百分数 → 契约 fraction
         selected[rec.get("fund", "")] = {

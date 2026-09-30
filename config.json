@@ -6,6 +6,11 @@
     "022853",
     "002207"
   ],
+  "nav_disclosure": {
+    "_note": "D-05（2026-09-30 面 4 审计）：NAV 披露滞后档位。14:55 口径的 prev_nav = 该基金自身序列 nav_rows[i - lag]：境内基金 T-1 净值于 T-1 晚披露（domestic_t1，lag=1）；QDII/FOF T-2 披露（qdii_t2，lag=2）。现行四基金均为境内主动混合型（面 4 审计已核），走 default；未来纳入 QDII 时在 overrides 里逐码标注。未知档位名构建期即炸（fail-closed，防静默前视）。合法档位定义见 pit1455_dataset.DISCLOSURE_PROFILES。",
+    "default": "domestic_t1",
+    "overrides": {}
+  },
   "slots": {
     "mid": {
       "time": "11:30",

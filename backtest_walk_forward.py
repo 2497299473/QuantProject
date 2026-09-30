@@ -66,6 +66,30 @@ def _window_slices(dates: list[str], window_days: int) -> list[list[str]]:
     return out
 
 
+def _fund_label_ends(samples: list[dict], max_horizon: int) -> dict[str, dict[str, str | None]]:
+    """D-02（2026-09-30 面 4 审计）：逐基金样本日历 → label 窗口末日查表。
+
+    返回 {fund: {date: label_end}}，label_end = 该基金**自身**样本序列上第
+    max_horizon 步的日期（= fwd{max_horizon} 标签窗口末日）；序列尾部不足
+    max_horizon 步 → None（该行无未来标签，build_xy 亦按 fwd 缺失过滤）。
+
+    为什么不能用全局日历回退：fwd{h} 的 label_end 是「该基金自身第 h 个
+    交易日」，对样本日在全局日历上稀疏的基金（长停牌 / QDII 滞后披露 /
+    新发基金缺月），自身 1 步 = 全局多步 ⇒ 全局回退 max_horizon 个交易日
+    不足以覆盖其 label 窗口（真实泄漏，见 tests/test_walk_forward.py
+    TestSparseFundLabelEndPurge 红灯演示）。
+    """
+    series: dict[str, list[str]] = {}
+    for s in samples:
+        series.setdefault(s["fund"], []).append(s["date"])
+    out: dict[str, dict[str, str | None]] = {}
+    for fund, ds in series.items():
+        ds = sorted(set(ds))
+        out[fund] = {d: (ds[i + max_horizon] if i + max_horizon < len(ds) else None)
+                     for i, d in enumerate(ds)}
+    return out
+
+
 def build_wf_folds(samples: list[dict], oos: list[dict], oos_start: str,
                    window_days: int = 63, max_horizon: int | None = None,
                    min_train_samples: int = 100) -> list[dict]:
@@ -73,9 +97,14 @@ def build_wf_folds(samples: list[dict], oos: list[dict], oos_start: str,
 
     返回按时间排序的 [{window, test_start, cutoff, train, test}]：
     - window: 该折测试窗的交易日列表（与 rolling OOS 同切分）
-    - test_start: 窗起点；cutoff: date < cutoff 的样本可入训练
-      （label-end purge：train 样本 label_end < test_start）
-    - train: date < cutoff 的全部样本（expanding，含该折之前的 OOS 数据）
+    - test_start: 窗起点；cutoff: 全局日历第 (j - max_horizon) 个交易日
+      （保留作报告/兼容字段；train 成员判定不再依赖它，见下）
+    - train: **逐行 label-end purge**（D-02）——仅保留 fwd{max_horizon} 标签
+      窗口末日 < test_start 的样本（按该基金自身日历算，非全局日历回退）。
+      对样本日连续的基金（当前四基金步长恒 1）与旧「date < cutoff」逐位等价；
+      对稀疏基金则精确剔除泄漏行。label_end 为 None（序列尾部无未来标签）的
+      行 fail-closed 剔除——此类行 build_xy 对 max_horizon 亦过滤，剔除不改变
+      训练集有效内容，只是把「无法证明不泄漏」的行挡在门外。
     - test: 测试窗内的样本
     历史不足（j - max_horizon < 1）或训练样本过少的折跳过。
     """
@@ -85,6 +114,7 @@ def build_wf_folds(samples: list[dict], oos: list[dict], oos_start: str,
         _fc = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))\
             .get("forecast", {})
         max_horizon = max(_fc.get("horizons", [1, 3, 5]))
+    label_ends = _fund_label_ends(samples, max_horizon)
     oos_dates = sorted({s["date"] for s in oos})
     windows = _window_slices(oos_dates, window_days)
     folds = []
@@ -94,7 +124,10 @@ def build_wf_folds(samples: list[dict], oos: list[dict], oos_start: str,
         if j - max_horizon < 1:
             continue                      # 历史不足，无法构造合法 train
         cutoff = dates_all[j - max_horizon]
-        train = [s for s in samples if s["date"] < cutoff]
+        # D-02：逐行 label-end purge（取代旧的 date < cutoff 全局日历粗筛）
+        train = [s for s in samples
+                 if (le := label_ends.get(s["fund"], {}).get(s["date"])) is not None
+                 and le < test_start]
         if len(train) < min_train_samples:
             continue
         test = [s for s in samples if s["date"] in set(wd)]
@@ -165,7 +198,7 @@ def _path_eval_for_fold(f: dict) -> dict | None:
 
 
 def _fold_cqr(f: dict, h: int, cal_frac: float = 0.2,
-              min_cal: int = 50) -> dict | None:
+              min_cal: int = 50, embargo: int | None = None) -> dict | None:
     """P1-③（2026-09-01）：单折部署式 split-conformal CQR。
 
     calib 报告的 CQR 用 train 内 5 折日期 CV 的 qhat 平均、一次应用到整段
@@ -173,6 +206,10 @@ def _fold_cqr(f: dict, h: int, cal_frac: float = 0.2,
     WF fold 内做标准 split conformal：
     - fold-train 按日期排序，尾部 cal_frac 切作 calib holdout（fit 段与
       cal 段时间不相交，模型只见 fit 段 → 无标签泄漏）；
+    - D-03（2026-09-30 面 4 审计）：fit/cal 之间插 ``embargo`` 个交易日间隔
+      （缺省 = h）——fit 段尾部样本的 fwd{h} 标签窗口会伸入 cal 段日期，
+      标签重叠违反 split-conformal 的 exchangeability 前提，qhat 可能偏乐观。
+      embargo 段样本从 fit 剔除（不进 cal，cal 仍是纯尾部 cal_frac）；
     - qhat_k = cal 段非一致性得分（cqr_scores）的 (1-α) 经验分位；
     - fold-test 区间 = 折内模型 q10/q90 对称外扩 qhat_k。
     返回 None = fold-train/cal 数据不足或模型训练失败。
@@ -181,12 +218,22 @@ def _fold_cqr(f: dict, h: int, cal_frac: float = 0.2,
     from backtest_quantile_calib import (cqr_scores, cqr_qhat,
                                          expand_interval, feat_row)
     from core.forecast_engine import ReturnQuantileModel
+    if embargo is None:
+        embargo = h
     tr = sorted((s for s in f["train"] if s.get(f"fwd{h}") is not None),
                 key=lambda s: s["date"])
     n_cal = int(len(tr) * cal_frac)
     if len(tr) < 400 or len(tr) - n_cal < 300 or n_cal < min_cal:
         return None
-    fit_s, cal_s = tr[:-n_cal], tr[-n_cal:]
+    cal_s = tr[-n_cal:]
+    # D-03：fit/cal 间 embargo——剔除 cal 段起点前 embargo 个交易日的 fit 样本
+    # （其 fwd{h} 标签窗口伸入 cal 段，标签重叠 ⇒ 违反 exchangeability）。
+    tr_dates = sorted({s["date"] for s in tr})
+    cal_i = tr_dates.index(cal_s[0]["date"])
+    embargo_dates = set(tr_dates[max(0, cal_i - embargo):cal_i])
+    fit_s = [s for s in tr[:-n_cal] if s["date"] not in embargo_dates]
+    if len(fit_s) < 300:                  # embargo 后 fit 段过小 → 不可靠，跳过
+        return None
     m = ReturnQuantileModel(h)
     if not m.fit(fit_s):
         return None

@@ -42,6 +42,22 @@ OOS RankIC 就有 +0.1278（T+1，n=923）**，而它对 old label 只有 +0.013
       与 0 比会把算术耦合误读成模型能力（步3 的 B 轨即为此例：
       1455 IC +0.1139 看着不错，超额 = −0.0139，不及零成本公式）。
 复现与逐格数字：backtest_pit1455_matrix.py 第 1c 节。
+
+⚠️ est_chg 误差带（D-07，2026-09-30 面 4 审计实证，探针与机读件见
+ evidence/probes/d07_est_chg_error_band.py / _20260930.json）：
+    err = est_chg − a_T（a_T = navs[T]/navs[T-1]−1，缓存官方净值）
+    冻结池轨（n=3371 行 / 1530 交易日，满足 ≥30 日验收）：
+      mean|err| = 0.006327，p50 = 0.003998，p90 = 0.01445，max = 0.144582，
+      mean_signed = +0.000237（近无偏）。
+    该误差带即 1455 口径 label 分母的量化不确定度（nav_hat 误差
+    = navs[T-1]×err）；与上方一阶近似残差（mean 2.4e-3，那是恒等式
+    线性化的残差，不是 err 本身）不可混用。逐基金拆分见机读件
+    （002112 mean|err| 0.0091 / 002207 0.0032 / 022853 0.0085 / 025687 0.0057）。
+    live fraction 轨（切换日 2026-09-23 起）截至 2026-09-30 仅 5 个交易日，
+    标 PROVISIONAL 不入判据；满 30 日后重跑探针刷新（零网络）。
+    交叉验证：mean|err| 0.006327 ≈ pit1455_dataset build 的
+    label_delta_vs_old.fwd1.mean_abs 0.006313 —— 印证一阶式
+    「fwd_1455 − fwd_old ≈ a_T − est_chg」。
 本契约不因此改式子——分母含 est_chg 正是「14:55 可观测状态」的定义所在；
 此段只钉死**消费纪律**。
 
@@ -96,10 +112,54 @@ def est_chg_live_is_fraction(date: str | None) -> bool:
     return bool(date) and date >= EST_CHG_LIVE_FRACTION_SINCE
 
 
+# ---- D-01（2026-09-30 面 4 审计）：量纲值域守卫 ----
+EST_CHG_FRACTION_ABS_MAX = 0.25
+"""fraction 量纲下 |est_chg| 的物理合理上界（= 单日加权涨跌 25%）。
+
+定标依据（实测，非拍脑袋）：
+- 现磁盘 fraction 行（09-23 起 36 行）max|est_chg| = 0.079；
+- 百分数误落 fraction 位的历史事故形态：切换日前 pct 行 max|est_chg| = 7.89
+  （= 7.89%），错位后是合法值的 ~100× ⇒ 必然远超本上界；
+- 基金池为境内主动混合型，重仓加权单日涨跌上界受涨跌停约束（主板 ±10% /
+  双创 ±20%），0.25 已留足余量。
+已知天花板 # ponytail: 上界是「量纲错位」判别阈值，不是业务异常阈值——
+若真出现 |est_chg|>0.25 的合法极端日（全池 20cm 涨停级），守卫会误拒该行；
+误拒代价 = 该基金当日无 shadow 决策（fail-closed 可见），远小于把 100× 错值
+喂进模型的代价（91.7% 落训练支撑域外的历史事故）。升级路径：接入
+est_chg_unit 显式字段后本守卫降级为一致性交叉校验。
+"""
+
+
+def est_chg_fraction_suspect(value) -> bool:
+    """值域守卫：声称 fraction 的 est_chg 是否**实测**越界（D-01）。
+
+    ``est_chg_live_is_fraction`` 是按日期的**声明**，本函数是按值的**实测**。
+    两者不一致（日期 ≥ 切换日却落着 pct 量级的值 = 上游 bug / 回填污染）时，
+    以实测为准：读取端应当拒绝该值（置 None 走 B1 missing mask），不得静默
+    透传进模型——否则 2026-09 前「66/72 行落训练支撑域外」的事故会无声重演。
+
+    判定：None → False（缺失是合法态，由 B1 mask 处理，不归本守卫管）；
+    非数值（str/NaN 源）→ True（畸形行一律可疑）；|float(v)| > 上界 → True。
+    """
+    if value is None:
+        return False
+    try:
+        v = abs(float(value))
+    except (TypeError, ValueError):
+        return True
+    if v != v:                             # NaN：abs 后仍 NaN，比较恒 False ⇒ 显式判
+        return True
+    return v > EST_CHG_FRACTION_ABS_MAX
+
+
 def estimate_nav_at_1455(prev_nav, est_chg_fraction) -> float | None:
     """14:55 时对 T 日 NAV 的最优估计 = 已公布的前一净值 ×(1+估算涨跌小数)。
 
-    prev_nav: navs[T-1]（14:55 可见的最后一支已公布净值）
+    prev_nav: 14:55 时点最后一支**已披露**净值。境内基金 = navs[T-1]
+    （T-1 晚 21~22 点披露，T 日 14:55 必可见）；QDII/FOF 类 T-2 披露
+    ⇒ 取 navs[T-2]。回退步数由披露档位决定（D-05，2026-09-30 面 4 审计）：
+    config.nav_disclosure → pit1455_dataset.disclosure_lag()，本函数只接受
+    调用方按档位选好的 prev_nav（纯函数，不自行判档）。
     est_chg_fraction: fraction 量纲的 T 日加权估算涨跌（见 EST_CHG_UNIT）
     任一为 None / prev_nav<=0 → 返回 None（调用方据此决定该样本 label 不可算）。
     """

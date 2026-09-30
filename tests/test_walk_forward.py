@@ -92,5 +92,68 @@ class TestBuildWfFolds(unittest.TestCase):
         self.assertEqual(folds, [])
 
 
+class TestSparseFundLabelEndPurge(unittest.TestCase):
+    """D-02（2026-09-30 面 4 审计）：样本日在全局日历上稀疏的基金，
+    全局 cutoff 回退 max_horizon 个交易日**不足以**覆盖其 label 窗口
+    （fwd{h} 的 label_end = 该基金**自身**序列第 h 步，稀疏基金自身 1 步
+    = 全局多步）⇒ 必须逐行按 label_end < test_start 精 purge。
+
+    构造：F0 每全局交易日有样本（步长 1），F1 隔日有样本（步长 2）。
+    F1 的 fwd5 label_end = 自身 5 步 = 全局约 9~10 个交易日 > 全局回退 5 日
+    ⇒ cutoff 法下 F1 的 train 尾部行 label 窗口伸入 test 窗（泄漏）。
+    """
+
+    @staticmethod
+    def _mk_sparse_samples(n_days=260):
+        from datetime import date, timedelta
+        d0 = date.fromisoformat("2024-01-01")
+        days, di = [], 0
+        while len(days) < n_days:
+            d = (d0 + timedelta(days=di)).isoformat()
+            di += 1
+            if date.fromisoformat(d).weekday() >= 5:
+                continue
+            days.append(d)
+        out = []
+        for i, d in enumerate(days):
+            base = {"fwd1": 0.001, "fwd3": 0.002, "fwd5": 0.003,
+                    "est_chg": 0.001, "est_sign": 1, "breadth": 0.5,
+                    "concentration": 0.3, "covered_pct": 80.0,
+                    "composite": 0.2, "score": 0.4}
+            out.append({"date": d, "fund": "F0", **base})
+            if i % 2 == 0:                       # F1 隔日样本（全局步长 2）
+                out.append({"date": d, "fund": "F1", **base})
+        return out, days
+
+    @staticmethod
+    def _label_end(fund_series: list[str], d: str, h: int):
+        """样本自身基金序列上第 h 步的日期（label 窗口末日）；越界 → None。"""
+        i = fund_series.index(d)
+        return fund_series[i + h] if i + h < len(fund_series) else None
+
+    def test_sparse_fund_train_rows_purged_by_label_end(self):
+        samples, days = self._mk_sparse_samples(n_days=260)
+        oos_start = days[208]
+        oos = [s for s in samples if s["date"] >= oos_start]
+        folds = build_wf_folds(samples, oos, oos_start,
+                               window_days=26, max_horizon=5,
+                               min_train_samples=50)
+        self.assertTrue(folds, "构造应产出可用折")
+        f1_series = sorted({s["date"] for s in samples if s["fund"] == "F1"})
+        leaked = []
+        for f in folds:
+            for s in f["train"]:
+                if s.get("fwd5") is None:
+                    continue                   # 无 label 行由 build_xy 过滤，非泄漏
+                end = self._label_end(f1_series if s["fund"] == "F1" else
+                                      sorted({x["date"] for x in samples
+                                              if x["fund"] == s["fund"]}),
+                                      s["date"], 5)
+                if end is not None and end >= f["test_start"]:
+                    leaked.append((s["fund"], s["date"], end, f["test_start"]))
+        self.assertEqual(leaked, [],
+                         f"train 存在 label_end ≥ test_start 的泄漏行：{leaked[:5]}")
+
+
 if __name__ == "__main__":
     unittest.main()
