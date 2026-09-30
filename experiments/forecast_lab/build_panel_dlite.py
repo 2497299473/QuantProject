@@ -355,6 +355,15 @@ def main(argv=None) -> int:
     if args.selftest:
         return _selftest()
 
+    # D5-F1（2026-09-30 面 5 审计）：主流程守卫常开（无 CLI 开关可关）。
+    # d8ca111 只把守卫装在 _selftest（防「验证时联网」），主流程 main→_build_rows→
+    # _load_series 未装——防「生产性联网」的那道缺失。当前 _load_series 纯读缓存
+    # json（零网络路径），守卫用审计轨（block_construction=True）零成本；未来若有人
+    # 给缓存缺失加「自动拉取」便利分支，当场 NoNetViolation 报错退出，而非静默触网。
+    _restore_main = no_net_guard.install(
+        "[build_panel_dlite] 主流程零网络作业（只读已刷新缓存；缓存缺失=报错退出，"
+        "不得回退拉取）", block_construction=True)
+
     started = datetime.now()
     tag = args.date or started.strftime("%Y%m%d")
     print(f"# D-lite 面板生成 · {tag}（零网络：只读已刷新缓存）")
@@ -449,6 +458,7 @@ def main(argv=None) -> int:
     print(f"  JSONL      : {out_jsonl}")
     print(f"  meta       : {out_meta}")
     print(f"  用时       : {round((datetime.now() - started).total_seconds(), 1)}s")
+    _restore_main()      # D5-F1：主流程守卫善后（长驻纪律下可不 restore，显式还原更干净）
     return 0 if t1_ok else 1
 
 

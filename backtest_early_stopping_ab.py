@@ -174,6 +174,10 @@ def main() -> int:
 
     if args.net_guard:
         _block_network()
+    else:
+        # D5-F3（2026-09-30 面 5 审计）：关守卫必须显式警示 + 产物留痕（不静默）。
+        print("[warn] ⚠️ --no-net：socket 守卫已关闭——本脚本定位为零网络作业（铁律 7）；"
+              "确需联网请先按铁律 8 获人工授权。本次关闭已写入产物 meta（socket_guard）。")
     horizons = [int(h) for h in args.horizons.split(",") if h.strip()]
 
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
@@ -297,6 +301,7 @@ def main() -> int:
         "kind": "early_stopping_ab",
         "schema_version": "1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "socket_guard": bool(args.net_guard),   # D5-F3：守卫开关状态进产物（留痕可审计）
         "snapshot": snap_info.get("file"),
         "snapshot_mode": snap_info["mode"],
         "gate_internal": snap_info.get("gate_internal"),
@@ -315,7 +320,7 @@ def main() -> int:
     md = outdir / f"backtest_early_stopping_ab_{stamp}.md"
     js = BASE_DIR / "forecast_outputs" / f"early_stopping_ab_{stamp}.json"
     lines = ["# early_stopping A/B/C 对照实验", "",
-             f"- 生成：{payload['generated_at']}（零网络）",
+             f"- 生成：{payload['generated_at']}（零网络：socket 守卫={args.net_guard}）",
              f"- 冻结件：`{payload['snapshot']}` [{payload['snapshot_mode']}]",
              f"- 切分：`{SPLIT_DATE}`", f"- 超参：{payload['hyperparams']}", "",
              "| 周期 | 轨 | n_iter | val_n | RankIC(p_up) | Brier |",

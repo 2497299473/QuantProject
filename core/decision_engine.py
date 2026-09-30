@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .pit1455_contract import est_chg_from_pct   # V4.4 步 2：量纲唯一桥
+from .intraday_features import freshness_from_age  # D5-B2：45/120 新鲜度曲线单一事实源
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -168,10 +169,14 @@ def _score_account(acct: dict | None) -> tuple[int, list[str]]:
     """账户约束 ±10：仓位余量 / 成本保护 / 连续加仓限制（GPT 第十三节）。
 
     2026-09-22 评审修复（②）：None 不再经此函数（evaluate 侧改走「不可用」分支，
-    不参与加权和）；空 dict = 显式空仓（低仓 +4 语义不变）。防御性 ``acct or {}``
-    仅为直接调用保留。
+    不参与加权和）；空 dict = 显式空仓（低仓 +4 语义不变）。
+    D5-B1（2026-09-30 面 5 审计）：幽灵 +4 的原发位置 ``acct = acct or {}`` 已死亡——
+    直接调用传 None 同样返回「不可用」0 分（与 evaluate 语义对齐），任何新调用方
+    （含 shadow_policy 直调私有函数的既有模式）都无法再复活旧 bug；
+    {} = 显式空仓 +4 语义逐字保留。
     """
-    acct = acct or {}
+    if acct is None:
+        return 0, ["账户维不可用（None ≠ 显式空仓）"]
     score = 0.0
     reasons: list[str] = []
     w = acct.get("current_weight", 0.0) or 0.0
@@ -318,7 +323,7 @@ def evaluate_with_forecast(inp: DecisionInput, feature_meta: dict | None = None)
         # 无权重/版本不符 → 未训练空壳，predict 恒走占位分支。
         eng = fe.get_loaded_engine()
         features = _forecast_features(inp, feature_meta)
-        freshness = (inp.feat_1455 or {}).get("holdings_freshness", 1.0)
+        freshness = _resolve_freshness(inp.feat_1455)
         if inp.feat_1455 is None or not features:
             # v8（2026-08-30）：q50 回归协议恢复，占位构造同步（10 个位置参数）
             d.forecast = fe.forecast_to_cn(fe.Forecast(
@@ -367,6 +372,26 @@ def _forecast_features(inp: DecisionInput, feature_meta: dict | None) -> dict | 
         "composite": None,          # live 回退无穿透源 → 诚实 None（B1 mask；0 是合法「中性」）
         "score": inp.technical_score,  # DecisionInput 无「缺失」态（0 为合法默认值），保持
     }
+
+
+def _resolve_freshness(feat_1455: dict | None) -> float:
+    """D5-B2（2026-09-30 面 5 审计）：持仓新鲜度解析单点（纯函数，可测缝）。
+
+    旧实现 ``(feat_1455 or {}).get("holdings_freshness", 1.0)`` 把「未知」注入为
+    「最鲜 1.0」——与幽灵 +4 同构（缺失 → 利好方向注入）。已核实：全仓无任何
+    写点产出 holdings_freshness 键（compute_features 只把新鲜度合成进
+    reliability 并恒写 holdings_age_days），故修复前主路径与回退路径一律吃
+    默认 1.0。解析顺序：显式键 > 恒写的 holdings_age_days 经单一事实源曲线
+    （intraday_features.freshness_from_age，45/120 天口径）推导 > 中性 0.5。
+    """
+    f = feat_1455 or {}
+    v = f.get("holdings_freshness")
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    age = f.get("holdings_age_days")
+    if age is None:
+        return 0.5                       # 未知 → 中性（不得注入最鲜）
+    return freshness_from_age(age)
 
 
 def decision_to_cn(d: Decision) -> dict:

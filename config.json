@@ -79,7 +79,9 @@
     },
     "thresholds": {
       "add": 60,
-      "reduce": -60
+      "reduce": -60,
+      "_mid_band_note": "D5-B3（2026-09-30）：backtest_action 判定 D 的分析用中间桶边界（缺省 [-20,20] 与历史口径一致）。add/reduce 与 decision_engine.evaluate 同源同键；改阈值时验证与上线口径同步变化，不得静默漂移。",
+      "mid_band": [-20, 20]
     },
     "gates": {
       "min_coverage": 60,

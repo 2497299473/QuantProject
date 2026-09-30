@@ -69,6 +69,7 @@ LAYERS: dict[str, str] = {
     "test_stock_data_cache.py": FAST,      # P1-B：stock 缓存原子写 + 坏件回退 provider 链，tempdir + stub 零网络
     "test_evidence_anchor.py": FAST,       # D3-01 门 A：report↔evidence 配对锚点 + 复算比对判据，纯函数零网络不碰真实数据
     "test_evidence_binding_anchor.py": FAST,  # D3-01 绑定层：伪造配对拒绑 + registry 零残留 + 旧路径死亡（无锚点不得 approved），tempdir 隔离零网络
+    "test_face5_production_path.py": FAST,  # D5 批（2026-09-30）：面 5 生产接线修复（资格标注/新鲜度/阈值同源/守卫接线），全程注入+tempdir 零网络；import 链同 test_action_bootstrap/test_drift_monitor（fast 先例）
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_batch_a_hardening.py": SLOW,   # A 批加固（2026-09-24）：血统解耦/完整性门/覆写闸门；触真实 registry（备份/恢复）+ backtest_forecast 导入链，稳妥归 slow
     "test_contracts.py": SLOW,

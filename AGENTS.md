@@ -58,6 +58,8 @@
    - 提醒类任务（`reminder` 静态文本，不调模型、不碰网络）不属本条第 2 项约束范围，可照常定时。
 8. **含网络脚本只做零副作用自检（2026-09-18 立，源于当晚 21:50 误跑事故）**：
    凡调用链会发东财/外部 HTTP 请求的脚本（`load_samples` 系、`pull*`、`probe*`、`freeze_samples.py`
+   、`drift_monitor.py --fresh`（2026-09-30 补，D5-F2：名单外等价物，经 resolve_samples→load_samples
+   全链活拉；已加 `--i-know-this-hits-network` 双旗标 + 默认路径 socket 守卫）
    及任何 import 这些数据拉取链的入口），开发会话内的自检**只允许零副作用检查**：
    `--help` / `py_compile` / ast 静态扫描 / 离线单测（mock 或 tempdir 构造输入）。
    **冒烟＝真跑一次网络路径 → 必须先向人请示**，获批后按铁律 7 四项闸门执行。

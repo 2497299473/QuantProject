@@ -52,8 +52,21 @@ def gate_note(gate: dict | None) -> str:
     return f"🚦 发布资格：{head} · {gate.get('detail') or '—'}"
 
 
+def production_note(production: dict | None) -> str:
+    """D5-A1（2026-09-30 面 5 审计）：生产资格（production_status）在卡片上的标注行。
+
+    措辞取 `run.production_eligibility` 产出的 note（单一真源，与落盘报告
+    production_section 同源），本函数只渲染；production 缺省/note=None（READY）
+    ⇒ 空串，旧调用方行为不变。只标注不拦截（BLOCKED 当前是常态）。
+    """
+    if not production or not production.get("note"):
+        return ""
+    return str(production["note"])
+
+
 def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None = None,
-                decisions: dict | None = None, gate: dict | None = None) -> dict:
+                decisions: dict | None = None, gate: dict | None = None,
+                production: dict | None = None) -> dict:
     slot_name = {"mid": "⏰ 午盘·实时参考", "post": "🌙 收盘前·最终参考"}.get(
         slot, "☀️ 盘前·今日决策")
     fields = []
@@ -78,7 +91,17 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
             "tag": "lark_md",
             "content": f"⚠️ **异常波动**：{', '.join(account['abnormal_alerts'])} 单日涨跌超 2σ"}})
     # 步 5 source trace：净值实际来源≠东财主源时卡片显式提示（与落盘报告共用判定）
-    from .report_generator import source_trace_notes   # 局部 import：防模块级环
+    from .report_generator import source_trace_notes, nav_fallback_notes   # 局部 import：防模块级环
+    # D5-D2（2026-09-30 面 5 审计）：cache:fallback 降级告警上卡片——旧实现只在
+    # 落盘报告，手机侧（触达面最广）看不到「数据可能是旧缓存」信号。
+    # 判定与措辞走 report_generator.nav_fallback_notes（data_loader.is_nav_fallback
+    # 单一事实源），不另写 startswith。
+    fallbacks = nav_fallback_notes(signals)
+    if fallbacks:
+        fields.append({"is_short": False, "text": {
+            "tag": "lark_md",
+            "content": "⚠️ **旧缓存告警**：" + "、".join(fallbacks)
+                       + " 本次接口抓取失败已退旧缓存，净值可能非最新。"}})
     switched = source_trace_notes(signals)
     if switched:
         fields.append({"is_short": False, "text": {
@@ -98,6 +121,12 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
         elements.append({"tag": "hr"})
         elements.append({"tag": "note",
                          "elements": [{"tag": "plain_text", "content": note}]})
+    # D5-A1：生产资格标注行（BLOCKED/UNKNOWN 时可见；READY 不加行，旧行为不变）
+    prod_note = production_note(production)
+    if prod_note:
+        elements.append({"tag": "hr"})
+        elements.append({"tag": "note",
+                         "elements": [{"tag": "plain_text", "content": prod_note}]})
     elements.append({"tag": "hr"})
     elements.append({"tag": "note",
                      "elements": [{"tag": "plain_text",
@@ -117,12 +146,14 @@ def _build_card(slot: str, signals: dict, account: dict, realtime: dict | None =
 
 
 def push_feishu(slot: str, signals: dict, account: dict, realtime: dict | None = None,
-                decisions: dict | None = None, gate: dict | None = None) -> dict:
+                decisions: dict | None = None, gate: dict | None = None,
+                production: dict | None = None) -> dict:
     env = _load_env()
     webhook = env.get("FEISHU_WEBHOOK", "").strip()
     if not webhook or "你的token" in webhook:
         return {"ok": False, "skipped": True, "reason": "未配置 FEISHU_WEBHOOK，已降级为本地落盘"}
-    payload = _build_card(slot, signals, account, realtime, decisions, gate=gate)
+    payload = _build_card(slot, signals, account, realtime, decisions, gate=gate,
+                          production=production)
     if env.get("FEISHU_SECRET", "").strip():
         ts = int(time.time())
         payload["timestamp"] = str(ts)

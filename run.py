@@ -22,7 +22,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -157,6 +157,96 @@ def nav_fallback_funds(funds: dict) -> list[str]:
     本函数不做第二套 `startswith`。
     """
     return [str(c) for c, f in (funds or {}).items() if data_loader.is_nav_fallback(f)]
+
+
+def production_eligibility(payload: dict | None) -> dict:
+    """D5-A1（2026-09-30 面 5 审计）：四层状态机最终裁决 production_status 的生产侧接线。
+
+    纯函数（可测缝）：``output/audit_current.json`` 的 payload →
+    ``{"status": READY/BLOCKED/UNKNOWN, "reasons": [...], "note": str | None}``。
+    note=None 表示无需标注（READY）；BLOCKED/UNKNOWN 产出显式警示文本，
+    展示端（落盘报告 report_generator.production_section / 飞书卡片 notify）
+    只原样呈现，不做第二套判定（措辞单一真源在本函数）。
+
+    只标注不拦截：当前 BLOCKED 是常态（模型未获批），拦推送会语义漂移成
+    第二个 publish_gate（面 5 审计 D5-A1 的最小修法原意）；标注让「系统未获
+    生产资格」在报告与卡片两个呈现面可见，而不只是 stdout。指针缺失/不可读
+    ⇒ UNKNOWN（fail-closed 标注：查不到 ≠ 有资格）。
+    """
+    if not isinstance(payload, dict) or "production_status" not in payload:
+        return {"status": "UNKNOWN",
+                "reasons": ["audit_current.json 缺失/不可读/无 production_status 键"],
+                "note": "⚠️ 生产资格：未知（审计指针缺失/不可读 —— fail-closed 标注，"
+                        "不拦截产出；请核查 output/audit_current.json）"}
+    status = str(payload.get("production_status"))
+    if status == "READY":
+        return {"status": "READY", "reasons": [], "note": None}
+    inputs = payload.get("inputs") or {}
+    reasons: list[str] = []
+    if not inputs.get("model_ready"):
+        reasons.append("model_ready=false")
+    if inputs.get("active_promotion") != "approved":
+        reasons.append(f"promotion={inputs.get('active_promotion') or 'unknown'}")
+    if inputs.get("history_validated") is not True:
+        reasons.append(f"history_validated={inputs.get('history_validated')}")
+    if payload.get("audit_health") == "FAIL":
+        reasons.append("audit_health=FAIL")
+    if not reasons:
+        reasons.append("分项均达标但总裁决非 READY（见 audit_current.json）")
+    as_of = str(payload.get("generated_at") or "")[:10]
+    return {"status": status, "reasons": reasons,
+            "note": (f"⚠️ 生产资格：{status}（{'；'.join(reasons)}）"
+                     f" · 依据 audit_current.json@{as_of}，仅标注不拦截")}
+
+
+def expected_nav_date(now: datetime, lag: int) -> str:
+    """D5-D1：「本应已披露的最新净值交易日」= last_expected_run_date 回退 lag 个交易日。
+
+    日历口径复用 audit_project（单一事实源，不重写交易日历逻辑）；
+    lag = 披露档位回退步数（pit1455_dataset.DISCLOSURE_PROFILES，境内 T+1=1、QDII T+2=2）。
+    """
+    d = datetime.strptime(audit_project_mod.last_expected_run_date(now), "%Y-%m-%d")
+    steps = 0
+    while steps < lag:
+        d -= timedelta(days=1)
+        if audit_project_mod.is_trading_day(d):
+            steps += 1
+    return d.strftime("%Y-%m-%d")
+
+
+def nav_freshness(as_of_nav_date: str, now: datetime, cfg: dict) -> dict:
+    """D5-D1（2026-09-30 面 5 审计）：净值日期是否旧于「本应可见的最新披露交易日」。
+
+    返回 ``{"as_of", "expected", "lag", "stale", "detail"}``；stale=None = 判不了
+    （日期畸形/未知披露档位）——展示层诚实跳过标注，档位非法的 fail-closed
+    由构建层（pit1455_dataset.disclosure_lag）另行承担，本函数不重复裁决。
+    lag 取池内最大档位（混合池不误报：若池内含 QDII，表头日期合法地可能是 T-2）。
+    判定在 run.py（可复用 audit 日历），呈现在 report_generator（只渲染不判定）。
+    """
+    from pit1455_dataset import DISCLOSURE_PROFILES   # 局部 import：stdlib 级轻依赖，不改模块导入图
+    nav_cfg = cfg.get("nav_disclosure") or {}
+    overrides = nav_cfg.get("overrides") or {}
+    pool = [str(c) for c in (cfg.get("fund_pool") or [])]
+    tags = [overrides.get(c) or nav_cfg.get("default") or "domestic_t1" for c in pool] \
+        or [nav_cfg.get("default") or "domestic_t1"]
+    unknown = sorted({t for t in tags if t not in DISCLOSURE_PROFILES})
+    if unknown:
+        return {"as_of": as_of_nav_date, "expected": None, "lag": None, "stale": None,
+                "detail": f"未知披露档位 {unknown}（构建层 fail-closed），新鲜度判定跳过"}
+    lag = max(DISCLOSURE_PROFILES[t] for t in tags)
+    if not as_of_nav_date:
+        return {"as_of": as_of_nav_date, "expected": None, "lag": lag, "stale": None,
+                "detail": "净值日期缺失，新鲜度判定跳过"}
+    try:
+        expected = expected_nav_date(now, lag)
+        datetime.strptime(as_of_nav_date, "%Y-%m-%d")
+    except (ValueError, OSError):
+        return {"as_of": as_of_nav_date, "expected": None, "lag": lag, "stale": None,
+                "detail": f"净值日期不可解析（{as_of_nav_date!r}），新鲜度判定跳过"}
+    stale = as_of_nav_date < expected
+    return {"as_of": as_of_nav_date, "expected": expected, "lag": lag, "stale": stale,
+            "detail": (f"净值截至 {as_of_nav_date}，应可见至 {expected}"
+                       f"（披露档 lag={lag} 交易日，日历口径=audit_project.last_expected_run_date）")}
 
 
 def _finalize_run(now: datetime, manifest_payload: dict, degraded: list[str],
@@ -310,7 +400,13 @@ def append_obsidian_log(slot: str, signals: dict, account: dict, now,
         note = "（历史不足）" if s.get("insufficient_history") else ""
         cells.append(f"{icon[s['stance']]}{s['score']:+d}{note}")
     acct = f"浮盈 {account['total_pnl_pct']:+.2f}%" if account.get("positions") else "无持仓"
-    row = f"| {now:%m-%d} 盘后 | " + " | ".join(cells) + f" | {acct} |\n"
+    # D5-D3（2026-09-30 面 5 审计）：流水行带净值日期锚点（取最旧一只，保守口径）——
+    # fallback 日照写一行「看似正常定论」时，复盘者能一眼看出数据停在哪天。
+    # 旧信号 dict（无 last_nav_date 键，如测试构造）→ 无锚点，行为不变。
+    nav_dates = sorted(str(s["last_nav_date"]) for s in signals.values()
+                       if s.get("last_nav_date"))
+    anchor = f" @{nav_dates[0][5:]}" if nav_dates else ""
+    row = f"| {now:%m-%d} 盘后 | " + " | ".join(cells) + f" | {acct}{anchor} |\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     key = f"| {now:%m-%d} 盘后 |"
     if not path.exists():
@@ -596,6 +692,13 @@ def _run(args, now: datetime) -> int:
     log(f"[acct] 市值 {account['total_market_value']:,.2f} 元，浮盈 {account['total_pnl_pct']:+.2f}%"
         + (f"，异常告警：{account['abnormal_alerts']}" if account["abnormal_alerts"] else ""))
 
+    # D5-D1（2026-09-30 面 5 审计）：净值日期新鲜度判定（日历口径复用 audit 侧）。
+    # 陈旧不拦截产出，但报告表头带 ⚠️ 标注（隔日净值在当日报告里只显示日期不判异常
+    # 的旧行为死亡）；判不了（stale=None）诚实跳过，不误报。
+    nav_fresh = nav_freshness(account.get("as_of_nav_date", ""), now, cfg)
+    if nav_fresh.get("stale"):
+        log(f"[warn] ⚠️ 净值陈旧：{nav_fresh['detail']}——报告表头已标注")
+
     # ---- Market Context 观察层 v0（2026-09-02）：进攻/防守篮子环境快照 ----
     # 仅观察：不进 decision_engine、不进 forecast、不改任何门禁；失败不阻断主流程。
     mc_snap = None
@@ -681,9 +784,17 @@ def _run(args, now: datetime) -> int:
 
     gate_report = gate_eval()
 
+    # D5-A1（2026-09-30 面 5 审计）：四层状态机最终裁决 production_status 接入生产侧。
+    # 只标注不拦截（BLOCKED 当前是常态，拦推送会语义漂移成第二个 publish_gate）；
+    # 指针读取走 audit_project 单一入口（AUDIT_CURRENT + load_json，不另写路径）。
+    prod = production_eligibility(audit_project_mod.load_json(audit_project_mod.AUDIT_CURRENT))
+    if prod.get("note"):
+        log(f"[prod] {prod['note']}")
+
     report = report_generator.generate_report(slot, signals, account, lookthrough, rot,
                                               realtime, decisions, market_context=mc_snap,
-                                              lt_missing=lt_missing, gate=gate_report)
+                                              lt_missing=lt_missing, gate=gate_report,
+                                              nav_fresh=nav_fresh, production=prod)
     log(f"[repo] 报告已生成 → output/report_{now:%Y%m%d}_{slot}.md")
 
     if append_obsidian_log(slot, signals, account, now):
@@ -709,7 +820,8 @@ def _run(args, now: datetime) -> int:
                                     "n_universe": len(gate["universe"])}}
             degraded.append(f"publish_gate_blocked:{gate['reason']}")
         else:
-            result = notify.push_feishu(slot, signals, account, realtime, decisions, gate=gate)
+            result = notify.push_feishu(slot, signals, account, realtime, decisions,
+                                        gate=gate, production=prod)
             if result.get("ok"):
                 log("[push] 飞书推送成功")
                 push_status = {"ok": True, "reason": None,
@@ -720,6 +832,10 @@ def _run(args, now: datetime) -> int:
                                              or result.get("response"))[:200]}
                 degraded.append("feishu_push_failed")
                 log(f"[push] 飞书推送未成功（{push_status['reason']}）")
+
+    # D5-A1：生产资格状态进清单（notification 节 —— publish_gate 明确剔除该节，
+    # 不构成门禁输入，不改变任何拦截语义；只让监控/审计可见当日资格态）。
+    push_status["production"] = prod["status"]
 
     # Shadow Policy 日记录（2026-09-01，P1-⑦）：post 时点跑一次，只记录不执行。
     # shadow_policy.py 自带幂等（同日同基金跳过）与冻结模型校验，失败不阻断主流程，
