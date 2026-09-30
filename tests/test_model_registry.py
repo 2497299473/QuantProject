@@ -18,6 +18,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from core import model_registry  # noqa: E402
+from core import validation_schema as _VS  # noqa: E402  D3-01：锚点口径单一真源
+
+
+def _anchor(ev: dict) -> str:
+    """D3-01：report↔evidence 配对锚点（与产出方同口径，排除 produced_at）。"""
+    return _VS.canonical_evidence_sha256(ev)
 
 
 def _full_pass_evidence_v2():
@@ -71,7 +77,7 @@ class TestModelRegistry(unittest.TestCase):
         "kfp_comparability": "SAME",
     }
 
-    def _report_provenance(self, overrides=None):
+    def _report_provenance(self, overrides=None, evidence=None):
         entry = model_registry.get_model_entry(self.test_pkl.name)
         snap = entry.get("snapshot_provenance") or {}
         prov = {
@@ -80,6 +86,9 @@ class TestModelRegistry(unittest.TestCase):
             "dataset_sha256": snap.get("samples_sha256_lf"),
             "git_commit": entry.get("git_commit"),
         }
+        if evidence is not None:
+            # D3-01：提交 v2 evidence 时 report 必须声明配对锚点（无锚点即拒绑）
+            prov["evidence_sha256"] = _anchor(evidence)
         if overrides:
             prov.update(overrides)
         return prov
@@ -251,7 +260,10 @@ class TestModelRegistry(unittest.TestCase):
         proto = model_registry.make_feature_protocol(
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
-        self._write_report(content="approved evidence")
+        # D3-01：evidence 先构造，report 携配对锚点（无锚点的旧形态已死）
+        ev = _full_pass_evidence_v2()
+        self._write_report(content="approved evidence",
+                           provenance=self._report_provenance(evidence=ev))
         metrics = {str(h): {"decision": "approved", "ric_ci": [0.01, 0.05]}
                    for h in (1, 3, 5)}
         # D-04（2026-09-29 面 2 审查）：evidence 一律经 bind_validation 的 schema
@@ -259,7 +271,7 @@ class TestModelRegistry(unittest.TestCase):
         # 会掩盖「evidence 只能经 bind 写入」的通道唯一性。
         self.assertTrue(model_registry.bind_validation(
             self.test_pkl.name, str(self.test_report), "approved", metrics,
-            evidence=_full_pass_evidence_v2()))
+            evidence=ev))
         self.assertTrue(model_registry.apply_promotion(self.test_pkl.name)[0])
         ok, reason = model_registry.verify_approval(self.test_pkl, proto)
         self.assertTrue(ok)
@@ -278,11 +290,16 @@ class TestModelRegistry(unittest.TestCase):
             ["a"], masking=model_registry.B1_MASKING_PROTOCOL)
         self.assertTrue(model_registry.bind_feature_protocol(self.test_pkl.name, proto))
         entry = model_registry.get_model_entry(self.test_pkl.name)
+        # D3-01：带 evidence 绑定时 report 必须携配对锚点；prov=None 分支（预期
+        # 拒绑）保持无锚点旧形态不变——它本就因 dataset_sha 失配被拒，钉的是
+        # 血统门而非锚点门。
+        ev = _full_pass_evidence_v2() if prov is not None else None
         if prov is not None:
             rp = {"validation_mode": "ARTIFACT",
                   "artifact_sha256": entry["sha256"],
                   "dataset_sha256": prov["samples_sha256_lf"],
-                  "git_commit": entry["git_commit"]}
+                  "git_commit": entry["git_commit"],
+                  "evidence_sha256": _anchor(ev)}
         else:
             rp = {"validation_mode": "ARTIFACT",
                   "artifact_sha256": entry["sha256"],
@@ -295,7 +312,7 @@ class TestModelRegistry(unittest.TestCase):
         # 不传 evidence，保持原夹具「报告 provenance 失配 → bind 拒」语义。
         ok = model_registry.bind_validation(
             self.test_pkl.name, str(self.test_report), "approved", metrics,
-            evidence=(_full_pass_evidence_v2() if prov is not None else None))
+            evidence=ev)
         self.assertEqual(ok, prov is not None)
         if prov is None:
             return proto
@@ -717,11 +734,16 @@ class TestMalformedRegistryFailClosed(unittest.TestCase):
         self.assertIsNotNone(digest)
         self.assertTrue(model_registry.bind_feature_protocol(pkl.name, self.proto))
         entry = model_registry.get_model_entry(pkl.name)
+        # D3-01：evidence 先构造，report 携配对锚点；同一 ev 实例贯穿绑定与复原
+        # （锚点是对内容算的，两次构造相同内容也会得到相同锚点，但用同一实例
+        # 更能钉住「复原后与基线逐位一致」）。
+        ev = _full_pass_evidence_v2()
         report = self.tmp / "report.log"
         prov = {"validation_mode": "ARTIFACT",
                 "artifact_sha256": entry["sha256"],
                 "dataset_sha256": TestModelRegistry.FROZEN_PROV["samples_sha256_lf"],
-                "git_commit": self.TRAIN_COMMIT}
+                "git_commit": self.TRAIN_COMMIT,
+                "evidence_sha256": _anchor(ev)}
         report.write_text(
             "evidence\nPROVENANCE_JSON="
             + json.dumps(prov, sort_keys=True, separators=(",", ":")),
@@ -730,7 +752,7 @@ class TestMalformedRegistryFailClosed(unittest.TestCase):
                    for h in (1, 3, 5)}
         self.assertTrue(model_registry.bind_validation(
             pkl.name, str(report), "approved", metrics,
-            evidence=_full_pass_evidence_v2()))
+            evidence=ev))
         written, derived = model_registry.apply_promotion(pkl.name)
         self.assertTrue(written)
         self.assertEqual(derived["status"], "approved")
@@ -738,6 +760,7 @@ class TestMalformedRegistryFailClosed(unittest.TestCase):
         self.assertTrue(ok, reason)          # 基线绿：后续每个注入都从全绿出发
         self.report = report
         self.metrics = metrics
+        self.ev = ev
         return pkl
 
     def _mutate(self, path: list, value) -> None:
@@ -751,7 +774,7 @@ class TestMalformedRegistryFailClosed(unittest.TestCase):
     def _restore_green(self) -> None:
         model_registry.bind_validation(
             self.pkl.name, str(self.report), "approved", self.metrics,
-            evidence=_full_pass_evidence_v2())
+            evidence=self.ev)
         model_registry.apply_promotion(self.pkl.name)
 
     def _assert_rejected_malformed(self, result) -> str:

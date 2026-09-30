@@ -31,6 +31,25 @@ from core import validation_schema as S             # noqa: E402
 import bind_validation_evidence as bve          # noqa: E402
 
 
+def _anchor(ev: dict) -> str:
+    """D3-01：计算 evidence 的 report↔evidence 配对锚点（与产出方同口径）。
+
+    夹具必须与 backtest_forecast 落盘时一致：对 canonical_evidence_bytes 算 sha256
+    （排除易变的 produced_at），否则门 A / 门 0 会把合法夹具误拒。
+    """
+    return S.canonical_evidence_sha256(ev)
+
+
+def _anchored_validation(ev: dict, decision: str = "approved") -> dict:
+    """D3-01：带锚点的 validation 块（derive_promotion 门 0 的合法入参形态）。
+
+    无锚点的 {decision, evidence} 旧形态自 D3-01 起结构性拿不到 approved
+    （见 TestD301AnchorMigration 的旧路径死亡测例）。
+    """
+    return {"decision": decision, "evidence": ev,
+            model_registry._EVIDENCE_ANCHOR_KEY: _anchor(ev)}
+
+
 def _full_pass_evidence_v2(
         power_frozen: bool = True, actual_provenance: dict | None = None) -> dict:
     """五门全过的 schema v2 证据（power_frozen=False 用于反例：阈值未冻结）。"""
@@ -71,13 +90,13 @@ def _full_pass_evidence_v2(
 class TestFullPassAndPurity(unittest.TestCase):
     def test_full_pass_evidence_approves(self):
         d = model_registry.derive_promotion(
-            {"decision": "approved", "evidence": _full_pass_evidence_v2()})
+            _anchored_validation(_full_pass_evidence_v2()))
         self.assertEqual(d["status"], "approved")
         self.assertEqual(d["rule_version"], 2)
         self.assertIn("五门全过", d["reason"])
 
     def test_pure_function_same_input_same_output(self):
-        v = {"decision": "approved", "evidence": _full_pass_evidence_v2()}
+        v = _anchored_validation(_full_pass_evidence_v2())
         self.assertEqual(model_registry.derive_promotion(v),
                          model_registry.derive_promotion(v))
 
@@ -91,7 +110,9 @@ class TestContractBAntiExamples(unittest.TestCase):
     """契约 B 五反例：每一个都必须被对应 blocked_* 门拦下，不得 APPROVED。"""
 
     def _derive(self, ev):
-        return model_registry.derive_promotion({"decision": "approved", "evidence": ev})
+        # D3-01：带锚点入参，使门 0 通过后才能测到门 1~5 各自的 blocked_*
+        # （无锚点会被门 0 抢先落 blocked_provenance，测不到本类要钉的判据）。
+        return model_registry.derive_promotion(_anchored_validation(ev))
 
     def test_a_pooled_pass_fund_edge_fail(self):
         """反例 1：pooled PASS + 基金 edge FAIL → blocked_baseline_edge。"""
@@ -217,6 +238,8 @@ class TestRegistryIntegration(unittest.TestCase):
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
             "git_commit": entry["git_commit"],
+            # D3-01：report 声明它配对的 evidence 内容哈希（门 A / 门 0 的合法形态）
+            "evidence_sha256": _anchor(evidence),
         }
         report = self.tmp / "report.log"
         payload = json.dumps(provenance, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -310,6 +333,7 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             "artifact_sha256": entry["sha256"],
             "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
             "git_commit": entry["git_commit"],
+            "evidence_sha256": _anchor(evidence),   # D3-01 配对锚点
         }
         report = tmp / "report.log"
         payload = json.dumps(
@@ -369,29 +393,23 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
 
     def test_03_v2_court_ignores_legacy_rejected_shortcut(self):
         ev = self._full_pass_phase_a(validation_decision="rejected")
-        d = model_registry.derive_promotion({
-            "decision": "rejected",
-            "evidence": ev,
-        })
+        d = model_registry.derive_promotion(
+            _anchored_validation(ev, decision="rejected"))
         self.assertEqual(d["status"], "approved")
 
     def test_04_v2_overall_decision_is_diagnostic_only(self):
         ev = self._full_pass_phase_a()
         ev["decision"] = "rejected"
-        d = model_registry.derive_promotion({
-            "decision": "approved",
-            "evidence": ev,
-        })
+        d = model_registry.derive_promotion(
+            _anchored_validation(ev))
         self.assertEqual(d["status"], "approved")
 
     def test_05_kfp_drift_blocks_provenance_gate(self):
         ev = self._full_pass_phase_a()
         ev["provenance"]["kfp_comparability"] = {
             "value": "DRIFTED", "status": S.STATUS_OK}
-        d = model_registry.derive_promotion({
-            "decision": "approved",
-            "evidence": ev,
-        })
+        d = model_registry.derive_promotion(
+            _anchored_validation(ev))
         self.assertEqual(d["status"], "blocked_provenance")
         self.assertIn("DRIFTED", d["reason"])
 
@@ -399,10 +417,8 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
         ev = self._full_pass_phase_a()
         ev["provenance"]["historical_feature_mode"] = {
             "value": "EOD_PROXY", "status": S.STATUS_OK}
-        d = model_registry.derive_promotion({
-            "decision": "approved",
-            "evidence": ev,
-        })
+        d = model_registry.derive_promotion(
+            _anchored_validation(ev))
         self.assertEqual(d["status"], "blocked_provenance")
         self.assertIn("EOD_PROXY", d["reason"])
 
@@ -463,12 +479,19 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
                 "artifact_sha256": entry["sha256"],
                 "dataset_sha256": entry["snapshot_provenance"]["samples_sha256_lf"],
                 "git_commit": entry["git_commit"],
+                "evidence_sha256": _anchor(ev),   # D3-01：CLI 门 A 要求配对锚点
             }, sort_keys=True, separators=(",", ":")),
             encoding="utf-8")
         evidence = self.tmp_root / "explicit_evidence.json"
         evidence.write_text(
             json.dumps(ev, ensure_ascii=False, indent=2), encoding="utf-8")
         old_argv = list(sys.argv)
+        # D3-01 门 B（独立复算）需要真实冻结件 + artifact 字节；本用例钉的是
+        # 「显式入口路由到 registry」的接线，复算门另有专项测例
+        # （tests/test_evidence_recompute.py），此处 mock 为通过。
+        import evidence_recompute as _erc
+        old_fn = _erc.recompute_and_check
+        _erc.recompute_and_check = lambda *a, **k: (True, ["ok"], {})
         try:
             sys.argv = ["bind_validation_evidence.py",
                         "--report", str(report),
@@ -477,6 +500,7 @@ class TestPhaseAEvidenceCourt(unittest.TestCase):
             self.assertEqual(bve.main(), 0)
         finally:
             sys.argv = old_argv
+            _erc.recompute_and_check = old_fn
         got = model_registry.get_model_entry(pkl.name)["validation"]["evidence"]
         self.assertEqual(got["schema_version"], 2)
         self.assertEqual(

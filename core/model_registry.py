@@ -376,6 +376,17 @@ def verify_approval(pkl_path: Path, expected_protocol: dict) -> tuple[bool, str]
         if str(stored_prov.get(key) or "").strip() != str(report_prov.get(key) or "").strip():
             return False, f"validation_provenance_report_mismatch:{key}"
 
+    # D3-01：锚点报告复核——现场重读 report 的 PROVENANCE_JSON 里的
+    # evidence_sha256 必须等于 validation 块存的锚点（防「改 registry 内
+    # evidence + 同步改存储锚点」后拿旧 report 充数；也防换 report 文件伪造配对）。
+    # 存储锚点缺失时不在此处拒：derive_promotion 门 0 已对该形态落
+    # blocked_provenance，前置 promotion 门会先拦（门序不变，历史拒绝原因不变）。
+    stored_anchor = str(validation.get(_EVIDENCE_ANCHOR_KEY) or "").strip().lower()
+    if stored_anchor:
+        report_anchor = str((report_prov or {}).get(_EVIDENCE_ANCHOR_KEY) or "").strip().lower()
+        if stored_anchor != report_anchor:
+            return False, "evidence_anchor_report_mismatch"
+
     return True, "ok"
 
 
@@ -531,6 +542,41 @@ def registry_summary() -> dict:
 
 
 
+def check_evidence_anchor(evidence: dict | None, declared_sha: str | None) -> tuple[bool, str]:
+    """D3-01（2026-09-29 面 3 审查）：report ↔ evidence 配对锚点校验。
+
+    背景（A 单面 3 核心结论）：report 与 evidence 原本是两个**无锚点**的独立
+    文件（evidence 不含 report 哈希，report 不含 evidence 哈希），两者可各自伪造、
+    任意搭配。本函数把 report 的 PROVENANCE_JSON 声明值与 evidence 内容**现场
+    重算值**逐位比对，两者从此成对。
+
+    这是 **pairing proof**，不是 computation proof：它只能证明「这份 report 配的
+    就是这份 evidence」，不能证明数值是真算出来的（后者由 evidence_recompute
+    的独立复算门负责，接线在 bind_validation_evidence CLI 入口）。分层理由：
+    复算需 numpy/scipy/sklearn + backtest_forecast 导入链，而 core.model_registry
+    必须保持 0.55s / 84 模块 / 零重依赖（D-04 裁决的量化依据，audit P1-13 依赖它）。
+
+    锚点方向固定为 report → evidence（不能反向：把哈希放进 evidence 自身是自指，
+    且 validation_schema.PROVENANCE_KEYS 是冻结键集）。
+
+    返回 (ok, reason)。evidence 为 None ⇒ 不适用（legacy 绑定路径，无 v2 证据块
+    可锚），返回 True；一旦提交了 v2 evidence 就必须有匹配的锚点。
+    """
+    if evidence is None:
+        return True, "no_evidence"
+    from core import validation_schema as _vs      # 局部 import（同惯例，防环）
+    declared = str(declared_sha or "").strip().lower()
+    if not declared:
+        return False, "evidence_anchor_missing"
+    try:
+        actual = _vs.canonical_evidence_sha256(evidence)
+    except (TypeError, ValueError):
+        return False, "evidence_anchor_uncomputable"
+    if declared != actual:
+        return False, "evidence_anchor_mismatch"
+    return True, "ok"
+
+
 def validate_validation_provenance(pkl_name: str, provenance: dict | None) -> tuple[bool, str]:
     """核对已从验证报告内容解析出的 provenance 与 registry 血统（A-final-1）。
 
@@ -647,6 +693,14 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
     if not ok_prov:
         return False
 
+    # D3-01：report ↔ evidence 配对锚点。提交了 v2 evidence 却无匹配锚点 ⇒
+    # 整体拒绑（fail-closed，一字不写）：旧格式「两个独立文件各自提供」的
+    # 绑定路径在此死亡。
+    ok_anchor, anchor_reason = check_evidence_anchor(
+        evidence, provenance.get(_EVIDENCE_ANCHOR_KEY))
+    if not ok_anchor:
+        return False
+
     entry["validation"] = {
         "report_file": report_file,
         "report_sha256": actual_sha,
@@ -659,6 +713,11 @@ def bind_validation(pkl_name: str, report_file: str, decision: str,
             "git_commit": str(provenance["git_commit"]).strip(),
         },
     }
+    if evidence is not None:
+        # 锚点声明值入库（可审计）：derive_promotion 门 0 会对 evidence 内容
+        # 现场重算并比对此值，verify_approval 的 A4 段再与 report 复核一次。
+        entry["validation"][_EVIDENCE_ANCHOR_KEY] = str(
+            provenance.get(_EVIDENCE_ANCHOR_KEY)).strip()
     if metrics:
         entry["validation"]["metrics"] = metrics
     if evidence is not None:
@@ -720,6 +779,12 @@ def get_model_entry(pkl_name: str) -> dict | None:
 # （措辞红线复核）；registry promotion 本身不再需要手填。
 
 PROMOTION_RULE_VERSION = 2
+
+# D3-01（2026-09-29 面 3 审查）：report ↔ evidence 配对锚点的键名单一真源。
+# 锚点住 report 的 PROVENANCE_JSON 行（不住 evidence 内部：自指且 PROVENANCE_KEYS
+# 已冻结），bind_validation 写入 validation 块同名键，derive_promotion 门 0 与
+# verify_approval A4 段均引用本常量。
+_EVIDENCE_ANCHOR_KEY = "evidence_sha256"
 
 # B++-3：pooled 校准门阈值——与验证器既有冻结判据同源（backtest_forecast.py
 # ok 裁决的 `calib["ace"] < 0.25`；B++-1 起该口径在 schema v2 中具名为
@@ -875,6 +940,20 @@ def derive_promotion(validation: dict | None) -> dict:
     evidence = validation.get("evidence")
     if isinstance(evidence, dict) and evidence.get(
             "schema_version") == _vs.VALIDATION_SCHEMA_VERSION:
+        # D3-01 门 0（先于五门，2026-09-29 面 3 审查）：report↔evidence 配对锚点
+        # 现场重算——对 evidence 内容重算 canonical 哈希，与 validation 块存的
+        # 锚点声明值逐位比对。**旧路径死亡条款**：无锚点的旧格式 v2 evidence
+        # （含历史已绑条目）结构性拿不到 approved，落 blocked_provenance；
+        # 升级路径 = 用带锚点的验证器重新产出 + 重新 bind。
+        ok_anchor, anchor_reason = check_evidence_anchor(
+            evidence, validation.get(_EVIDENCE_ANCHOR_KEY))
+        if not ok_anchor:
+            return {"status": "blocked_provenance",
+                    "rule_version": PROMOTION_RULE_VERSION,
+                    "failed_horizons": [],
+                    "reason": f"report↔evidence 配对锚点不成立（{anchor_reason}）——"
+                              "无锚点的旧格式证据不得再获 approved 推导（D3-01）；"
+                              "升级须用带 evidence_sha256 锚点的验证器重新产出并重新绑定"}
         # v2 唯一法院：五门 gate 决定结果；validation.decision / evidence.decision
         # 只保留为验证器诊断字段，不得抢先阻断或放行。
         return _derive_promotion_v2_gates(evidence, _vs)
