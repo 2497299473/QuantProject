@@ -321,9 +321,11 @@ class TestTrainingGitSeamNegative(unittest.TestCase):
         ok, errs = S.validate_evidence(ev)
         self.assertTrue(ok, errs)
         # UNKNOWN 血统不得静默变可授权：五门全过夹具仅改此键 → blocked_provenance
+        # D3-01：带锚点入参，确保拒因是门 5（git_commit UNKNOWN）而非门 0
+        from tests.test_promotion_rule_v2 import _anchored_validation
         full = _full_pass_evidence_v2()
         full["provenance"]["git_commit"] = S.ev_na(S.STATUS_UNKNOWN)
-        d = model_registry.derive_promotion({"decision": "approved", "evidence": full})
+        d = model_registry.derive_promotion(_anchored_validation(full))
         self.assertEqual(d["status"], "blocked_provenance")
 
 

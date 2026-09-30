@@ -114,6 +114,53 @@ class TestGateAInternal(_Base):
         self.jsonl.unlink()
         self.assertEqual(self._verify(), tool.EXIT_MISSING)
 
+    # ---------------- D3-04/D3-05（2026-09-29 面 3）：CLI 侧与库侧成对 ----------------
+
+    def test_malformed_meta_json_is_missing_not_traceback(self):
+        """D3-04（CLI 复现）：meta JSON 损坏 ⇒ exit 4 MISSING，不出 traceback。
+
+        与 test_frozen_dataset 侧同名测例成对：库路径判 INVALID、CLI 路径判
+        MISSING，两者都是「必须中止」的硬闸门出口。旧行为是裸抛
+        JSONDecodeError（rc=1 + traceback），监控会把契约违约误判为脚本崩溃。
+        """
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        self.meta.write_text("{not json", encoding="utf-8")
+        self.assertEqual(self._verify(), tool.EXIT_MISSING)
+
+    def test_meta_top_level_non_object_is_missing(self):
+        """D3-04：合法 JSON 但顶层非 object ⇒ MISSING（不崩）。"""
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        for bad in ("[]", '"str"', "42"):
+            with self.subTest(payload=bad):
+                self.meta.write_text(bad, encoding="utf-8")
+                self.assertEqual(self._verify(), tool.EXIT_MISSING)
+
+    def test_n_samples_string_is_mismatch_not_exception(self):
+        """D3-05（CLI 复现）：n_samples="99" ⇒ exit 3 MISMATCH，不裸抛 ValueError。"""
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        self._write_meta(sha=self.sha, n="99")
+        self.assertEqual(self._verify(), tool.EXIT_MISMATCH)
+
+    def test_n_samples_null_is_mismatch(self):
+        """D3-05：n_samples=null（键在而值 null = 畸形）⇒ MISMATCH。"""
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        self._write_meta(sha=self.sha, n=None)
+        self.assertEqual(self._verify(), tool.EXIT_MISMATCH)
+
+    def test_n_samples_bool_is_mismatch(self):
+        """D3-05：bool 是 int 子类（True==1）——不得被当真行数静默通过。"""
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        self._write_meta(sha=self.sha, n=True)
+        self.assertEqual(self._verify(), tool.EXIT_MISMATCH)
+
+    def test_n_samples_absent_key_still_not_judged(self):
+        """D3-05 向后兼容：旧件无 n_samples 键 ⇒ 不判（行为与改前一致）。"""
+        self._stub_kfp("f5a2f607" + "0" * 56)
+        m = {"kind": "forecast_lab_samples_freeze", "sha256": self.sha,
+             "jsonl": self.jsonl.name, "degraded_or_ratelimit_flags": []}
+        self.meta.write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
+        self.assertEqual(self._verify(), tool.EXIT_PASS)
+
 
 class TestGateBComparability(_Base):
     def test_kfp_drift_is_marked_not_fatal(self):

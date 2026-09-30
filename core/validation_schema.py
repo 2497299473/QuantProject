@@ -36,9 +36,32 @@ B++-3（derive_promotion v2）共同引用——原则是「新增契约字段�
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 
 VALIDATION_SCHEMA_VERSION = 2
+
+# ---------- D3-01（2026-09-29 面 3 审查）：report ↔ evidence 配对锚点 ----------
+# A 单指出的结构缺口：report 与 evidence 是两个**无锚点**的独立文件（evidence 不含
+# report 哈希，report 不含 evidence 哈希）。锚点方向定为「**report 的 PROVENANCE_JSON
+# 行声明它配对的 evidence 内容哈希**」——不能把哈希放进 evidence 自身（自指，且
+# PROVENANCE_KEYS 是冻结键集）。
+EVIDENCE_ANCHOR_KEY = "evidence_sha256"
+
+# 不参与锚点哈希的**易变字段**（单一事实源）。
+#
+# 为何排除 produced_at（铁律 7：如实记录取舍，不静默）：
+#   ① backtest_forecast.py 的 stdout 纪律是「同命令连跑两次逐字节一致，变量只许
+#     落盘不进 stdout」；若锚点含运行时间戳，PROVENANCE_JSON 行每次重跑都变；
+#   ② report .log 字节变 ⇒ report_sha256 漂移 ⇒ data/promotion_prereg.json 的 D3
+#     判据（「validation.report_sha256 与登记值一致」）失去可复现前提。
+#   ③ produced_at 是元数据，**不是任何晋升门的判据输入**（五门消费 pooled/funds/
+#     power/calibration/baseline 与 provenance 的 artifact/dataset/git/protocol/
+#     contract_version/historical_feature_mode/kfp_comparability/produced_by），
+#     排除它不开任何门禁绕过口。
+# 代价：两份仅 produced_at 不同的 evidence 锚点相同——如实接受（该字段不影响裁决）。
+VOLATILE_PROVENANCE_KEYS = ("produced_at",)
 
 # ---- 证据值状态（契约 B §13 尾注：null 不是「通过」，三态不得混装）----
 STATUS_OK = "OK"
@@ -121,6 +144,44 @@ def canonical_horizon(h) -> str | None:
     """周期键规范化：1 / '1' → '1'；其余（'01'、1.0、'7'、True…）一律 None。"""
     s = str(h)
     return s if s in HORIZONS else None
+
+
+# ---------- D3-01：evidence 规范化字节与锚点哈希（纯函数、零 I/O） ----------
+def canonical_evidence_bytes(evidence) -> bytes:
+    """evidence → 规范化字节（锚点哈希的唯一口径，产出方与校验方共用）。
+
+    口径：``json.dumps(..., ensure_ascii=False, indent=2, sort_keys=True)`` 的 UTF-8
+    字节。选规范化序列化而非「文件原始字节」的三个理由：
+      ① **键序无关**：同一证据重新组表/经 registry JSON 往返后键序可能变，原始
+        字节哈希会假失配；
+      ② **可重算**：bind_validation 拿到的是已解析的 dict（不是文件），必须能从
+        dict 重现同一哈希；
+      ③ **往返稳定**：实测（evidence/probes/d3_batch_selftest_20260929.log）
+        dict → canonical bytes → JSON 落盘/读回 → canonical bytes 逐字节相同，
+        含 0.1 / 0.30000000000000004 / 2⁄3 / -0.0 / 大整数等边界 float。
+
+    不修改入参（纯函数）；排除 VOLATILE_PROVENANCE_KEYS（见常量处理由）。
+    非 dict 入参 ⇒ ValueError（调用方先过 validate_evidence，此处只防误用）。
+    """
+    if not isinstance(evidence, dict):
+        raise ValueError(f"canonical_evidence_bytes 只接受 dict，得到 {type(evidence).__name__}")
+    obj = json.loads(json.dumps(evidence, ensure_ascii=False, sort_keys=True))
+    prov = obj.get("provenance")
+    if isinstance(prov, dict):
+        for k in VOLATILE_PROVENANCE_KEYS:
+            prov.pop(k, None)
+    return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8")
+
+
+def canonical_evidence_sha256(evidence) -> str:
+    """evidence 锚点哈希（全长 64 hex）= canonical_evidence_bytes 的 sha256。
+
+    用途：report 的 PROVENANCE_JSON 行声明它，bind_validation 对提交的 evidence
+    现场重算并逐位比对 ⇒ report 与 evidence **成对**，不再是两个可各自伪造的
+    独立文件。注意这是 Identity/pairing proof，**不是 Computation proof**（数值
+    是否真算出来由 evidence_recompute 的独立复算门负责，D3-01 ②）。
+    """
+    return hashlib.sha256(canonical_evidence_bytes(evidence)).hexdigest()
 
 
 # ---------- 模板（全 UNKNOWN，供 B++-2 从零填充） ----------

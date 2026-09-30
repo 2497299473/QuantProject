@@ -1,0 +1,1630 @@
+==============================================================================
+$ git rev-parse HEAD
+  (git rev-parse HEAD（本轮基准：基线 25d3817a + D3 批改动未提交）)
+==============================================================================
+--- stdout ---
+25d3817a8256f9e7a1ae231228a40be3698035e9
+
+--- stderr ---
+
+--- returncode: 0 --- (0.1s)
+
+==============================================================================
+$ git status --porcelain
+  (git status --porcelain（本轮改动文件）)
+==============================================================================
+--- stdout ---
+ M backtest_forecast.py
+ M bind_provenance.py
+ M bind_validation_evidence.py
+ M core/model_registry.py
+ M core/validation_schema.py
+ M data/intraday_features.jsonl
+ M data/market_context/history.jsonl
+ M freeze_verify_tool.py
+ M frozen_dataset.py
+ M output/audit_current.json
+ M output/daily_runs/2026-09-23.md
+ M output/daily_runs/2026-09-24.md
+ M output/daily_runs/2026-09-28.md
+ M output/daily_runs/2026-09-29.md
+ M output/shadow_actions.jsonl
+ M output/state_ref_history.jsonl
+ M tests/layers.py
+ M tests/test_batch_a_hardening.py
+ M tests/test_freeze_verify_tool.py
+ M tests/test_frozen_dataset.py
+ M tests/test_model_registry.py
+ M tests/test_promotion_rule_v2.py
+ M tests/test_provenance_binding.py
+?? _tmp_collect_selftest.py
+?? evidence/probes/d3_backfill_probe.py
+?? evidence/probes/d3_recompute_probe.py
+?? data/market_context/2026-09-28.json
+?? data/market_context/2026-09-29.json
+?? evidence_recompute.py
+?? output/audit_history/audit_20260928T145557.json
+?? output/audit_history/audit_20260929T145605.json
+?? output/daily_runs/2026-09-25.md
+?? output/ops_runs/2026-09-26-dlite-refresh.md
+?? output/run_manifest/run_manifest_20260928_113014_mid.json
+?? output/run_manifest/run_manifest_20260928_145515_post.json
+?? output/run_manifest/run_manifest_20260929_113025_mid.json
+?? output/run_manifest/run_manifest_20260929_145511_post.json
+?? tests/test_evidence_anchor.py
+?? tests/test_evidence_binding_anchor.py
+?? tests/test_evidence_recompute.py
+
+--- stderr ---
+
+--- returncode: 0 --- (0.1s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m py_compile core/model_registry.py core/validation_schema.py bind_provenance.py bind_validation_evidence.py backtest_forecast.py evidence_recompute.py frozen_dataset.py freeze_verify_tool.py
+  (py_compile 全部涉改源码)
+==============================================================================
+--- stdout ---
+
+--- stderr ---
+
+--- returncode: 0 --- (0.3s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_frozen_dataset tests.test_freeze_verify_tool -v
+  (D3-04/05：frozen_dataset + freeze_verify_tool 成对负向测例)
+==============================================================================
+--- stdout ---
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带降级/频控征兆: ['DegradedResponse']）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B UNKNOWN: 缺留档或重算聚合 sha
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260915.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车不可解析（fail-closed）: JSONDecodeError）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: list）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: str）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: int）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: True（bool））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: None（NoneType））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: '99'（str））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（行数不符（meta=99 / 实际=2））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B kfp 留档 REJECT: V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带个股K线失败（1 码，数据质量门禁）: [{'code': '000001', 'error': 'x'}]）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（样本 sha 不符（记录 89fca06abec0… / 实际 28460b632d65…））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B INCOMPLETE: 当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']
+[frozen] G-B K线指纹    : INCOMPLETE（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxtqyul_n\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不存在：kline_fingerprint_20260910.bak.json —— fail-closed 判 UNKNOWN（拒绝回退同目录兄弟/meta 字段：显式指定意味着调用方已知该用哪份）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpxtqyul_n\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaxnvlu3s\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910_explicit.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpaxnvlu3s\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpz_rv1m1v\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp cutoff 不符（侧车=None / meta scope='2026-09-10'）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpz_rv1m1v\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp2ux4f3f\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp stock_n 不符（meta=3 / 侧车=all）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpp2ux4f3f\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpw2cqepku\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 与样本日期标签不符（kline_fingerprint_20260101.json vs samples_frozen_20260910）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpw2cqepku\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphmk7q49b\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不可解析（JSONDecodeError）—— fail-closed 判 UNKNOWN（坏文件比缺失更危险：半读的聚合会静默改变比对口径）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmphmk7q49b\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpy2xc363j\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpy2xc363j\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpz4duzsjk\forecast_outputs\freeze_failed_20260930_091237
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\freeze_failed_20260930_091237
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 当日冻结件已存在，拒绝重采：samples_frozen_20260930.jsonl
+        复用既有件（阶段 2 直接读它），或显式 --force 重采并在报告记录「已重采」。
+        校验既有件：python -X utf8 freeze_verify_tool.py verify --jsonl forecast_outputs/samples_frozen_20260930.jsonl
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpir_f09dp\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpir_f09dp\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp7ckexy48\forecast_outputs\freeze_failed_20260930_091237_commit
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpsrulyvq4\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpsrulyvq4\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: ['999999.json(stock:requested-missing)']
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpyf36285p\forecast_outputs\freeze_failed_20260930_091237_kfp
+
+[ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：
+    ! 000001 (0): ValueError: 全部数据源失败
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpf4h9w95a\forecast_outputs\freeze_failed_20260930_091237_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpvbb0gzg8\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 冻结时带降级/频控征兆 : ['DegradedResponse']
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp5tao49il\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 不可解析（JSONDecodeError）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（list）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（str）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（int）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpw0ljbn4p\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp0lee8cyn\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmp0lee8cyn\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdchfyi4_\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpyaixnvzj\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: True（bool）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_l1q80u0\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: None（NoneType）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpimyxoeta\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: '99'（str）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl_n82ttw\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 行数 不一致 : meta=99 实际=2
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpv2rv_2tp\samples_frozen_20260910.jsonl
+[freeze] rows     : 3
+[freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 归一，判定口径)
+[freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : MISMATCH
+[freeze] G-A 行数 不一致 : meta=2 实际=3
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpithp5p7b\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- (无)
+[freeze] kfp 当前 : cccc000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpqgagrkc_\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8rd48p8x\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp60e6xwd_\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp60e6xwd_\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp4djr9pn9\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp4djr9pn9\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8j27em3c\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp8j27em3c\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzjmgiwwr\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : INCOMPLETE（当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']）（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpzjmgiwwr\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = INCOMPLETE）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmparmf1u37\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdk8mtjst\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpdk8mtjst\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3kywjnda\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- gone.json
+[freeze] kfp 当前 : aaaa000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3kywjnda\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+
+--- stderr ---
+test_degraded_flags_invalid (tests.test_frozen_dataset.TestResolveSamples.test_degraded_flags_invalid) ... ok
+test_explicit_snapshot_path (tests.test_frozen_dataset.TestResolveSamples.test_explicit_snapshot_path) ... ok
+test_fresh_mode_marks_uncomparable (tests.test_frozen_dataset.TestResolveSamples.test_fresh_mode_marks_uncomparable) ... ok
+test_frozen_pass_same (tests.test_frozen_dataset.TestResolveSamples.test_frozen_pass_same) ... ok
+test_gb_legacy_unchanged_scope (tests.test_frozen_dataset.TestResolveSamples.test_gb_legacy_unchanged_scope)
+09-20 前锚点件（无 scope 字段）⇒ 重算记录不带 scope/cutoff（全量口径）。 ... ok
+test_gb_scope_aware_recompute_and_drift (tests.test_frozen_dataset.TestResolveSamples.test_gb_scope_aware_recompute_and_drift)
+V4.3 P0-2：留档带 scope ⇒ 同口径重算（scope 参数真传）；漂移只软标记。 ... ok
+test_gb_unknown_when_recompute_fails (tests.test_frozen_dataset.TestResolveSamples.test_gb_unknown_when_recompute_fails) ... ok
+test_latest_picks_highest_tag_ignores_decoys (tests.test_frozen_dataset.TestResolveSamples.test_latest_picks_highest_tag_ignores_decoys) ... ok
+test_legacy_meta_without_stock_failures_field_passes (tests.test_frozen_dataset.TestResolveSamples.test_legacy_meta_without_stock_failures_field_passes)
+旧件（无 stock_data_failures 字段）不判——向后兼容 09-10 锚点件。 ... ok
+test_malformed_meta_json_invalid_not_exception (tests.test_frozen_dataset.TestResolveSamples.test_malformed_meta_json_invalid_not_exception)
+D3-04：meta JSON 损坏 ⇒ INVALID（非裸抛 JSONDecodeError）。 ... ok
+test_meta_top_level_non_object_invalid (tests.test_frozen_dataset.TestResolveSamples.test_meta_top_level_non_object_invalid)
+D3-04：合法 JSON 但顶层非 object（list/str/数）⇒ INVALID，不崩。 ... ok
+test_missing_fails_closed_without_live (tests.test_frozen_dataset.TestResolveSamples.test_missing_fails_closed_without_live) ... ok
+test_n_samples_absent_key_still_not_judged (tests.test_frozen_dataset.TestResolveSamples.test_n_samples_absent_key_still_not_judged)
+D3-05 向后兼容：旧件无 n_samples 键 ⇒ 不判（行为与改前逐位一致）。 ... ok
+test_n_samples_bool_invalid (tests.test_frozen_dataset.TestResolveSamples.test_n_samples_bool_invalid)
+D3-05：bool 是 int 子类（True==1）——不得被当真行数静默通过。 ... ok
+test_n_samples_null_invalid (tests.test_frozen_dataset.TestResolveSamples.test_n_samples_null_invalid)
+D3-05：n_samples=null（显式声明却无值）⇒ INVALID。 ... ok
+test_n_samples_string_invalid_not_exception (tests.test_frozen_dataset.TestResolveSamples.test_n_samples_string_invalid_not_exception)
+D3-05：n_samples="99"（字符串）⇒ INVALID，不得让 int() 裸抛 ValueError。 ... ok
+test_row_count_mismatch_invalid (tests.test_frozen_dataset.TestResolveSamples.test_row_count_mismatch_invalid) ... ok
+test_scoped_snapshot_without_sibling_kfp_is_unknown_not_guessed (tests.test_frozen_dataset.TestResolveSamples.test_scoped_snapshot_without_sibling_kfp_is_unknown_not_guessed)
+① 复现：V4.3 scoped 件（meta 带 scope）但 kfp 侧车被删。 ... ok
+test_snapshot_provenance_assembled_on_frozen (tests.test_frozen_dataset.TestResolveSamples.test_snapshot_provenance_assembled_on_frozen)
+③ 复现：FROZEN 路径 snap_info 带全三元组（不论 G-B 状态）。 ... ok
+test_snapshot_provenance_honest_none_on_fresh_missing (tests.test_frozen_dataset.TestResolveSamples.test_snapshot_provenance_honest_none_on_fresh_missing)
+③ 反向：FRESH / MISSING 的 provenance 键齐全但全 None（活拉没留档）。 ... ok
+test_stock_data_failures_invalid (tests.test_frozen_dataset.TestResolveSamples.test_stock_data_failures_invalid)
+V4.3 P0-3：meta 记录的个股K线失败非空 ⇒ 快照结构性无效。 ... ok
+test_tampered_sha_invalid (tests.test_frozen_dataset.TestResolveSamples.test_tampered_sha_invalid) ... ok
+test_unreadable_recompute_is_incomplete_not_same (tests.test_frozen_dataset.TestResolveSamples.test_unreadable_recompute_is_incomplete_not_same)
+② 复现：重算侧 unreadable 有 1 只（缓存缺/坏码）。 ... ok
+test_explicit_missing_rejects_no_fallback_to_sibling (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_missing_rejects_no_fallback_to_sibling)
+显式侧车不存在 ⇒ UNKNOWN；兄弟文件在场也不得静默改用（假 PASS 防线）。 ... ok
+test_explicit_scope_consistent_passes (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_scope_consistent_passes)
+显式侧车与 meta scope 全符（tag/cutoff/stock_n）⇒ 正常进 G-B 判定。 ... ok
+test_explicit_scope_cutoff_mismatch_is_unknown (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_scope_cutoff_mismatch_is_unknown)
+meta 是 scoped 件、侧车无 cutoff 键（口径漂移）⇒ UNKNOWN。 ... ok
+test_explicit_scope_stock_n_mismatch_is_unknown (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_scope_stock_n_mismatch_is_unknown)
+meta scope stock_n=3 vs 侧车全量口径（"all"）⇒ UNKNOWN。 ... ok
+test_explicit_tag_mismatch_is_unknown (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_tag_mismatch_is_unknown)
+文件名日期标签与样本不符 ⇒ UNKNOWN（别日的指纹不与本样本配对）。 ... ok
+test_explicit_unparseable_is_unknown_not_crash (tests.test_freeze_verify_tool.TestExplicitKfpStrict.test_explicit_unparseable_is_unknown_not_crash)
+显式侧车 JSON 损坏 ⇒ UNKNOWN（P2-②：不再裸 JSONDecodeError traceback）。 ... ok
+test_clean_run_publishes_canonical_with_lf_sha (tests.test_freeze_verify_tool.TestFreezeAtomicPublish.test_clean_run_publishes_canonical_with_lf_sha) ... ok
+test_degraded_run_exit1_no_canonical_quarantine_kept (tests.test_freeze_verify_tool.TestFreezeAtomicPublish.test_degraded_run_exit1_no_canonical_quarantine_kept)
+degraded → exit 1 → canonical 不存在 → 留证在 forecast_outputs/freeze_failed_*/。 ... ok
+test_non_degraded_exception_still_raises_and_leaves_nothing (tests.test_freeze_verify_tool.TestFreezeAtomicPublish.test_non_degraded_exception_still_raises_and_leaves_nothing) ... ok
+test_same_day_retry_after_degraded_is_not_blocked (tests.test_freeze_verify_tool.TestFreezeAtomicPublish.test_same_day_retry_after_degraded_is_not_blocked)
+核心回归：降级 exit 1 后，同日重跑不得被 no-clobber 误挡。 ... ok
+test_existing_freeze_aborts_before_any_network (tests.test_freeze_verify_tool.TestFreezeNoClobber.test_existing_freeze_aborts_before_any_network) ... ok
+test_force_bypasses_gate (tests.test_freeze_verify_tool.TestFreezeNoClobber.test_force_bypasses_gate) ... ok
+test_clean_run_meta_carries_v43_fields (tests.test_freeze_verify_tool.TestFreezeV43Gates.test_clean_run_meta_carries_v43_fields)
+干净运行：meta 带 V4.3 字段（schema_version=2 / code_commit / ... ok
+test_commit_missing_snapshot_invalid (tests.test_freeze_verify_tool.TestFreezeV43Gates.test_commit_missing_snapshot_invalid) ... ok
+test_fund_codes_scoped_to_sample_funds (tests.test_freeze_verify_tool.TestFreezeV43Gates.test_fund_codes_scoped_to_sample_funds)
+V4.3.1-⑤：fund 侧传样本基金（排序去重）——无关基金缓存变化不改冻结指纹。 ... ok
+test_kfp_unreadable_snapshot_invalid (tests.test_freeze_verify_tool.TestFreezeV43Gates.test_kfp_unreadable_snapshot_invalid) ... ok
+test_stock_failures_snapshot_invalid (tests.test_freeze_verify_tool.TestFreezeV43Gates.test_stock_failures_snapshot_invalid) ... ok
+test_degraded_freeze_flags_abort (tests.test_freeze_verify_tool.TestGateAInternal.test_degraded_freeze_flags_abort) ... ok
+test_malformed_meta_json_is_missing_not_traceback (tests.test_freeze_verify_tool.TestGateAInternal.test_malformed_meta_json_is_missing_not_traceback)
+D3-04（CLI 复现）：meta JSON 损坏 ⇒ exit 4 MISSING，不出 traceback。 ... ok
+test_meta_top_level_non_object_is_missing (tests.test_freeze_verify_tool.TestGateAInternal.test_meta_top_level_non_object_is_missing)
+D3-04：合法 JSON 但顶层非 object ⇒ MISSING（不崩）。 ... ok
+test_missing_meta_is_fail_closed (tests.test_freeze_verify_tool.TestGateAInternal.test_missing_meta_is_fail_closed) ... ok
+test_missing_samples_is_fail_closed (tests.test_freeze_verify_tool.TestGateAInternal.test_missing_samples_is_fail_closed) ... ok
+test_n_samples_absent_key_still_not_judged (tests.test_freeze_verify_tool.TestGateAInternal.test_n_samples_absent_key_still_not_judged)
+D3-05 向后兼容：旧件无 n_samples 键 ⇒ 不判（行为与改前一致）。 ... ok
+test_n_samples_bool_is_mismatch (tests.test_freeze_verify_tool.TestGateAInternal.test_n_samples_bool_is_mismatch)
+D3-05：bool 是 int 子类（True==1）——不得被当真行数静默通过。 ... ok
+test_n_samples_null_is_mismatch (tests.test_freeze_verify_tool.TestGateAInternal.test_n_samples_null_is_mismatch)
+D3-05：n_samples=null（键在而值 null = 畸形）⇒ MISMATCH。 ... ok
+test_n_samples_string_is_mismatch_not_exception (tests.test_freeze_verify_tool.TestGateAInternal.test_n_samples_string_is_mismatch_not_exception)
+D3-05（CLI 复现）：n_samples="99" ⇒ exit 3 MISMATCH，不裸抛 ValueError。 ... ok
+test_row_count_mismatch_abort (tests.test_freeze_verify_tool.TestGateAInternal.test_row_count_mismatch_abort) ... ok
+test_tampered_samples_abort (tests.test_freeze_verify_tool.TestGateAInternal.test_tampered_samples_abort)
+样本被改（sha 不符）⇒ 硬中止 exit 3。 ... ok
+test_incomplete_sidecar_absent_unscoped_legacy_still_falls_back (tests.test_freeze_verify_tool.TestGateBComparability.test_incomplete_sidecar_absent_unscoped_legacy_still_falls_back)
+反向保底：旧件（meta 无 scope）缺侧车仍按原路回退到 meta 字段。 ... ok
+test_kfp_drift_is_marked_not_fatal (tests.test_freeze_verify_tool.TestGateBComparability.test_kfp_drift_is_marked_not_fatal)
+指纹漂移必须只标 DRIFTED，exit 仍为 0 —— 硬中止会让任务跑不动。 ... ok
+test_kfp_recompute_failure_is_unknown_not_fatal (tests.test_freeze_verify_tool.TestGateBComparability.test_kfp_recompute_failure_is_unknown_not_fatal) ... ok
+test_kfp_same_when_equal (tests.test_freeze_verify_tool.TestGateBComparability.test_kfp_same_when_equal) ... ok
+test_scoped_sibling_absent_rejects_to_unknown (tests.test_freeze_verify_tool.TestGateBComparability.test_scoped_sibling_absent_rejects_to_unknown)
+① CLI 复现：meta 带 scope（scoped 件）但侧车缺失 ⇒ UNKNOWN。 ... ok
+test_triple_records_code_commit_and_both_shas (tests.test_freeze_verify_tool.TestGateBComparability.test_triple_records_code_commit_and_both_shas) ... ok
+test_unreadable_recompute_is_incomplete_not_fatal (tests.test_freeze_verify_tool.TestGateBComparability.test_unreadable_recompute_is_incomplete_not_fatal)
+② CLI 复现：重算 unreadable 非空 ⇒ INCOMPLETE，exit 仍 0。 ... ok
+test_crlf_file_passes_lf_gate (tests.test_freeze_verify_tool.TestLfNormalization.test_crlf_file_passes_lf_gate)
+CRLF 落盘文件必须能通过 LF 归一校验（防 Get-FileHash 式假失败）。 ... ok
+test_lf_normalized_helper_matches_written_sha (tests.test_freeze_verify_tool.TestLfNormalization.test_lf_normalized_helper_matches_written_sha) ... ok
+test_finds_sibling_kfp_without_meta_field (tests.test_freeze_verify_tool.TestSidecarDiscovery.test_finds_sibling_kfp_without_meta_field)
+09-10 实况：meta 无指纹字段，仍须按日期标签找到兄弟指纹文件。 ... ok
+test_meta_kfp_field_used_when_sibling_absent (tests.test_freeze_verify_tool.TestSidecarDiscovery.test_meta_kfp_field_used_when_sibling_absent) ... ok
+
+----------------------------------------------------------------------
+Ran 62 tests in 1.227s
+
+OK
+
+--- returncode: 0 --- (1.7s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_provenance_binding -v
+  (D3-02/03/06：provenance_binding（快照可信度 + first_identical_commit + 全长比对）)
+==============================================================================
+--- stdout ---
+[attest] 跳过不可信快照 manifest_20660101T000000.json：snapshot_id 与 files 内容不符（声明 631e1e0db05c89ef… / 复算 f2a2ce5d65775512…）
+== 无需写入（全部已绑定）==
+
+--- stderr ---
+test_absent_pkl_refuses_binding (tests.test_provenance_binding.TestAttestationGate.test_absent_pkl_refuses_binding) ... ok
+test_hash_mismatch_refuses_binding (tests.test_provenance_binding.TestAttestationGate.test_hash_mismatch_refuses_binding)
+快照里记的是**另一组字节** → 不能拿来冒充本模型的证据。 ... ok
+test_matches_slash_and_backslash_key_forms (tests.test_provenance_binding.TestAttestationGate.test_matches_slash_and_backslash_key_forms)
+旧 manifest 用 '/'、新版用 '\' —— 两种键形态都必须能证明在场。 ... ok
+test_picks_earliest_attesting_snapshot (tests.test_provenance_binding.TestAttestationGate.test_picks_earliest_attesting_snapshot)
+多个快照都能证明时取最早的 —— 晚生成的不冒充"登记当时"。 ... ok
+test_registry_binding_is_resolvable_by_audit (tests.test_provenance_binding.TestAttestationGate.test_registry_binding_is_resolvable_by_audit)
+真实 registry 已绑定值必须在 audit 的 allowed 集合内（否则 P0-3 会翻 FAIL）。 ... ok
+test_bind_refuses_when_no_identical_commit (tests.test_provenance_binding.TestBindFailClosedOnMissingLineage.test_bind_refuses_when_no_identical_commit) ... ok
+test_finds_first_byte_identical_commit (tests.test_provenance_binding.TestFirstIdenticalCommit.test_finds_first_byte_identical_commit) ... ok
+test_multiple_identical_picks_oldest (tests.test_provenance_binding.TestFirstIdenticalCommit.test_multiple_identical_picks_oldest)
+③ 多候选（同一字节被反复提交）取**最旧**的一致提交。 ... ok
+test_no_history_returns_none (tests.test_provenance_binding.TestFirstIdenticalCommit.test_no_history_returns_none)
+② 无历史 ⇒ (None, None)，bind() 据此 fail-closed 拒绑。 ... ok
+test_reachable_commit_on_branch_still_accepted (tests.test_provenance_binding.TestFirstIdenticalCommit.test_reachable_commit_on_branch_still_accepted)
+可达性过滤的**反向保底**：分支已合并进 master（对 HEAD 可达）⇒ 仍可绑。 ... ok
+test_real_registry_entry_unchanged (tests.test_provenance_binding.TestFirstIdenticalCommit.test_real_registry_entry_unchanged)
+验收「真实 registry 现有条目回填结果不变（6e0c9dd66）」——真实仓库只读。 ... ok
+test_same_name_rebuild_pins_each_bytes_to_own_commit (tests.test_provenance_binding.TestFirstIdenticalCommit.test_same_name_rebuild_pins_each_bytes_to_own_commit)
+① 同名重建（字节变了）：每串字节只锚定到**它存在过的提交**。 ... ok
+test_unreachable_branch_commit_filtered_out (tests.test_provenance_binding.TestFirstIdenticalCommit.test_unreachable_branch_commit_filtered_out)
+② 可达性：只存在于**旁支**的 blob 不得充当血统锚点。 ... ok
+test_attest_accepts_uppercase_and_whitespace_variants (tests.test_provenance_binding.TestFullLengthShaIdentity.test_attest_accepts_uppercase_and_whitespace_variants)
+全长比对做了 strip/lower 归一：大小写与首尾空白不得造成假失配。 ... ok
+test_manifest_file_identity_keeps_sha16_convention (tests.test_provenance_binding.TestFullLengthShaIdentity.test_manifest_file_identity_keeps_sha16_convention)
+口径注释同步：sha256_16 仍用于 manifest **文件**身份（三处锁死不动）。 ... ok
+test_prefix16_collision_no_longer_attests (tests.test_provenance_binding.TestFullLengthShaIdentity.test_prefix16_collision_no_longer_attests)
+前 16 位相同、后 48 位不同的伪造字节 **不得** 冒充在场（旧截断口径会放行）。 ... ok
+test_clean_worktree_passes (tests.test_provenance_binding.TestGitWorktreeClean.test_clean_worktree_passes) ... ok
+test_dirty_worktree_warns_not_fails (tests.test_provenance_binding.TestGitWorktreeClean.test_dirty_worktree_warns_not_fails)
+本地开发常态：判 FAIL 会让 audit_health 常年 FAIL 并触发自锁。 ... ok
+test_real_git_status_shape (tests.test_provenance_binding.TestGitWorktreeClean.test_real_git_status_shape)
+真实调用只验形状（不假定干净）：返回值类型与 detail 非空。 ... ok
+test_unavailable_git_warns_not_passes (tests.test_provenance_binding.TestGitWorktreeClean.test_unavailable_git_warns_not_passes)
+fail-closed：把「git 查不到」当「干净」是 fail-open。 ... ok
+test_capture_provenance_shape (tests.test_provenance_binding.TestRegisterBindsProvenance.test_capture_provenance_shape) ... ok
+test_register_model_stores_provenance (tests.test_provenance_binding.TestRegisterBindsProvenance.test_register_model_stores_provenance) ... ok
+test_snapshot_provenance_passthrough_and_honest_absence (tests.test_provenance_binding.TestRegisterBindsProvenance.test_snapshot_provenance_passthrough_and_honest_absence)
+V4.3.1 ③：冻结件三元组透传进条目；未提供 ⇒ 键在但全 None（不伪造）。 ... ok
+test_audit_check_flags_absolute_path_as_warn (tests.test_provenance_binding.TestRegistryPathNormalization.test_audit_check_flags_absolute_path_as_warn)
+审计 P1-10 必须把绝对路径抓出来（旧实况是静默通过）。 ... ok
+test_audit_check_passes_after_normalization (tests.test_provenance_binding.TestRegistryPathNormalization.test_audit_check_passes_after_normalization) ... ok
+test_normalize_dry_run_does_not_write (tests.test_provenance_binding.TestRegistryPathNormalization.test_normalize_dry_run_does_not_write) ... ok
+test_normalize_is_idempotent (tests.test_provenance_binding.TestRegistryPathNormalization.test_normalize_is_idempotent) ... ok
+test_normalize_leaves_evidence_fields_untouched (tests.test_provenance_binding.TestRegistryPathNormalization.test_normalize_leaves_evidence_fields_untouched)
+只动 path 措辞：sha256 / validation / promotion 必须逐字节不变。 ... ok
+test_normalize_rewrites_absolute_path (tests.test_provenance_binding.TestRegistryPathNormalization.test_normalize_rewrites_absolute_path) ... ok
+test_register_model_normalizes_legacy_sibling_entry (tests.test_provenance_binding.TestRegistryPathNormalization.test_register_model_normalizes_legacy_sibling_entry)
+登记新模型时顺手归一旧条目（迁移无需单独跑脚本）。 ... ok
+test_register_model_writes_relative_path (tests.test_provenance_binding.TestRegistryPathNormalization.test_register_model_writes_relative_path) ... ok
+test_tracked_path_is_repo_relative_with_forward_slashes (tests.test_provenance_binding.TestRegistryPathNormalization.test_tracked_path_is_repo_relative_with_forward_slashes) ... ok
+test_files_missing_or_non_dict_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_files_missing_or_non_dict_rejected) ... ok
+test_forged_added_file_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_forged_added_file_rejected)
+凭空加一条记录（snapshot_id 沿用、n_files 同步改）⇒ 复算值不等 ⇒ 拒。 ... ok
+test_forged_files_with_stolen_snapshot_id_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_forged_files_with_stolen_snapshot_id_rejected)
+核心验收：篡改 files 内容但**沿用真 snapshot_id** ⇒ 复算值不等 ⇒ 拒。 ... ok
+test_forged_history_file_excluded_from_candidate_pool (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_forged_history_file_excluded_from_candidate_pool)
+端到端：manifest_history/ 里混入伪造件 ⇒ 不进候选池，诚实件保留。 ... ok
+test_forged_snapshot_cannot_attest_pkl (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_forged_snapshot_cannot_attest_pkl)
+攻击闭环：伪造在场证明**不得**为任意 pkl 提供 attest。 ... ok
+test_honest_manifest_is_trusted_and_content_addressed (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_honest_manifest_is_trusted_and_content_addressed) ... ok
+test_honest_snapshot_can_attest_pkl (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_honest_snapshot_can_attest_pkl)
+反向保底：诚实快照（snapshot_id 与 files 相符）仍能为 pkl 提供在场证明。 ... ok
+test_legacy_with_wrong_n_files_still_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_legacy_with_wrong_n_files_still_rejected)
+旧格式不是免检金牌：n_files 不自洽照样拒。 ... ok
+test_legacy_without_snapshot_id_still_trusted_but_flagged (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_legacy_without_snapshot_id_still_trusted_but_flagged)
+**诚实边界（铁律 7）**：09-18 V4.1 ① 改造前的旧格式快照无 snapshot_id ... ok
+test_malformed_snapshot_id_type_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_malformed_snapshot_id_type_rejected) ... ok
+test_n_files_mismatch_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_n_files_mismatch_rejected)
+files 被增删而没同步计数 ⇒ 结构不自洽 ⇒ 拒。 ... ok
+test_n_files_type_confusion_rejected (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_n_files_type_confusion_rejected) ... ok
+test_real_history_snapshots_still_pass_regression (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_real_history_snapshots_still_pass_regression)
+验收「现存两份真实历史快照回填回归通过」：只读真实 data/，不得写。 ... ok
+test_real_registry_attest_and_dry_run_unchanged (tests.test_provenance_binding.TestSnapshotTrustworthiness.test_real_registry_attest_and_dry_run_unchanged)
+验收「bind --dry-run 在真实 registry 全条目仍可判定」+ 回填值不变。 ... ok
+
+----------------------------------------------------------------------
+Ran 46 tests in 17.768s
+
+OK
+
+--- returncode: 0 --- (18.4s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_evidence_anchor -v
+  (D3-01 门 A：配对锚点 + 复算比对判据（纯函数）)
+==============================================================================
+--- stdout ---
+
+--- stderr ---
+test_anchor_survives_json_roundtrip (tests.test_evidence_anchor.TestAnchorPairing.test_anchor_survives_json_roundtrip)
+落盘/读回/经 registry JSON 往返后锚点不变（否则合法绑定会假失配）。 ... ok
+test_any_metric_tamper_changes_anchor (tests.test_evidence_anchor.TestAnchorPairing.test_any_metric_tamper_changes_anchor) ... ok
+test_canonical_bytes_are_stable_and_key_order_insensitive (tests.test_evidence_anchor.TestAnchorPairing.test_canonical_bytes_are_stable_and_key_order_insensitive) ... ok
+test_gate_provenance_tamper_changes_anchor (tests.test_evidence_anchor.TestAnchorPairing.test_gate_provenance_tamper_changes_anchor)
+门 5 判据字段（kfp_comparability）被改 ⇒ 锚点必变（不得只锚数值）。 ... ok
+test_non_dict_raises_not_silent (tests.test_evidence_anchor.TestAnchorPairing.test_non_dict_raises_not_silent) ... ok
+test_produced_at_excluded_so_report_bytes_reproducible (tests.test_evidence_anchor.TestAnchorPairing.test_produced_at_excluded_so_report_bytes_reproducible)
+**刻意排除 produced_at**：否则 report 字节每次重跑都变 ⇒ report_sha256 ... ok
+test_declared_not_computable_but_recomputable_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_declared_not_computable_but_recomputable_rejected)
+反向：把算得出的说成算不出（掩盖真实数值）同样不符。 ... ok
+test_fabricated_ci_where_recompute_unavailable_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_fabricated_ci_where_recompute_unavailable_rejected) ... ok
+test_fabricated_value_where_recompute_unavailable_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_fabricated_value_where_recompute_unavailable_rejected)
+复算不可得（None）而 evidence 声明 OK 带值 ⇒ 凭空捏造，必拒。 ... ok
+test_float_noise_beyond_round_tolerance_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_float_noise_beyond_round_tolerance_rejected) ... ok
+test_forged_ci_lower_bound_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_forged_ci_lower_bound_rejected)
+CI 下界是门 2/门 3 的**实际判据**（ric_ci[0]<=0 / edge_ci[0]<=0）—— ... ok
+test_forged_decision_edge_ci_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_forged_decision_edge_ci_rejected) ... ok
+test_forged_rank_ic_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_forged_rank_ic_rejected) ... ok
+test_identical_values_pass_with_zero_error (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_identical_values_pass_with_zero_error) ... ok
+test_missing_horizon_node_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_missing_horizon_node_rejected) ... ok
+test_n_mismatch_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_n_mismatch_rejected) ... ok
+test_pooled_missing_entirely_rejected (tests.test_evidence_anchor.TestCheckEvidenceRecompute.test_pooled_missing_entirely_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.016s
+
+OK
+
+--- returncode: 0 --- (0.5s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_evidence_binding_anchor -v
+  (D3-01 绑定层：伪造配对拒绑 + 零残留 + 旧路径死亡)
+==============================================================================
+--- stdout ---
+[fail] report↔evidence 配对锚点不成立：evidence_anchor_mismatch（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
+[fail] report↔evidence 配对锚点不成立：evidence_anchor_missing（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
+[fail] evidence JSON 不可读或不是 object
+
+--- stderr ---
+test_apply_promotion_after_unanchored_bind_is_blocked (tests.test_evidence_binding_anchor.TestApplyPromotionWritesBlockedForUnanchored.test_apply_promotion_after_unanchored_bind_is_blocked) ... ok
+test_verify_approval_refuses_after_anchor_removed (tests.test_evidence_binding_anchor.TestApplyPromotionWritesBlockedForUnanchored.test_verify_approval_refuses_after_anchor_removed)
+端到端：抹掉锚点后 verify_approval 必拒（授权门不认无锚点证据）。 ... ok
+test_anchor_empty_string_refuses_binding (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_anchor_empty_string_refuses_binding) ... ok
+test_anchor_mismatch_refuses_binding (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_anchor_mismatch_refuses_binding)
+锚点是**另一份** evidence 的哈希（血统三值全对）⇒ 拒绑 + 零残留。 ... ok
+test_anchor_placeholder_refuses_binding (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_anchor_placeholder_refuses_binding)
+锚点填占位值（"0"*64）⇒ 拒绑（不得因"有键"就放行）。 ... ok
+test_legacy_bind_without_evidence_still_works (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_legacy_bind_without_evidence_still_works)
+回归：不提交 v2 evidence 的 legacy 绑定不受锚点门影响（无证据可锚）。 ... ok
+test_matching_anchor_binds_and_stores_anchor (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_matching_anchor_binds_and_stores_anchor)
+对照正例：锚点与 evidence 内容一致 ⇒ 可绑，且锚点入库可审计。 ... ok
+test_report_without_anchor_key_refuses_binding (tests.test_evidence_binding_anchor.TestBindRejectsForgedPairing.test_report_without_anchor_key_refuses_binding)
+旧格式 report（无 evidence_sha256 键）+ 五门全过 evidence ⇒ 拒绑。 ... ok
+test_cli_rejects_anchor_of_different_evidence (tests.test_evidence_binding_anchor.TestCliGateARefusesForgedPairing.test_cli_rejects_anchor_of_different_evidence)
+A 单验收①原形：血统对、数值被改、锚点是诚实件的 ⇒ rc=2 + 零残留。 ... ok
+test_cli_rejects_report_without_anchor (tests.test_evidence_binding_anchor.TestCliGateARefusesForgedPairing.test_cli_rejects_report_without_anchor) ... ok
+test_cli_rejects_unreadable_evidence_before_gate_a (tests.test_evidence_binding_anchor.TestCliGateARefusesForgedPairing.test_cli_rejects_unreadable_evidence_before_gate_a) ... ok
+test_anchored_evidence_reaches_approved (tests.test_evidence_binding_anchor.TestOldPathDeathInDerive.test_anchored_evidence_reaches_approved)
+新路径成立：带正确锚点的同一份证据仍可 approved（迁移不砍正常通道）。 ... ok
+test_gate0_precedes_five_gates (tests.test_evidence_binding_anchor.TestOldPathDeathInDerive.test_gate0_precedes_five_gates)
+门 0 先于五门：锚点不符时不得落到 blocked_power 等下游门（门序钉死）。 ... ok
+test_legacy_paths_unaffected_by_gate0 (tests.test_evidence_binding_anchor.TestOldPathDeathInDerive.test_legacy_paths_unaffected_by_gate0)
+legacy 绑定（无 v2 evidence 块）不进门 0：rejected→blocked、全过→research_only。 ... ok
+test_mismatched_anchor_cannot_reach_approved (tests.test_evidence_binding_anchor.TestOldPathDeathInDerive.test_mismatched_anchor_cannot_reach_approved) ... ok
+test_unanchored_v2_evidence_cannot_reach_approved (tests.test_evidence_binding_anchor.TestOldPathDeathInDerive.test_unanchored_v2_evidence_cannot_reach_approved)
+旧格式 {decision, evidence}（五门数值全绿）⇒ blocked_provenance。 ... ok
+test_anchor_consistent_with_report_passes (tests.test_evidence_binding_anchor.TestVerifyApprovalAnchorReportRecheck.test_anchor_consistent_with_report_passes) ... ok
+test_stored_anchor_diverging_from_report_is_refused (tests.test_evidence_binding_anchor.TestVerifyApprovalAnchorReportRecheck.test_stored_anchor_diverging_from_report_is_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 1.722s
+
+OK
+
+--- returncode: 0 --- (2.3s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_promotion_rule_v2 tests.test_model_registry -v
+  (D3-01 五门 e2e 同步更新（promotion_rule_v2 + model_registry）)
+==============================================================================
+--- stdout ---
+[ok] 门 B 独立复算：pooled 指标（含 CI）与冻结件 + artifact 字节重算值逐位相等
+[ok] validation.evidence 已绑定：_explicit_entry_model.pkl
+[promotion] status=approved reason=schema v2 证据五门全过（power/performance/baseline_edge/calibration/provenance）——证据合格；config.forecast.model_ready 仍需人工复核措辞红线后置 true
+
+--- stderr ---
+test_a_pooled_pass_fund_edge_fail (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_a_pooled_pass_fund_edge_fail)
+反例 1：pooled PASS + 基金 edge FAIL → blocked_baseline_edge。 ... ok
+test_b2_fund_insufficient_power_status (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_b2_fund_insufficient_power_status)
+反例 2'：基金节点整槽 INSUFFICIENT_POWER（B++-2 产出形态）→ blocked_power。 ... ok
+test_b_pooled_pass_fund_n_below_power (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_b_pooled_pass_fund_n_below_power)
+反例 2：pooled PASS + 025687 n=35 < N_POWER → blocked_power。 ... ok
+test_c_power_not_frozen_structurally_unreachable (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_c_power_not_frozen_structurally_unreachable)
+反例 3a：功效阈值未冻结 → blocked_power（APPROVED 结构性不可达）。 ... ok
+test_d_edge_ci_crosses_zero (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_d_edge_ci_crosses_zero)
+反例 3b：IC > est_chg 但 pooled edge CI 跨零 → blocked_baseline_edge。 ... ok
+test_e_calibration_fail (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_e_calibration_fail)
+反例 4：calibration FAIL → blocked_calibration。 ... ok
+test_f_provenance_incomplete (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_f_provenance_incomplete)
+反例 5：provenance 缺口（UNKNOWN）→ blocked_provenance。 ... ok
+test_g_malformed_evidence_fail_closed (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_g_malformed_evidence_fail_closed)
+证据形态损坏（缺整块）→ fail-closed blocked_provenance，不 pending 不 approved。 ... ok
+test_h_horizon_subset_blocked_performance (tests.test_promotion_rule_v2.TestContractBAntiExamples.test_h_horizon_subset_blocked_performance)
+周期子集（某周期没跑 = UNKNOWN）→ blocked_performance 不可核验。 ... ok
+test_full_pass_evidence_approves (tests.test_promotion_rule_v2.TestFullPassAndPurity.test_full_pass_evidence_approves) ... ok
+test_pure_function_same_input_same_output (tests.test_promotion_rule_v2.TestFullPassAndPurity.test_pure_function_same_input_same_output) ... ok
+test_signature_unchanged (tests.test_promotion_rule_v2.TestFullPassAndPurity.test_signature_unchanged)
+契约 B §12：纯函数签名 derive_promotion(validation) 不得变。 ... ok
+test_all_approved_legacy_research_only (tests.test_promotion_rule_v2.TestLegacyCompat.test_all_approved_legacy_research_only) ... ok
+test_no_basis_pending (tests.test_promotion_rule_v2.TestLegacyCompat.test_no_basis_pending) ... ok
+test_rejected_legacy_blocked_with_failed_horizons (tests.test_promotion_rule_v2.TestLegacyCompat.test_rejected_legacy_blocked_with_failed_horizons) ... ok
+test_01_bind_validation_persists_v2_evidence (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_01_bind_validation_persists_v2_evidence) ... ok
+test_02_bind_validation_rejects_invalid_evidence_fail_closed (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_02_bind_validation_rejects_invalid_evidence_fail_closed) ... ok
+test_03_v2_court_ignores_legacy_rejected_shortcut (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_03_v2_court_ignores_legacy_rejected_shortcut) ... ok
+test_04_v2_overall_decision_is_diagnostic_only (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_04_v2_overall_decision_is_diagnostic_only) ... ok
+test_05_kfp_drift_blocks_provenance_gate (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_05_kfp_drift_blocks_provenance_gate) ... ok
+test_06_historical_feature_mode_must_be_pit_1455_snapshot (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_06_historical_feature_mode_must_be_pit_1455_snapshot) ... ok
+test_07_verify_approval_requires_kfp_same_and_pit_mode (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_07_verify_approval_requires_kfp_same_and_pit_mode) ... ok
+test_08_verify_approval_re_reads_report_provenance (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_08_verify_approval_re_reads_report_provenance) ... ok
+test_09_explicit_bind_entry_routes_through_registry (tests.test_promotion_rule_v2.TestPhaseAEvidenceCourt.test_09_explicit_bind_entry_routes_through_registry) ... ok
+test_apply_promotion_blocked_power_for_unfrozen (tests.test_promotion_rule_v2.TestRegistryIntegration.test_apply_promotion_blocked_power_for_unfrozen) ... ok
+test_apply_promotion_writes_v2_approved_and_verify_passes (tests.test_promotion_rule_v2.TestRegistryIntegration.test_apply_promotion_writes_v2_approved_and_verify_passes) ... ok
+test_hand_forged_approved_cannot_survive_rederivation (tests.test_promotion_rule_v2.TestRegistryIntegration.test_hand_forged_approved_cannot_survive_rederivation)
+B++-4：verify_approval 的重推导一致性门自动继承 rule v2—— ... ok
+test_entry_string_get_model_entry_returns_none (tests.test_model_registry.TestMalformedRegistryFailClosed.test_entry_string_get_model_entry_returns_none) ... ok
+test_entry_string_read_verified_model_bytes_rejected (tests.test_model_registry.TestMalformedRegistryFailClosed.test_entry_string_read_verified_model_bytes_rejected) ... ok
+test_expected_none_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_expected_none_rejected_not_crash) ... ok
+test_expected_protocol_none_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_expected_protocol_none_rejected_not_crash) ... ok
+test_feature_keys_non_list_rejected (tests.test_model_registry.TestMalformedRegistryFailClosed.test_feature_keys_non_list_rejected) ... ok
+test_green_baseline_restored_after_mutations (tests.test_model_registry.TestMalformedRegistryFailClosed.test_green_baseline_restored_after_mutations) ... ok
+test_promotion_string_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_promotion_string_rejected_not_crash) ... ok
+test_protocol_version_bool_no_longer_passthrough (tests.test_model_registry.TestMalformedRegistryFailClosed.test_protocol_version_bool_no_longer_passthrough)
+True 类型污染：旧实现 int(True)==1 静默放行 → 现 malformed 拒绝。 ... ok
+test_protocol_version_non_numeric_string_rejected (tests.test_model_registry.TestMalformedRegistryFailClosed.test_protocol_version_non_numeric_string_rejected) ... ok
+test_protocol_version_numeric_string_no_longer_passthrough (tests.test_model_registry.TestMalformedRegistryFailClosed.test_protocol_version_numeric_string_no_longer_passthrough)
+'1' 类型污染：旧实现 int('1')==1 静默放行 → 现 malformed 拒绝。 ... ok
+test_register_model_survives_malformed_neighbor (tests.test_model_registry.TestMalformedRegistryFailClosed.test_register_model_survives_malformed_neighbor)
+畸形邻居条目不阻断正常登记（组合风险 D-01+D-05 链：旧实现归一化循环崩溃）。 ... ok
+test_registry_protocol_whole_block_string_rejected (tests.test_model_registry.TestMalformedRegistryFailClosed.test_registry_protocol_whole_block_string_rejected) ... ok
+test_report_file_int_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_report_file_int_rejected_not_crash) ... ok
+test_snapshot_provenance_string_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_snapshot_provenance_string_rejected_not_crash) ... ok
+test_validation_provenance_string_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_validation_provenance_string_rejected_not_crash)
+validation.provenance 手改成 str：旧实现 stored_prov.get 崩溃。 ... ok
+test_validation_string_rejected_not_crash (tests.test_model_registry.TestMalformedRegistryFailClosed.test_validation_string_rejected_not_crash)
+validation 手改成 str → 结构化拒绝，不崩溃。 ... ok
+test_write_channels_reject_malformed_entry (tests.test_model_registry.TestMalformedRegistryFailClosed.test_write_channels_reject_malformed_entry) ... ok
+test_apply_promotion_dry_run_no_write (tests.test_model_registry.TestModelRegistry.test_apply_promotion_dry_run_no_write)
+dry_run 只推导不落盘；无 validation 不动现有 promotion（不强写 pending）。 ... ok
+test_approval_rejects_fresh_provenance (tests.test_model_registry.TestModelRegistry.test_approval_rejects_fresh_provenance)
+FRESH 无冻结样本身份 → 即使报告内容完整也不能绑定。 ... ok
+test_approval_rejects_legacy_entry_without_provenance_block (tests.test_model_registry.TestModelRegistry.test_approval_rejects_legacy_entry_without_provenance_block)
+历史条目（registry 无 snapshot_provenance 块）→ 同拒（不回补、不宽容）。 ... ok
+test_approval_requires_model_protocol_validation_and_promotion (tests.test_model_registry.TestModelRegistry.test_approval_requires_model_protocol_validation_and_promotion) ... ok
+test_bind_unknown_model_returns_false (tests.test_model_registry.TestModelRegistry.test_bind_unknown_model_returns_false)
+绑定不存在的模型 → False（不新增幽灵条目）。 ... ok
+test_bind_validation_and_promotion_roundtrip (tests.test_model_registry.TestModelRegistry.test_bind_validation_and_promotion_roundtrip)
+实际报告内容→现场重算 SHA→provenance→registry 往返。 ... ok
+test_bind_validation_auto_promotion_writes_derived (tests.test_model_registry.TestModelRegistry.test_bind_validation_auto_promotion_writes_derived)
+bind_validation(auto_promotion=True) 自动推导 promotion，写入 derived_by（审计可辨）。 ... ok
+test_bind_validation_signature_has_no_declared_hash_or_provenance (tests.test_model_registry.TestModelRegistry.test_bind_validation_signature_has_no_declared_hash_or_provenance)
+A-final-1：bind API 不再接受 caller-supplied report/provenance。 ... ok
+test_corrupt_registry_returns_empty (tests.test_model_registry.TestModelRegistry.test_corrupt_registry_returns_empty) ... ok
+test_derive_promotion_deterministic_blocked (tests.test_model_registry.TestModelRegistry.test_derive_promotion_deterministic_blocked)
+v2/v3 真实场景（T+1/T+3 跨零、T+5 过）→ blocked，且同输入两次调用逐字段一致。 ... ok
+test_derive_promotion_inconsistent_binding_blocked (tests.test_model_registry.TestModelRegistry.test_derive_promotion_inconsistent_binding_blocked)
+整体 approved 但有周期未过（绑定不一致）→ blocked（三周期全过是硬门槛）。 ... ok
+test_derive_promotion_invalid_and_missing_metrics (tests.test_model_registry.TestModelRegistry.test_derive_promotion_invalid_and_missing_metrics)
+无依据/无 metrics → pending，不强判。 ... ok
+test_derive_promotion_legacy_all_approved_research_only (tests.test_model_registry.TestModelRegistry.test_derive_promotion_legacy_all_approved_research_only)
+rule v2（B++-3）：legacy 三周期全过 → research_only——pooled-only 不再 ... ok
+test_feature_protocol_dim_mismatch_rejected (tests.test_model_registry.TestModelRegistry.test_feature_protocol_dim_mismatch_rejected)
+登记 4 维（带掩码）vs 期望 2 维（纯值）→ feature_dim_mismatch。 ... ok
+test_feature_protocol_make_and_bind_roundtrip (tests.test_model_registry.TestModelRegistry.test_feature_protocol_make_and_bind_roundtrip)
+make → bind → verify 往返一致（B1 双列：2 特征 = 4 维）。 ... ok
+test_feature_protocol_missing_rejected (tests.test_model_registry.TestModelRegistry.test_feature_protocol_missing_rejected)
+未登记协议 → no_protocol（宁缺毋滥：load 拒绝加载）。 ... ok
+test_feature_protocol_unknown_model (tests.test_model_registry.TestModelRegistry.test_feature_protocol_unknown_model) ... ok
+test_get_model_entry_missing_returns_none (tests.test_model_registry.TestModelRegistry.test_get_model_entry_missing_returns_none) ... ok
+test_hash_mismatch_rejected (tests.test_model_registry.TestModelRegistry.test_hash_mismatch_rejected) ... ok
+test_missing_file_rejected (tests.test_model_registry.TestModelRegistry.test_missing_file_rejected) ... ok
+test_no_entry_rejected (tests.test_model_registry.TestModelRegistry.test_no_entry_rejected)
+未登记的文件 → no_entry（宁缺毋滥）。 ... ok
+test_register_missing_file_returns_none (tests.test_model_registry.TestModelRegistry.test_register_missing_file_returns_none) ... ok
+test_register_verify_roundtrip (tests.test_model_registry.TestModelRegistry.test_register_verify_roundtrip) ... ok
+test_validation_provenance_missing_rejected (tests.test_model_registry.TestModelRegistry.test_validation_provenance_missing_rejected)
+registry 无冻结样本 provenance → bind fail-closed。 ... ok
+test_validation_report_content_provenance_mismatch_rejected (tests.test_model_registry.TestModelRegistry.test_validation_report_content_provenance_mismatch_rejected)
+报告侧三项 provenance 任一失配都拒绝；不接受调用者声明。 ... ok
+test_validation_report_duplicate_provenance_rejected (tests.test_model_registry.TestModelRegistry.test_validation_report_duplicate_provenance_rejected) ... ok
+test_validation_report_hash_is_enforced (tests.test_model_registry.TestModelRegistry.test_validation_report_hash_is_enforced) ... ok
+test_validation_report_malformed_provenance_rejected (tests.test_model_registry.TestModelRegistry.test_validation_report_malformed_provenance_rejected) ... ok
+test_validation_report_missing_provenance_rejected (tests.test_model_registry.TestModelRegistry.test_validation_report_missing_provenance_rejected) ... ok
+test_verify_approval_still_rejects_fresh_after_validation_exists (tests.test_model_registry.TestModelRegistry.test_verify_approval_still_rejects_fresh_after_validation_exists)
+外部复审 R1-3/R1-7：即使绕过 bind 层已有 validation，FRESH 仍不得进展示授权门。 ... ok
+test_expiry_boundary (tests.test_model_registry.TestPreregDegradation.test_expiry_boundary) ... ok
+test_happy_path_and_scope_isolation (tests.test_model_registry.TestPreregDegradation.test_happy_path_and_scope_isolation) ... ok
+test_missing_file_and_disabled (tests.test_model_registry.TestPreregDegradation.test_missing_file_and_disabled) ... ok
+test_model_sha_mismatch (tests.test_model_registry.TestPreregDegradation.test_model_sha_mismatch) ... ok
+test_no_grant_for_model (tests.test_model_registry.TestPreregDegradation.test_no_grant_for_model) ... ok
+test_report_sha_mismatch (tests.test_model_registry.TestPreregDegradation.test_report_sha_mismatch) ... ok
+test_rule_version_mismatch (tests.test_model_registry.TestPreregDegradation.test_rule_version_mismatch) ... ok
+test_t1_negative_ic_rejected (tests.test_model_registry.TestPreregDegradation.test_t1_negative_ic_rejected) ... ok
+test_t5_ci_lower_bound_must_be_positive (tests.test_model_registry.TestPreregDegradation.test_t5_ci_lower_bound_must_be_positive) ... ok
+test_t5_not_approved (tests.test_model_registry.TestPreregDegradation.test_t5_not_approved) ... ok
+
+----------------------------------------------------------------------
+Ran 84 tests in 6.213s
+
+OK
+
+--- returncode: 0 --- (6.8s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer fast
+  (fast 层全量)
+==============================================================================
+--- stdout ---
+[run_tests] 47 个测试文件（layer=fast）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpa57qahta\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpa57qahta\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpy_ct7_c_\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[append] SKIP：2099-01-02.md 已存在小节「[23:00 日汇总]」，拒绝重复追加（确要再加用 --force）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpy_ct7_c_\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[fail] report↔evidence 配对锚点不成立：evidence_anchor_mismatch（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
+[fail] report↔evidence 配对锚点不成立：evidence_anchor_missing（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
+[fail] evidence JSON 不可读或不是 object
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3_4yh6t2\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不存在：kline_fingerprint_20260910.bak.json —— fail-closed 判 UNKNOWN（拒绝回退同目录兄弟/meta 字段：显式指定意味着调用方已知该用哪份）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3_4yh6t2\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpi4zfcja0\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910_explicit.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpi4zfcja0\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbn0wmn_5\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp cutoff 不符（侧车=None / meta scope='2026-09-10'）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpbn0wmn_5\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpc7j3japq\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp stock_n 不符（meta=3 / 侧车=all）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpc7j3japq\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp5jtyesz9\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 与样本日期标签不符（kline_fingerprint_20260101.json vs samples_frozen_20260910）—— 判 UNKNOWN
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp5jtyesz9\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_zzakt51\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— 显式 --kfp 侧车不可解析（JSONDecodeError）—— fail-closed 判 UNKNOWN（坏文件比缺失更危险：半读的聚合会静默改变比对口径）
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp_zzakt51\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpfg5bdgu1\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpfg5bdgu1\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp2fkpofl9\forecast_outputs\freeze_failed_20260930_091320
+
+[ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
+    ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\freeze_failed_20260930_091320
+
+== P1-① 样本冻结结果 ==
+  样本数     : 2  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-28
+  四基金分布 : {'002112': 1, '002207': 1}
+  sha256     : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] 当日冻结件已存在，拒绝重采：samples_frozen_20260930.jsonl
+        复用既有件（阶段 2 直接读它），或显式 --force 重采并在报告记录「已重采」。
+        校验既有件：python -X utf8 freeze_verify_tool.py verify --jsonl forecast_outputs/samples_frozen_20260930.jsonl
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp6yoo7wta\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp6yoo7wta\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp14meinn6\forecast_outputs\freeze_failed_20260930_091320_commit
+
+== P1-① 样本冻结结果 ==
+  样本数     : 1  （预期 ~3343）
+  每行字段数 : 3
+  日期区间   : 2020-04-27 ~ 2020-04-27
+  四基金分布 : {'002112': 1}
+  sha256     : f3e1f9011f81c17027648715587dcd37cf98030abbd6a163ef4506b7b61e7fdd
+  K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
+  KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
+  commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp4ebftzjc\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp4ebftzjc\forecast_outputs\samples_frozen_20260930.meta.json
+  告警数     : 0   用时 0.0s
+
+[ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: ['999999.json(stock:requested-missing)']
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpp3ktf095\forecast_outputs\freeze_failed_20260930_091320_kfp
+
+[ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：
+    ! 000001 (0): ValueError: 全部数据源失败
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpmlm48bfh\forecast_outputs\freeze_failed_20260930_091320_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp2do1qwu\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 冻结时带降级/频控征兆 : ['DegradedResponse']
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpktikpcx2\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 不可解析（JSONDecodeError）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（list）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（str）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 顶层非 object（int）—— 无法做 G-A 判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkzs4qc01\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定
+[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpg5bwt5yc\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmpg5bwt5yc\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmydzcvms\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmgrcxovi\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: True（bool）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzy076cc3\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: None（NoneType）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmprnn40ta7\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: '99'（str）
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdhnv_sai\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] G-A 行数 不一致 : meta=99 实际=2
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpka9afm4g\samples_frozen_20260910.jsonl
+[freeze] rows     : 3
+[freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 归一，判定口径)
+[freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : MISMATCH
+[freeze] G-A 行数 不一致 : meta=2 实际=3
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338… kfp=f5a2f6070000…
+[freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp0u2l661\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- (无)
+[freeze] kfp 当前 : cccc000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkffxwos0\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl3d8baj2\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkxn9lu05\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpkxn9lu05\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpggen4dsz\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : REJECT —— V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[freeze] kfp 留档 : (无)  <- (无)
+[freeze] kfp 当前 : (未取到)
+[freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpggen4dsz\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8megt9d4\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp8megt9d4\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzwllvt3n\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : INCOMPLETE（当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']）（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpzwllvt3n\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = INCOMPLETE）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpg9d3nz3m\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpn87b9a3d\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpn87b9a3d\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpr0yjg9_v\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
+[freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : cccc000000000000000000000000000000000000000000000000000000000000  <- gone.json
+[freeze] kfp 当前 : aaaa000000000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpr0yjg9_v\triple.json
+[freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带降级/频控征兆: ['DegradedResponse']）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B UNKNOWN: 缺留档或重算聚合 sha
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260915.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车不可解析（fail-closed）: JSONDecodeError）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: list）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: str）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（meta 侧车顶层非 object（fail-closed）: int）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : SAME
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: True（bool））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: None（NoneType））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（n_samples 类型畸形（fail-closed，视同行数不符）: '99'（str））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（行数不符（meta=99 / 实际=2））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B kfp 留档 REJECT: V4.3 scoped 件缺 kline_fingerprint_*.json 侧车（meta 无法恢复 universe 码表，混口径重算不可信）——fail-closed 判 UNKNOWN，请补回侧车或重新冻结
+[frozen] G-B K线指纹    : UNKNOWN
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] MISSING —— 无冻结样本（forecast_outputs/samples_frozen_*.jsonl），且未指定 --fresh。fail-closed：拒绝静默活拉兜底。
+          处置：先跑 experiments/forecast_lab/freeze_samples.py 冻结，或显式 --fresh 活拉（数字与冻结基线不可比）。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（冻结时带个股K线失败（1 码，数据质量门禁）: [{'code': '000001', 'error': 'x'}]）
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : INVALID（样本 sha 不符（记录 89fca06abec0… / 实际 28460b632d65…））
+[frozen] VERDICT: INVALID —— 快照完整性失败，fail-closed，拒绝继续。
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
+[frozen] G-B INCOMPLETE: 当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']
+[frozen] G-B K线指纹    : INCOMPLETE（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：ValueError 清单掩码后仍残留基金代码 ['999999']（P0-2：run_manifest 随仓库跟踪，不得写代码）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：ValueError 清单掩码后仍残留基金代码 ['999999']（P0-2：run_manifest 随仓库跟踪，不得写代码）
+[exit] DEGRADED（1 项降级：run_manifest_write_failed）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=SUCCESS）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[exit] DEGRADED（1 项降级：fund_data_fallback:002112）
+[ok] 门 B 独立复算：pooled 指标（含 CI）与冻结件 + artifact 字节重算值逐位相等
+[ok] validation.evidence 已绑定：_explicit_entry_model.pkl
+[promotion] status=approved reason=schema v2 证据五门全过（power/performance/baseline_edge/calibration/provenance）——证据合格；config.forecast.model_ready 仍需人工复核措辞红线后置 true
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:ValueError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpfxl1snea\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] FAILED（exception:TypeError）——兜底清单亦未落盘，监控侧以「exit=1 且本次 run_id 无对应清单」识别
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=SUCCESS）
+[exit] FAILED（exception:TypeError）——本次已有清单在档，不重复落盘
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpuq626aq2\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpxd1y46qr\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] DEGRADED（1 项降级：run_manifest_write_failed）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 510300 实时行情不可用：network down
+[rt  ] 159915 当日估算 +0.50%（前十大覆盖 80%，持仓截至 2026-06-30）
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[rt  ] 510300 当日估算 +1.20%（前十大覆盖 80%，持仓截至 2026-06-30）
+[rt  ] 159915 当日估算 -0.40%（前十大覆盖 80%，持仓截至 2026-06-30）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_145500_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_183000_post.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp221u0gct\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[obs ] 未配置 Obsidian 信号流水路径（notify.obsidian_signal_log 留空）→ 跳过追加
+[obs ] 当日流水行已就地更新（幂等：不追加第二行，归并 2 行重复）
+[obs ] 当日流水行已就地更新（幂等：不追加第二行）
+[obs ] 当日流水行已就地更新（幂等：不追加第二行）
+
+--- stderr ---
+...............................................................................................[append] ERROR: 内容文件为空：C:\Users\Turn-\AppData\Local\Temp\tmpjda8uzgj\body.md
+..........................................................................................................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  r, _ = spearmanr(xs, ys)
+...............................................................................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  r, _ = spearmanr(xs, ys)
+..........................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 770 tests in 21.850s
+
+OK
+
+--- returncode: 0 --- (25.5s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer slow
+  (slow 层全量（含门 B 真实冻结件复算管线测例）)
+==============================================================================
+--- stdout ---
+[run_tests] 16 个测试文件（layer=slow）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=be8e55f02b39… n=3371））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=be8e55f02b39… n=3371））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=be8e55f02b39… n=3371））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+[attest] 跳过不可信快照 manifest_20660101T000000.json：snapshot_id 与 files 内容不符（声明 631e1e0db05c89ef… / 复算 f2a2ce5d65775512…）
+== 无需写入（全部已绑定）==
+
+--- stderr ---
+............................................................................sss................................C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=1184, family=2, type=1, proto=0, laddr=('127.0.0.1', 11518)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=1656, family=2, type=1, proto=0, laddr=('127.0.0.1', 11520)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..................................D:\PythonProject\QuantV1\core\forecast_engine.py:174: ResourceWarning: unclosed <socket.socket fd=1556, family=2, type=1, proto=0, laddr=('127.0.0.1', 11522)>
+  v = s.get(k)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............................................................................
+----------------------------------------------------------------------
+Ran 222 tests in 55.380s
+
+OK (skipped=3)
+
+--- returncode: 0 --- (58.8s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 audit_project.py --no-write
+  (审计冒烟（--no-write 只读；exit=2 预期：唯一 FAIL 为 P1-2 历史报告缺失，即 D3-07 待裁决项，非本批引入）)
+==============================================================================
+--- stdout ---
+== V4 审计契约 ==
+项目：D:\PythonProject\QuantV1
+
+-- P0-研究有效性 --
+[PASS] P0-1 PIT 无前视（生效日滞后 ≥ 法定披露时限） —— 下界 {'03-31': 25, '06-30': 60, '09-30': 29, '12-31': 90}；当前 {'03-31': 25, '06-30': 65, '09-30': 30, '12-31': 95} 均达标；已声明为法定时限下界（非真实公告日）
+[PASS] P0-2 持仓与密钥文件未入库（含 config 内嵌键） —— holdings.json / .env* 未被跟踪（*.example 模板白名单）；config 无持仓禁键
+[PASS] P0-3 数据快照可回溯（内嵌 hash 可解析） —— 当前 89e21db376195b01；归档 2 版；journal 内嵌 3 个 hash（44 条记录）
+[WARN] P0-4 数据快照新鲜度 —— generated_at=2026-09-18T15:29:26 · n_files=355 · 年龄 11 天（>7 天，建议重生成）
+[PASS] P0-5 数据快照 scope 无自指环 —— scope=dataset_inputs · snapshot_id=e70f299bb2cd485c · 355 项均为数据输入（registry/models 已出清单）
+
+-- P1-证据链 --
+[PASS] P1-1 模型权重 sha256 与注册表一致 —— 2 个模型
+[PASS] P1-10 registry 路径字段可判读 —— 2 个模型路径均为仓库相对路径
+[WARN] P1-11 工作区干净度（代码锚点可比） —— 40 项未提交改动（前 5：M backtest_forecast.py；M bind_provenance.py；M bind_validation_evidence.py；M core/model_registry.py；M core/validation_schema.py）——registry 绑定的 git_commit 未必等于当前运行代码
+[WARN] P1-12 release code tip 对账 —— release code tip=b49e125a250e；当前 HEAD^=589dc22dbca7… ⇒ release code tip 可能落后当前代码
+[PASS] P1-13 active model promotion 与纯函数推导一致（授权门一致性前哨） —— forecast_v3.pkl：stored=blocked · derived=blocked 一致
+[PASS] P1-14 shadow 降级授权（prereg）无过期未清理项 —— enabled=True；有效 1 条：['forecast_v3.pkl（expiry=2026-10-12）']
+[FAIL] P1-2 验证报告 sha256 与注册表绑定一致 —— 2 份报告已核验；active=forecast_v3.pkl；forecast_v2.pkl 报告缺失 output/backtest_forecast_v8_quantile_20260830.log；forecast_v3.pkl 报告缺失 output/backtest_forecast_v3_b1mask_20260831.log
+[PASS] P1-3 promotion 与 config.model_ready 一致 —— model_ready=False；active=forecast_v3.pkl；历史 blocked 1 个（不参与当前裁决）
+[PASS] P1-4 动作层历史验证硬门禁 —— history_validated=False
+[PASS] P1-5 影子证据通道隔离 —— CHANNELS=['approved_full', 'prereg_degraded', 'legacy_invalid']
+[PASS] P1-6 legacy_invalid 已移出活跃流 —— 活跃流分布 {'prereg_degraded': 44}
+[PASS] P1-7 运行清单已实际产出 —— 15 份；最新 run_manifest_20260929_145511_post.json status=SUCCESS · 证据截至 2026-09-29
+[PASS] P1-8 审批绑定数据快照 + 代码版本
+[WARN] P1-9 飞书发布资格（当日逐基金证据干净） —— 拦截(no_evidence_today) 当日无任何证据运行（无清单且无内存证据）
+
+-- P2-工程卫生 --
+[PASS] P2-1 manifest 原子写
+[PASS] P2-2 Tushare 走 HTTPS —— 扫描 126 个文件（AST 常量判据，注释/docstring 不计），零明文命中
+[PASS] P2-3 测试分层（fast/slow 实际生效） —— 测试文件 63 个；LAYERS 登记 63 条（fast 47）；四环完整（登记/死条目/conftest 接线/markers）
+[PASS] P2-4 密钥文件未入库
+
+RESULT: 18 PASS / 1 FAIL / 4 WARN
+AUDIT_HEALTH:      FAIL
+MODEL_PROMOTION:   BLOCKED（model_ready=False）
+ACTION_ENABLE:     HOLD_ONLY（history_validated=False）
+PRODUCTION_STATUS: BLOCKED
+  ↳ 审计健康与生产资格是两回事：本次审计可读、可信，但模型未获批/动作层锁死 ⇒ 不得据此启用动作。
+PUBLISH_GATE:      BLOCKED（clean 2/2 只；拦截器在 run.py 推送前置，此处仅呈现）
+  ↳ 拦截(no_evidence_today) 当日无任何证据运行（无清单且无内存证据）
+[json] --no-write：未落盘（本次仅内存结论）
+
+--- stderr ---
+
+--- returncode: 2 --- (1.6s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 evidence/probes/d3_recompute_probe.py
+  (D3-01 门 B：真实 artifact（forecast_v3.pkl）+ 真实冻结件端到端复算探针)
+==============================================================================
+--- stdout ---
+frozen: samples_frozen_20260910.jsonl dataset_sha= be8e55f02b39a25d
+model : forecast_v3.pkl artifact_sha= 7b66ce123dfd577a
+[frozen] 消费冻结件: samples_frozen_20260910.jsonl
+[frozen] G-A 内部完整性 : PASS（PASS（sha=be8e55f02b39… n=3371））
+[frozen] G-B K线指纹    : DRIFTED（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
+samples loaded: 3371
+artifact models loaded: ['1', '3', '5']
+  T+1: n=923 rank_ic=0.01 rank_ic_ci=[-0.049, 0.067] decision_edge=0.0233 decision_edge_ci=[-0.0714, 0.1141] brier=0.615
+  T+3: n=923 rank_ic=-0.037 rank_ic_ci=[-0.106, 0.027] decision_edge=-0.0617 decision_edge_ci=[-0.1617, 0.0324] brier=0.584
+  T+5: n=923 rank_ic=-0.031 rank_ic_ci=[-0.094, 0.034] decision_edge=-0.0228 decision_edge_ci=[-0.1334, 0.0904] brier=0.546
+
+== ② honest evidence check: PASS(误差0) ==
+== ③ tampered rank_ic rejected: PASS ==
+   mismatch sample: pooled T+1.rank_ic: 声明 0.51 ≠ 复算 0.01（diff=0.5）
+== ④ 无 None 槽位可测（全部可算），跳过 ==
+
+--- stderr ---
+
+--- returncode: 0 --- (11.1s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 evidence/probes/d3_backfill_probe.py
+  (D3-02/03/06：真实 registry 回填不变 + 伪造前缀拒绝探针)
+==============================================================================
+--- stdout ---
+snapshots parsed: 3 ['manifest_20260831T091253.json', 'manifest_20260916T181240.json', 'manifest.json']
+forecast_v2.pkl:
+   attest            -> manifest_20260831T091253.json
+   manifest_sha16    -> afd156ab12a3bff1  (bound=afd156ab12a3bff1) same=True
+   first_identical   -> 6e0c9dd66be02666bcbceb7c48c867710d9e8971  (bound=6e0c9dd66be02666bcbceb7c48c867710d9e8971) same=True
+forecast_v3.pkl:
+   attest            -> manifest_20260831T091253.json
+   manifest_sha16    -> afd156ab12a3bff1  (bound=afd156ab12a3bff1) same=True
+   first_identical   -> 6e0c9dd66be02666bcbceb7c48c867710d9e8971  (bound=6e0c9dd66be02666bcbceb7c48c867710d9e8971) same=True
+
+== D3-06 backfill unchanged: PASS ==
+forged sha (same first16) attest -> None commit -> None
+== D3-06 forged-prefix16 rejected: PASS ==
+
+manifest_20260831T091253.json: declared=None recomputed=a5a63677ef248443 match=N/A(no snapshot_id key) n_files_ok=True
+manifest_20260916T181240.json: declared=None recomputed=8ace84fd7c331577 match=N/A(no snapshot_id key) n_files_ok=True
+manifest.json: declared=e70f299bb2cd485c recomputed=e70f299bb2cd485c match=True n_files_ok=True
+
+--- stderr ---
+
+--- returncode: 0 --- (1.4s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 bind_provenance.py --dry-run
+  (bind_provenance --dry-run（真实 registry 全条目仍可判定，D3-02 验收）)
+==============================================================================
+--- stdout ---
+[skip] forecast_v2.pkl 已绑定：manifest=afd156ab12a3bff1 commit=6e0c9dd66
+[skip] forecast_v3.pkl 已绑定：manifest=afd156ab12a3bff1 commit=6e0c9dd66
+== 无需写入（全部已绑定）==
+
+--- stderr ---
+
+--- returncode: 0 --- (0.4s)

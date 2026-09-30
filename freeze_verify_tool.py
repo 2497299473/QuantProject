@@ -318,14 +318,36 @@ def cmd_verify(args: argparse.Namespace) -> int:
         print("[freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定")
         print("[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）")
         return EXIT_MISSING
-    meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    # D3-04（2026-09-29 面 3 审查）：meta 损坏不得裸抛 JSONDecodeError traceback
+    # ——与「meta 缺失」同语义：无法判定 G-A ⇒ MISSING（exit 4）fail-closed。
+    # 与 frozen_dataset.verify_internal 的 INVALID 降级同义（库路径判 INVALID、
+    # CLI 路径判 MISSING，两者都是「必须中止」的硬闸门出口，契约不变）。
+    try:
+        meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        print(f"[freeze] meta     : 不可解析（{type(exc).__name__}）—— 无法做 G-A 判定")
+        print("[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）")
+        return EXIT_MISSING
+    if not isinstance(meta, dict):
+        print(f"[freeze] meta     : 顶层非 object（{type(meta).__name__}）—— 无法做 G-A 判定")
+        print("[freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）")
+        return EXIT_MISSING
     rec = str(meta.get("sha256", ""))
     ga_ok = (rec == sha_lf)
     print(f"[freeze] meta     : {meta_p.name}  记录 sha256={rec or '(空)'}")
     print(f"[freeze] G-A 样本 sha 一致 : {'OK' if ga_ok else 'MISMATCH'}")
-    if meta.get("n_samples") is not None and int(meta["n_samples"]) != n_rows:
-        print(f"[freeze] G-A 行数 不一致 : meta={meta['n_samples']} 实际={n_rows}")
-        ga_ok = False
+    # D3-05：n_samples 类型收口——键缺失（旧件）不判；键存在但非 int（null/"99"/
+    # true）⇒ 视同行数不符判 MISMATCH，不得让 int() 裸抛（与 frozen_dataset
+    # .verify_internal 同义，两处判定必须同义）。
+    if "n_samples" in meta:
+        declared_n = meta["n_samples"]
+        if isinstance(declared_n, bool) or not isinstance(declared_n, int):
+            print(f"[freeze] G-A n_samples 类型畸形（fail-closed，视同行数不符）: "
+                  f"{declared_n!r}（{type(declared_n).__name__}）")
+            ga_ok = False
+        elif declared_n != n_rows:
+            print(f"[freeze] G-A 行数 不一致 : meta={declared_n} 实际={n_rows}")
+            ga_ok = False
     if meta.get("degraded_or_ratelimit_flags"):
         print(f"[freeze] G-A 冻结时带降级/频控征兆 : {meta['degraded_or_ratelimit_flags']}")
         ga_ok = False

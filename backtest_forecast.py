@@ -826,11 +826,25 @@ def main() -> int:
         if not ok_ev:
             print(f"\n[evidence] schema v2 自检未过，拒绝落盘（fail-closed）：{errs_ev[:3]}")
         else:
+            # D3-01（2026-09-29 面 3 审查）：report ↔ evidence 配对锚点。
+            # 先算 evidence 的 canonical 哈希（排除易变的 produced_at，口径见
+            # validation_schema.canonical_evidence_bytes），再打进 PROVENANCE_JSON。
+            # 为何必须排除 produced_at：否则本行每次重跑都变 ⇒ report 字节变 ⇒
+            # report_sha256 漂移 ⇒ data/promotion_prereg.json 的 D3 判据（钉住
+            # report_sha256）与 stdout「同命令逐字节一致」纪律同时被破。
+            anchor = validation_schema.canonical_evidence_sha256(ev)
             if args.artifact:
                 prov_line = {
+                    # D3-01a（本批附带修复，A 单未列）：旧版此处只打 3 个键，缺
+                    # validation_mode——而 validate_validation_provenance 硬要求
+                    # validation_mode == "ARTIFACT"，即验证器自己产出的 report 行
+                    # 根本绑不进去（必拒 validation_mode_not_artifact）。诚实路径
+                    # 端到端不通，锚点也无处可加，故一并补齐。
+                    "validation_mode": "ARTIFACT",
                     "artifact_sha256": ev["provenance"]["artifact_sha256"]["value"],
                     "dataset_sha256": ev["provenance"]["dataset_sha256"]["value"],
                     "git_commit": ev["provenance"]["git_commit"]["value"],
+                    "evidence_sha256": anchor,
                 }
                 print("PROVENANCE_JSON=" + json.dumps(
                     prov_line, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
@@ -842,8 +856,12 @@ def main() -> int:
                                encoding="utf-8")
             # stdout 纪律：不含运行时间戳（文件名才含）——本验证器的可复现性
             # 判据是「同命令连跑两次 stdout 逐字节一致」，变量只许落盘不进 stdout。
+            # D3-01：锚点哈希已排除易变字段，满足本纪律（同输入必同锚点）。
             print("\n[evidence] schema v2 证据已落盘 → output/validation_evidence/"
                   "validation_evidence_<运行时间戳>.json（仅留档，不参与授权）")
+            if args.artifact:
+                print(f"[evidence] report↔evidence 配对锚点 evidence_sha256={anchor}"
+                      "（已打入上方 PROVENANCE_JSON；bind_validation_evidence 会现场重算比对）")
     except Exception as e:
         print(f"\n[evidence] 证据组表/落盘失败（不影响裁决）：{type(e).__name__}: {e}")
 

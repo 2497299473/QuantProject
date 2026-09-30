@@ -67,6 +67,8 @@ LAYERS: dict[str, str] = {
     "test_metric_status.py": FAST,         # B++-5：指标不足/不可算与真实 0 分离（status 核心 + 遗留外壳哨兵兼容），纯函数零网络
     "test_diag_entry_unify.py": FAST,      # B++-6：诊断入口统一（四脚本 require_fwds=() + policy 复用 cluster_bootstrap_ci），源码断言 + 合成数据零网络
     "test_stock_data_cache.py": FAST,      # P1-B：stock 缓存原子写 + 坏件回退 provider 链，tempdir + stub 零网络
+    "test_evidence_anchor.py": FAST,       # D3-01 门 A：report↔evidence 配对锚点 + 复算比对判据，纯函数零网络不碰真实数据
+    "test_evidence_binding_anchor.py": FAST,  # D3-01 绑定层：伪造配对拒绑 + registry 零残留 + 旧路径死亡（无锚点不得 approved），tempdir 隔离零网络
     # ---- slow：重依赖（sklearn/scipy）或真实数据 / 输出 / 网络耦合 ----
     "test_batch_a_hardening.py": SLOW,   # A 批加固（2026-09-24）：血统解耦/完整性门/覆写闸门；触真实 registry（备份/恢复）+ backtest_forecast 导入链，稳妥归 slow
     "test_contracts.py": SLOW,
@@ -84,6 +86,7 @@ LAYERS: dict[str, str] = {
     "test_path_and_store.py": SLOW,
     "test_pit.py": SLOW,
     "test_provenance_binding.py": SLOW,
+    "test_evidence_recompute.py": SLOW,    # D3-01 门 B：真实冻结件（3371 行）+ stub 模型跑通复算管线，重依赖 + 读真实 forecast_outputs/（只读）
     "test_shadow_policy.py": SLOW,
 }
 

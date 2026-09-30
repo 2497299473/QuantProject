@@ -98,14 +98,34 @@ def verify_internal(jsonl: Path) -> tuple[bool, str, str]:
     meta_p = _vt.resolve_sidecar(jsonl, None, "meta")
     if meta_p is None:
         return False, f"meta 侧车缺失，G-A 无法判定（fail-closed）: {jsonl.with_suffix('.meta.json')}", ""
-    meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    # D3-04（2026-09-29 面 3 审查）：meta 侧车不可解析必须落结构化 INVALID，
+    # 不得裸抛 JSONDecodeError——调用方（backtest_forecast.main /
+    # train_forecast_model.main）对本函数无 try 包裹，裸抛会 traceback + exit 1，
+    # 把「G-A 契约违约」伪装成「脚本崩溃」，监控无法区分两者。fail-closed 语义
+    # 不变（仍拒），只是从异常降级为可判读的 INVALID。
+    try:
+        meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return False, f"meta 侧车不可解析（fail-closed）: {type(exc).__name__}", ""
+    if not isinstance(meta, dict):
+        # 合法 JSON 但顶层非 object（[] / "x" / 3 …）⇒ 同样无从判定 G-A
+        return False, f"meta 侧车顶层非 object（fail-closed）: {type(meta).__name__}", ""
     sha_lf = _vt.lf_normalized_sha256(jsonl)
     rec = str(meta.get("sha256", ""))
     if rec != sha_lf:
         return False, f"样本 sha 不符（记录 {rec[:12]}… / 实际 {sha_lf[:12]}…）", sha_lf
     n_rows = sum(1 for ln in jsonl.read_text(encoding="utf-8").splitlines() if ln.strip())
-    if meta.get("n_samples") is not None and int(meta["n_samples"]) != n_rows:
-        return False, f"行数不符（meta={meta['n_samples']} / 实际={n_rows}）", sha_lf
+    # D3-05：n_samples 类型收口——**键缺失**（09-10 前旧件）仍不判（向后兼容）；
+    # 键存在但值非 int（null / "99" / true / 3371.0）⇒ 视同行数不符落 INVALID，
+    # 不得让 int() 裸抛 ValueError/TypeError。「显式写了 null」是声明了却给不出值
+    # （畸形），与「旧格式根本没这个键」语义不同，故分开处理。
+    if "n_samples" in meta:
+        declared_n = meta["n_samples"]
+        if isinstance(declared_n, bool) or not isinstance(declared_n, int):
+            return False, ("n_samples 类型畸形（fail-closed，视同行数不符）: "
+                           f"{declared_n!r}（{type(declared_n).__name__}）"), sha_lf
+        if declared_n != n_rows:
+            return False, f"行数不符（meta={declared_n} / 实际={n_rows}）", sha_lf
     if meta.get("degraded_or_ratelimit_flags"):
         return False, f"冻结时带降级/频控征兆: {meta['degraded_or_ratelimit_flags'][:2]}", sha_lf
     sdfs = meta.get("stock_data_failures")

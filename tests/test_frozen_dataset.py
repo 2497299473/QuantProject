@@ -149,6 +149,83 @@ class TestResolveSamples(unittest.TestCase):
         self.assertEqual(samples, [])
         self.assertEqual(info["mode"], "INVALID")
 
+    # ---------------- D3-04/D3-05（2026-09-29 面 3）：meta 畸形 fail-closed ----------------
+
+    def _corrupt_meta(self, p: Path, raw_text: str | None = None,
+                      mutate=None) -> None:
+        meta_p = p.with_suffix(".meta.json")
+        if raw_text is not None:
+            meta_p.write_text(raw_text, encoding="utf-8")
+            return
+        m = json.loads(meta_p.read_text(encoding="utf-8"))
+        mutate(m)
+        meta_p.write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
+
+    def test_malformed_meta_json_invalid_not_exception(self):
+        """D3-04：meta JSON 损坏 ⇒ INVALID（非裸抛 JSONDecodeError）。
+
+        旧行为：verify_internal 裸抛，调用方 traceback + exit 1，把 G-A 契约
+        违约伪装成脚本崩溃。fail-closed 语义不变，但必须可判读。
+        """
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._corrupt_meta(p, raw_text="{not json")
+        self._stub_kfp(self.KFP)
+        samples, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(samples, [])
+        self.assertEqual(info["mode"], "INVALID")
+        self.assertEqual(info["gate_internal"], "INVALID")
+
+    def test_meta_top_level_non_object_invalid(self):
+        """D3-04：合法 JSON 但顶层非 object（list/str/数）⇒ INVALID，不崩。"""
+        for bad in ("[]", '"just a string"', "42"):
+            with self.subTest(payload=bad):
+                root2 = Path(tempfile.mkdtemp())
+                try:
+                    p = _write_frozen(root2, "20260910", self.ROWS, kfp_agg=self.KFP)
+                    self._corrupt_meta(p, raw_text=bad)
+                    self._stub_kfp(self.KFP)
+                    _, info = fd.resolve_samples(None, False, root2, lambda: list(self.ROWS))
+                    self.assertEqual(info["mode"], "INVALID")
+                finally:
+                    import shutil
+                    shutil.rmtree(root2, ignore_errors=True)
+
+    def test_n_samples_string_invalid_not_exception(self):
+        """D3-05：n_samples="99"（字符串）⇒ INVALID，不得让 int() 裸抛 ValueError。"""
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._corrupt_meta(p, mutate=lambda m: m.update(n_samples="99"))
+        self._stub_kfp(self.KFP)
+        _, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "INVALID")
+
+    def test_n_samples_null_invalid(self):
+        """D3-05：n_samples=null（显式声明却无值）⇒ INVALID。
+
+        与「旧件根本没这个键」（test_legacy_meta_without_stock_failures_field_passes
+        同理不判）语义分开：键在而值 null 是畸形，不是旧格式。
+        """
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._corrupt_meta(p, mutate=lambda m: m.update(n_samples=None))
+        self._stub_kfp(self.KFP)
+        _, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "INVALID")
+
+    def test_n_samples_bool_invalid(self):
+        """D3-05：bool 是 int 子类（True==1）——不得被当真行数静默通过。"""
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._corrupt_meta(p, mutate=lambda m: m.update(n_samples=True))
+        self._stub_kfp(self.KFP)
+        _, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "INVALID")
+
+    def test_n_samples_absent_key_still_not_judged(self):
+        """D3-05 向后兼容：旧件无 n_samples 键 ⇒ 不判（行为与改前逐位一致）。"""
+        p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
+        self._corrupt_meta(p, mutate=lambda m: m.pop("n_samples", None))
+        self._stub_kfp(self.KFP)
+        _, info = fd.resolve_samples(None, False, self.root, lambda: list(self.ROWS))
+        self.assertEqual(info["mode"], "FROZEN")
+
     def test_legacy_meta_without_stock_failures_field_passes(self):
         """旧件（无 stock_data_failures 字段）不判——向后兼容 09-10 锚点件。"""
         p = _write_frozen(self.root, "20260910", self.ROWS, kfp_agg=self.KFP)
