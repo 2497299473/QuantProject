@@ -33,8 +33,10 @@ import numpy as np
 from scipy.stats import spearmanr
 
 BASE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BASE))                      # core.no_net_guard（D-06）
 sys.path.insert(0, str(BASE / "experiments" / "forecast_lab"))
 
+from core import no_net_guard                                   # noqa: E402  D-06 共享守卫
 from kline_fingerprint import _json_series, _nav_series        # noqa: E402  复用存量装载
 
 DATA = BASE / "data"
@@ -223,28 +225,20 @@ def _selftest() -> int:
     r9 = screen("999999", pool_rets={"m": {"2022-01-04": 0.01}})
     chk("9 缺缓存记 UNKNOWN 而非猜测", r9["verdict"] == "UNKNOWN" and "待明日" in r9["reason"])
 
-    # 10) 零网络守卫实测
-    import socket as _socket
-
-    class _NoNet(_socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(_BLOCK_MSG)
-
-    orig = _socket.socket
-    _socket.socket = _NoNet
-    msg = None
+    # 10) 零网络守卫实测（收敛到 no_net_guard 单一实现，D-06；
+    #     结果写局部变量，不得覆写 nonlocal ok/fail）
+    _g_ok, _g_detail = no_net_guard.selftest("[screen_panel] 零网络守卫自检")
+    chk("10 守卫拦截 connect/sendto", _g_ok and "connect" in _g_detail
+        and "sendto" in _g_detail)
+    # 11) 守卫下装载路径可用——保留原测点语义：patch 窗口内 load_series
+    #     （装载全程零网络才算真零网络；selftest 的守卫已 restore，须重新装）
+    _restore_g = no_net_guard.install(_BLOCK_MSG, block_construction=False)
     try:
-        try:
-            _socket.socket().connect(("127.0.0.1", 1))
-        except RuntimeError as e:
-            msg = str(e)
-        except OSError as e:
-            msg = f"OS:{type(e).__name__}"
         loaded = load_series("002112")
     finally:
-        _socket.socket = orig
-    chk("10 守卫拦截 connect", msg == _BLOCK_MSG)
-    chk("11 守卫下装载路径可用（真零网络）", loaded is not None and len(loaded) > 100)
+        _restore_g()
+    chk("11 守卫下装载路径可用（真零网络）",
+        loaded is not None and len(loaded) > 100)
 
     # 12) 主池成员全部可读
     n_ok = sum(1 for m in POOL14 if load_series(m) is not None)
@@ -261,18 +255,11 @@ def main(argv=None) -> int:
     if args.selftest:
         return _selftest()
 
-    import socket
-    orig = socket.socket
-
-    class NoNet(socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(_BLOCK_MSG)
-
-    socket.socket = NoNet
+    _restore = no_net_guard.install(_BLOCK_MSG, block_construction=False)
     try:
         out = run()
     finally:
-        socket.socket = orig
+        _restore()
 
     OUT_DIR.mkdir(exist_ok=True)
     stamp = out["kind"] + "_20260916"

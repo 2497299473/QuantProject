@@ -41,8 +41,10 @@ from datetime import datetime
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BASE))                      # core.no_net_guard（D-06）
 sys.path.insert(0, str(BASE / "experiments" / "forecast_lab"))
 
+from core import no_net_guard                                      # noqa: E402  D-06 共享守卫
 from features_a158lite import compute_features, feature_keys      # noqa: E402
 from kline_fingerprint import _json_series, _nav_series, build_fingerprint  # noqa: E402
 
@@ -310,21 +312,18 @@ def _selftest() -> int:
 
     # 4) 零网络：装 socket 守卫实际跑一遍装载路径，任何连接尝试即失败
     #    （不用「扫源码找关键词」——那会把本行的关键词字面量自己判成违规）
-    import socket as _socket
-
-    class _NoNet(_socket.socket):
-        def __init__(self, *a, **k):
-            raise AssertionError("面板生成本路径不得发起网络连接")
-
-    _orig = _socket.socket
-    _socket.socket = _NoNet
+    #    D-06：收敛到 core.no_net_guard 的审计轨（block_construction=True，
+    #    即原「构造即拒绝」语义；异常类型由 AssertionError 变为 NoNetViolation
+    #    ——同为 Exception 子类，下面的 except 与判定逻辑不变）。
+    _restore_g = no_net_guard.install("面板生成本路径不得发起网络连接",
+                                      block_construction=True)
     try:
         loaded = _load_series()
     except Exception as e:                       # noqa: BLE001
         loaded = None
         check(f"零网络装载（异常 {type(e).__name__}: {e}）", False)
     finally:
-        _socket.socket = _orig
+        _restore_g()
     if loaded is not None:
         check("零网络装载 17 成员", len(loaded) == 17)
 

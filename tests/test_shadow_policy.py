@@ -81,6 +81,35 @@ class TestPostInputs(unittest.TestCase):
             finally:
                 feature_store.STORE_PATH = old_path
 
+    def test_d01_post_switch_pct_value_rejected_with_warning(self):
+        """D-01：切换日后误落 pct 量级值（5.0）⇒ 拒绝该行值（None）+ 显式警告。
+
+        A 验收单第一勾：不得静默透传进模型（fail-closed 走 B1 mask）。
+        同日正常行（0.008）不受连坐。
+        """
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as td:
+            old_path = feature_store.STORE_PATH
+            feature_store.STORE_PATH = Path(td) / "intraday_features.jsonl"
+            try:
+                feature_store.append_features(
+                    "2026-09-24", "post", "BAD", {"est_chg": 5.0}, model_version=3)
+                feature_store.append_features(
+                    "2026-09-24", "post", "OK", {"est_chg": 0.008}, model_version=3)
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    d, rows = load_post_inputs("2026-09-24")
+                self.assertEqual(d, "2026-09-24")
+                # 越界行：值被拒（None），警告可见
+                self.assertIsNone(rows["BAD"]["features"]["est_chg"])
+                self.assertIn("值域守卫", err.getvalue())
+                self.assertIn("BAD", err.getvalue())
+                # 正常行：不受影响
+                self.assertAlmostEqual(rows["OK"]["features"]["est_chg"], 0.008)
+            finally:
+                feature_store.STORE_PATH = old_path
+
     def test_model_version_mismatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             old_path = feature_store.STORE_PATH

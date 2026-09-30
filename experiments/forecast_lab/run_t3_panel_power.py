@@ -62,6 +62,7 @@ sys.path.insert(0, str(BASE / "experiments" / "forecast_lab"))
 
 import numpy as np                                        # noqa: E402
 
+from core import no_net_guard                             # noqa: E402  D-06 共享守卫
 from features_a158lite import feature_keys                # noqa: E402
 # 复用存量引擎（不重写）：秩引擎 + 门槛② bootstrap + 分组工具 + LGB 超参
 from run_m0_power import (PairedBoot, LGB_PARAMS, N_ROUNDS, HORIZON,  # noqa: E402
@@ -312,28 +313,11 @@ def _selftest() -> int:
     chk("14 OOS(≥2025-04-30) 非空", len(oos14) > 500)
     widths = Counter(s["date"] for s in oos14)
     chk("15 OOS 日宽中位 ≥ 12（买功效的前提）", int(np.median(list(widths.values()))) >= 12)
-    # 零网络：守卫实测
-    import socket as _socket
-
-    class _NoNet(_socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(_BLOCK_MSG)
-
-    orig = _socket.socket
-    _socket.socket = _NoNet
-    msg = None
-    try:
-        # 不测构造（构造不发包），实测 connect 被拦：无守卫时本机 1 端口会抛
-        # ConnectionRefusedError（OSError），有守卫时应抛我方 RuntimeError。
-        try:
-            _socket.socket().connect(("127.0.0.1", 1))
-        except RuntimeError as e:
-            msg = str(e)
-        except OSError as e:
-            msg = f"OS:{type(e).__name__}"
-    finally:
-        _socket.socket = orig
-    chk("16 socket 守卫拦截 connect（报我方异常而非 OS 错）", msg == _BLOCK_MSG)
+    # 零网络：守卫实测（收敛到 no_net_guard 单一实现，D-06；
+    # 结果写入局部变量，不得覆写 nonlocal 计数器 ok/fail）
+    _g_ok, _g_detail = no_net_guard.selftest("[run_t3] 零网络守卫自检")
+    chk("16 socket 守卫拦截 connect/sendto（报我方异常而非 OS 错）",
+        _g_ok and "connect" in _g_detail and "sendto" in _g_detail)
     print(f"[run_t3_panel_power SELFTEST] {ok} passed, {fail} failed")
     return 0 if fail == 0 else 1
 
@@ -500,13 +484,8 @@ def main(argv=None) -> int:
 
 
 def _guard_network() -> None:
-    """主流程零网络守卫（依赖已装载完毕）。"""
-    import socket
-
-    class NoNet(socket.socket):
-        def connect(self, *a, **k):
-            raise RuntimeError(_BLOCK_MSG)
-    socket.socket = NoNet          # type: ignore[misc]
+    """主流程零网络守卫（依赖已装载完毕）——委托 core.no_net_guard（D-06）。"""
+    no_net_guard.install(_BLOCK_MSG, block_construction=False)
 
 
 if __name__ == "__main__":

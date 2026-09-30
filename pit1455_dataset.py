@@ -12,12 +12,14 @@
   所以本构建器 = 现有特征行 ⊕ 缓存里的 NAV 序列 → 逐行套契约式。
 
 口径边界（诚实标注，勿当成品）：
-- 这是「离线研究口径」：navs[T-1] 取缓存里 T 的前一交易日已公布净值。
-  真实 14:55 决策时 navs[T-1] 一定可见（前一日净值），成立。
+- 这是「离线研究口径」：prev_nav 取缓存里按披露档位回退的最后一支**已披露**
+  净值（nav_rows[i - lag]，lag 由 config.nav_disclosure 驱动，D-05）。
+  境内基金 lag=1（T-1 晚披露，T 日 14:55 必可见）；QDII/FOF lag=2。
+  真实 14:55 决策时该净值一定可见，成立。
 - est_chg 用现有样本值（日线收盘近似 14:55，缺尾盘漂移）——沿用既有约定，
   本步不引入新近似，只换 label 分母。
-- 跳过条件：缓存无该基金 / T 非缓存内交易日 / 无前一交易日 / est_chg 缺失 /
-  未来第 h 日不在缓存内 → 该行该 label 记 None（不硬造）。
+- 跳过条件：缓存无该基金 / T 非缓存内交易日 / 已披露历史不足 lag 支 /
+  est_chg 缺失 / 未来第 h 日不在缓存内 → 该行该 label 记 None（不硬造）。
 """
 from __future__ import annotations
 
@@ -57,17 +59,52 @@ def load_nav_series(code: str) -> list[tuple[str, float]] | None:
     return out or None
 
 
+# ---- D-05（2026-09-30 面 4 审计）：NAV 披露滞后档位 ----
+DISCLOSURE_PROFILES = {"domestic_t1": 1, "qdii_t2": 2}
+"""档位 → 回退步数（交易日）。14:55 时点「已公布」的最后一支净值 =
+nav_rows[i - lag]：境内基金 T-1 净值于 T-1 晚 21~22 点披露（T 日 14:55 必可见，
+lag=1）；QDII/FOF 类 T-2 披露（lag=2）。新增档位先加这里，不散落他处。"""
+
+DISCLOSURE_DEFAULT = "domestic_t1"
+
+
+def disclosure_lag(code: str, cfg: dict | None = None) -> int:
+    """基金的披露滞后回退步数（config 数据驱动，缺省 domestic_t1=1）。
+
+    config.nav_disclosure = {"default": "domestic_t1",
+                             "overrides": {"<code>": "qdii_t2"}}
+    未知档位名 fail-closed（ValueError）：配置写错必须炸在构建期，
+    不得静默退回 lag=1 造成未披露净值前视。cfg=None 时读项目 config.json。
+    """
+    if cfg is None:
+        cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+    nav = cfg.get("nav_disclosure") or {}
+    tag = (nav.get("overrides") or {}).get(str(code)) or \
+        nav.get("default") or DISCLOSURE_DEFAULT
+    if tag not in DISCLOSURE_PROFILES:
+        raise ValueError(f"[pit1455] 未知披露档位 {tag!r}（fund={code}）；"
+                         f"合法档位：{sorted(DISCLOSURE_PROFILES)}")
+    return DISCLOSURE_PROFILES[tag]
+
+
 def recompute_row(sample: dict, nav_rows: list[tuple[str, float]],
-                  date_index: dict[str, int]) -> dict | None:
-    """按契约重算单行的 14:55 label。返回带 fwd*_1455 字段的新行；不可算 → None。"""
+                  date_index: dict[str, int], lag: int = 1) -> dict | None:
+    """按契约重算单行的 14:55 label。返回带 fwd*_1455 字段的新行；不可算 → None。
+
+    lag（D-05）：披露滞后回退步数，prev_nav = nav_rows[i - lag]。缺省 1
+    （境内基金，与历史行为逐位一致）；lag<1 拒绝（ValueError，防误传 0
+    把 T 日未披露净值当分母）。i < lag（序列头部不足）→ None 跳行。
+    """
+    if lag < 1:
+        raise ValueError(f"[pit1455] lag 必须 ≥1（得到 {lag}）")
     date = sample.get("date")
     est_chg = sample.get("est_chg")          # fraction 量纲（契约一致）
     if date is None or est_chg is None:
         return None
     i = date_index.get(date)
-    if i is None or i < 1:                    # 无前一交易日 → navs[T-1] 不可得
+    if i is None or i < lag:                  # 无「已披露」前一净值 → 不可算
         return None
-    prev_nav = nav_rows[i - 1][1]
+    prev_nav = nav_rows[i - lag][1]
     nav_hat = C.estimate_nav_at_1455(prev_nav, est_chg)
     if nav_hat is None:
         return None
@@ -88,8 +125,10 @@ def _r4(v):
 
 def build(snapshot_path: Path, out_path: Path) -> dict:
     """读冻结样本 JSONL → 逐行重算 → 写新 JSONL。返回统计摘要。"""
+    cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
     cache: dict[str, list[tuple[str, float]]] = {}
     index: dict[str, dict[str, int]] = {}
+    lags: dict[str, int] = {}
     stats = {"total": 0, "kept": 0, "skipped_fund_no_cache": 0,
              "skipped_date": 0, "skipped_est_chg": 0,
              "label_diff": {k: [] for k in FWD_KEYS}}
@@ -107,6 +146,7 @@ def build(snapshot_path: Path, out_path: Path) -> dict:
                 cache[code] = load_nav_series(code)
                 if cache[code]:
                     index[code] = {d: n for n, (d, _) in enumerate(cache[code])}
+                lags[code] = disclosure_lag(code, cfg)   # D-05：未知档位即炸
             nav_rows = cache.get(code)
             if not nav_rows:
                 stats["skipped_fund_no_cache"] += 1
@@ -114,7 +154,7 @@ def build(snapshot_path: Path, out_path: Path) -> dict:
             if s.get("est_chg") is None:
                 stats["skipped_est_chg"] += 1
                 continue
-            new = recompute_row(s, nav_rows, index[code])
+            new = recompute_row(s, nav_rows, index[code], lag=lags[code])
             if new is None:
                 stats["skipped_date"] += 1
                 continue

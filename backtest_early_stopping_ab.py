@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import socket
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +46,7 @@ import numpy as np  # noqa: E402
 
 from frozen_dataset import resolve_samples          # noqa: E402
 from backtest_spread import load_samples            # noqa: E402
+from core import no_net_guard                       # noqa: E402  D-06 共享守卫
 from core.forecast_engine import FEATURE_KEYS       # noqa: E402
 
 TRACKS = ("A_INNER_RANDOM", "B_NONE", "C_TEMPORAL_VALID")
@@ -65,13 +65,13 @@ DEFAULT_VAL_FRAC = 0.15
 
 
 def _block_network() -> None:
-    """零网络守卫：本脚本不得触网（冻结件/缓存均已在本地）。"""
+    """零网络守卫（频控纪律，铁律 1/7/8）——委托 core.no_net_guard 单一实现（D-06）。
 
-    def _deny(*_a, **_k):
-        raise RuntimeError("本脚本为零网络作业，禁止建 socket")
-
-    socket.socket = _deny          # type: ignore[assignment]
-    socket.create_connection = _deny  # type: ignore[assignment]
+    由 main() 按 --no-net（dest=net_guard，默认开）条件调用；不在模块级 install，
+    守卫只在真跑主流程时装（import 本模块不封 socket）。
+    """
+    no_net_guard.install("本脚本为零网络作业，禁止建 socket",
+                         block_construction=False)
 
 
 def _xy(samples: list[dict], horizon: int) -> tuple[np.ndarray, np.ndarray]:
@@ -166,12 +166,14 @@ def main() -> int:
     ap.add_argument("--val-frac", type=float, default=DEFAULT_VAL_FRAC,
                     help=f"C 轨时间序验证集占比（默认 {DEFAULT_VAL_FRAC}）")
     ap.add_argument("--horizons", default="1,3,5", help="对照周期，逗号分隔")
-    ap.add_argument("--no-net", action="store_true", default=True,
-                    help="零网络守卫（默认开）")
+    ap.add_argument("--no-net", dest="net_guard", action="store_false",
+                    help="关闭 socket 守卫（默认开；关闭仅限调试，频控纪律仍受铁律 1/7/8 约束）")
     ap.add_argument("--out", default=None, help="报告落点（默认 output/）")
+    ap.set_defaults(net_guard=True)
     args = ap.parse_args()
 
-    _block_network()
+    if args.net_guard:
+        _block_network()
     horizons = [int(h) for h in args.horizons.split(",") if h.strip()]
 
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)

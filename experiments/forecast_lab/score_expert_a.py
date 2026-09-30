@@ -52,7 +52,8 @@ def load_post_features(date: str | None):
     V4.4 步 2 量纲迁移：切换日前的行 est_chg 是百分数，过唯一桥归一到
     契约 fraction；切换日后原样透传（判别真源 pit1455_contract）。
     """
-    from core.pit1455_contract import est_chg_from_pct, est_chg_live_is_fraction
+    from core.pit1455_contract import (est_chg_from_pct, est_chg_live_is_fraction,
+                                       est_chg_fraction_suspect)
     records = feature_store.load_history(slot="post")
     if not records:
         return None, {}
@@ -67,6 +68,13 @@ def load_post_features(date: str | None):
         row = {k: feats.get(k) for k in fe.FEATURE_KEYS}
         if not est_chg_live_is_fraction(d):
             row["est_chg"] = est_chg_from_pct(row.get("est_chg"))
+        elif est_chg_fraction_suspect(row.get("est_chg")):
+            # D-01：声明 fraction 但实测越界 ⇒ fail-closed 置 None（同 shadow_policy）。
+            # 警告走 stderr：本脚本 stdout 是单行 JSON 契约，不得污染。
+            print(f"[expert_a][WARN] est_chg 值域守卫拒绝：date={d} "
+                  f"fund={rec.get('fund')} est_chg={row.get('est_chg')!r} → None",
+                  file=sys.stderr)
+            row["est_chg"] = None
         out[rec.get("fund", "")] = row
     out.pop("", None)
     return d, out
