@@ -1,9 +1,9 @@
 ==============================================================================
 $ git rev-parse HEAD
-  (git rev-parse HEAD（本轮基准：基线 25d3817a + D3 批改动未提交）)
+  (git rev-parse HEAD（本轮基准：D3-07/08 批 = 09b52fe 之后的工作区）)
 ==============================================================================
 --- stdout ---
-25d3817a8256f9e7a1ae231228a40be3698035e9
+09b52fe372b3f5aab8fbada1ab7013ab20c34a6b
 
 --- stderr ---
 
@@ -14,15 +14,16 @@ $ git status --porcelain
   (git status --porcelain（本轮改动文件）)
 ==============================================================================
 --- stdout ---
- M backtest_forecast.py
- M bind_provenance.py
- M bind_validation_evidence.py
- M core/model_registry.py
- M core/validation_schema.py
+ M audit_project.py
  M data/intraday_features.jsonl
  M data/market_context/history.jsonl
- M freeze_verify_tool.py
- M frozen_dataset.py
+ M data/model_registry/registry.json
+ M evidence/INDEX.md
+ M evidence/probes/d3_backfill_probe.py
+ M evidence/probes/d3_batch_selftest_20260930.log
+ M evidence/probes/d3_batch_selftest_20260930.meta.json
+ M evidence/probes/d3_collect_selftest.py
+ M evidence/probes/d3_recompute_probe.py
  M output/audit_current.json
  M output/daily_runs/2026-09-23.md
  M output/daily_runs/2026-09-24.md
@@ -30,19 +31,11 @@ $ git status --porcelain
  M output/daily_runs/2026-09-29.md
  M output/shadow_actions.jsonl
  M output/state_ref_history.jsonl
- M tests/layers.py
- M tests/test_batch_a_hardening.py
- M tests/test_freeze_verify_tool.py
- M tests/test_frozen_dataset.py
- M tests/test_model_registry.py
- M tests/test_promotion_rule_v2.py
- M tests/test_provenance_binding.py
-?? _tmp_collect_selftest.py
-?? evidence/probes/d3_backfill_probe.py
-?? evidence/probes/d3_recompute_probe.py
+ M tests/test_audit_hygiene.py
 ?? data/market_context/2026-09-28.json
 ?? data/market_context/2026-09-29.json
-?? evidence_recompute.py
+?? data/market_context/2026-09-30.json
+?? evidence/probes/d307_archive_probe.py
 ?? output/audit_history/audit_20260928T145557.json
 ?? output/audit_history/audit_20260929T145605.json
 ?? output/daily_runs/2026-09-25.md
@@ -51,23 +44,21 @@ $ git status --porcelain
 ?? output/run_manifest/run_manifest_20260928_145515_post.json
 ?? output/run_manifest/run_manifest_20260929_113025_mid.json
 ?? output/run_manifest/run_manifest_20260929_145511_post.json
-?? tests/test_evidence_anchor.py
-?? tests/test_evidence_binding_anchor.py
-?? tests/test_evidence_recompute.py
+?? output/run_manifest/run_manifest_20260930_113017_mid.json
 
 --- stderr ---
 
---- returncode: 0 --- (0.1s)
+--- returncode: 0 --- (0.2s)
 
 ==============================================================================
-$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m py_compile core/model_registry.py core/validation_schema.py bind_provenance.py bind_validation_evidence.py backtest_forecast.py evidence_recompute.py frozen_dataset.py freeze_verify_tool.py
-  (py_compile 全部涉改源码)
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m py_compile core/model_registry.py core/validation_schema.py bind_provenance.py bind_validation_evidence.py backtest_forecast.py evidence_recompute.py frozen_dataset.py freeze_verify_tool.py audit_project.py
+  (py_compile 全部涉改源码（含 D3-07 的 audit_project.py）)
 ==============================================================================
 --- stdout ---
 
 --- stderr ---
 
---- returncode: 0 --- (0.3s)
+--- returncode: 0 --- (0.4s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_frozen_dataset tests.test_freeze_verify_tool -v
@@ -147,7 +138,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [frozen] G-A 内部完整性 : PASS（PASS（sha=89fca06abec0… n=2））
 [frozen] G-B INCOMPLETE: 当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']
 [frozen] G-B K线指纹    : INCOMPLETE（本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxtqyul_n\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmnc2kt7v\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -158,9 +149,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpxtqyul_n\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpmnc2kt7v\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaxnvlu3s\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpin7837n1\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -170,9 +161,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpaxnvlu3s\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpin7837n1\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpz_rv1m1v\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbmxhre2t\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -183,9 +174,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpz_rv1m1v\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpbmxhre2t\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp2ux4f3f\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp9ufqg96x\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -196,9 +187,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpp2ux4f3f\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp9ufqg96x\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpw2cqepku\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpj21lx702\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -209,9 +200,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpw2cqepku\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpj21lx702\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphmk7q49b\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3c2nd3nu\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -222,7 +213,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmphmk7q49b\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3c2nd3nu\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
 
 == P1-① 样本冻结结果 ==
@@ -234,17 +225,17 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpy2xc363j\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpy2xc363j\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpi56u0bcm\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpi56u0bcm\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
     ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
-        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpz4duzsjk\forecast_outputs\freeze_failed_20260930_091237
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpyleqvtkv\forecast_outputs\freeze_failed_20260930_115725
 
 [ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
     ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
-        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\freeze_failed_20260930_091237
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpxpdttegl\forecast_outputs\freeze_failed_20260930_115725
 
 == P1-① 样本冻结结果 ==
   样本数     : 2  （预期 ~3343）
@@ -255,8 +246,8 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp2q00i4bh\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpxpdttegl\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpxpdttegl\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] 当日冻结件已存在，拒绝重采：samples_frozen_20260930.jsonl
@@ -272,12 +263,12 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpir_f09dp\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpir_f09dp\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmppl14d_nw\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmppl14d_nw\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp7ckexy48\forecast_outputs\freeze_failed_20260930_091237_commit
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp30w6em2z\forecast_outputs\freeze_failed_20260930_115725_commit
 
 == P1-① 样本冻结结果 ==
   样本数     : 1  （预期 ~3343）
@@ -288,17 +279,17 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpsrulyvq4\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpsrulyvq4\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp2w42s8rt\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp2w42s8rt\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: ['999999.json(stock:requested-missing)']
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpyf36285p\forecast_outputs\freeze_failed_20260930_091237_kfp
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp0bhfuj71\forecast_outputs\freeze_failed_20260930_115725_kfp
 
 [ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：
     ! 000001 (0): ValueError: 全部数据源失败
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpf4h9w95a\forecast_outputs\freeze_failed_20260930_091237_stockfail
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpvbb0gzg8\samples_frozen_20260910.jsonl
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpzluzywpa\forecast_outputs\freeze_failed_20260930_115725_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpc2au42_j\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -310,39 +301,39 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp5tao49il\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp00ub1na_\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 不可解析（JSONDecodeError）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmtlrvhw6\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（list）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmtlrvhw6\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（str）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphjq2x65z\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmtlrvhw6\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（int）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpw0ljbn4p\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8x3nd37n\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp0lee8cyn\samples_frozen_20260910.jsonl
-[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmp0lee8cyn\samples_frozen_20260910.jsonl
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdchfyi4_\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpcx57isbn\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmpcx57isbn\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmptoh_fi49\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -353,7 +344,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpyaixnvzj\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmppk4gkdg1\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -365,7 +356,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_l1q80u0\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpwt500xzo\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -377,7 +368,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpimyxoeta\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp4kja4cb2\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -389,7 +380,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl_n82ttw\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmptzj5hb6t\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -401,7 +392,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpv2rv_2tp\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6nuo1fp3\samples_frozen_20260910.jsonl
 [freeze] rows     : 3
 [freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 归一，判定口径)
 [freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (仅记录；CRLF 差异不判失败)
@@ -413,7 +404,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpithp5p7b\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpvixcmp8n\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -424,7 +415,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpqgagrkc_\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpopl5ddu1\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -435,7 +426,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8rd48p8x\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp09b08r2l\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -446,7 +437,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp60e6xwd_\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpu5avocnh\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -456,9 +447,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp60e6xwd_\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpu5avocnh\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp4djr9pn9\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmplyb0tt67\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -469,9 +460,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp4djr9pn9\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmplyb0tt67\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8j27em3c\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdryqn03u\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -481,9 +472,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp8j27em3c\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpdryqn03u\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzjmgiwwr\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_a4u1inx\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -493,9 +484,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : INCOMPLETE（当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']）（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpzjmgiwwr\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp_a4u1inx\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = INCOMPLETE）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmparmf1u37\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpck_srhks\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -506,7 +497,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdk8mtjst\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6omjmivh\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -516,9 +507,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpdk8mtjst\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp6omjmivh\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3kywjnda\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpx9wu88a3\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -528,7 +519,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.te
 [freeze] kfp 当前 : aaaa000000000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3kywjnda\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpx9wu88a3\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
 
 --- stderr ---
@@ -633,11 +624,96 @@ test_finds_sibling_kfp_without_meta_field (tests.test_freeze_verify_tool.TestSid
 test_meta_kfp_field_used_when_sibling_absent (tests.test_freeze_verify_tool.TestSidecarDiscovery.test_meta_kfp_field_used_when_sibling_absent) ... ok
 
 ----------------------------------------------------------------------
-Ran 62 tests in 1.227s
+Ran 62 tests in 1.333s
 
 OK
 
---- returncode: 0 --- (1.7s)
+--- returncode: 0 --- (1.8s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_audit_hygiene -v
+  (D3-07：P1-2 archived 分档测例（11 条，含 active 打标红线与类型污染）)
+==============================================================================
+--- stdout ---
+
+--- stderr ---
+test_clean_repo_passes (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_clean_repo_passes) ... ok
+test_config_forbidden_key_fails_and_hides_value (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_config_forbidden_key_fails_and_hides_value) ... ok
+test_config_fund_codes_key_fails (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_config_fund_codes_key_fails) ... ok
+test_config_fund_pool_allowed (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_config_fund_pool_allowed) ... ok
+test_env_variants_fail (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_env_variants_fail) ... ok
+test_git_unavailable_warns (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_git_unavailable_warns) ... ok
+test_holdings_rename_fail (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_holdings_rename_fail) ... ok
+test_holdings_script_not_false_positive (tests.test_audit_hygiene.TestHoldingsPrivacyExtended.test_holdings_script_not_false_positive) ... ok
+test_conftest_unwired_warns (tests.test_audit_hygiene.TestLayeringEffective.test_conftest_unwired_warns) ... ok
+test_four_rings_intact_passes (tests.test_audit_hygiene.TestLayeringEffective.test_four_rings_intact_passes) ... ok
+test_layers_unimportable_warns (tests.test_audit_hygiene.TestLayeringEffective.test_layers_unimportable_warns) ... ok
+test_markers_missing_warns (tests.test_audit_hygiene.TestLayeringEffective.test_markers_missing_warns) ... ok
+test_stale_entry_warns (tests.test_audit_hygiene.TestLayeringEffective.test_stale_entry_warns) ... ok
+test_unregistered_test_warns (tests.test_audit_hygiene.TestLayeringEffective.test_unregistered_test_warns) ... ok
+test_active_archived_p1_2_warns (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_active_archived_p1_2_warns)
+如实钉住 A 单指出的代价：active 条目的 archived 也降 WARN。 ... ok
+test_all_disposed_gives_warn_not_fail (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_all_disposed_gives_warn_not_fail) ... ok
+test_archived_marker_does_not_disturb_p1_13_derivation (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_archived_marker_does_not_disturb_p1_13_derivation)
+active 条目带 archived ⇒ P1-13 的 derive_promotion 推导照常（blocked）。 ... ok
+test_archived_missing_report_warns_with_note (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_archived_missing_report_warns_with_note) ... ok
+test_archived_sha_mismatch_warns (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_archived_sha_mismatch_warns) ... ok
+test_archived_type_confusion_still_fails (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_archived_type_confusion_still_fails) ... ok
+test_clean_binding_still_passes (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_clean_binding_still_passes)
+正例回归：原件在档且 sha 相符 ⇒ PASS（本批不得松动正常路径）。 ... ok
+test_detail_separates_disposed_and_undisposed (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_detail_separates_disposed_and_undisposed)
+一条已处置 + 一条未处置 ⇒ FAIL（未处置优先）且两档计数都可见。 ... ok
+test_field_missing_entries_not_counted_as_verified (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_field_missing_entries_not_counted_as_verified)
+缺 report_file 的条目走档案分支，不计入「已核验」n（旧行为保留）。 ... ok
+test_missing_report_without_marker_fails (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_missing_report_without_marker_fails) ... ok
+test_sha_mismatch_without_marker_fails (tests.test_audit_hygiene.TestP12ArchivedDisposition.test_sha_mismatch_without_marker_fails) ... ok
+test_broken_json_warns (tests.test_audit_hygiene.TestPreregGrantHygiene.test_broken_json_warns) ... ok
+test_expired_grant_warns (tests.test_audit_hygiene.TestPreregGrantHygiene.test_expired_grant_warns) ... ok
+test_grants_not_mapping_warns (tests.test_audit_hygiene.TestPreregGrantHygiene.test_grants_not_mapping_warns) ... ok
+test_missing_file_passes (tests.test_audit_hygiene.TestPreregGrantHygiene.test_missing_file_passes) ... ok
+test_unparsable_expiry_warns (tests.test_audit_hygiene.TestPreregGrantHygiene.test_unparsable_expiry_warns) ... ok
+test_valid_grant_passes (tests.test_audit_hygiene.TestPreregGrantHygiene.test_valid_grant_passes) ... ok
+test_active_unregistered_warns (tests.test_audit_hygiene.TestPromotionGateConsistency.test_active_unregistered_warns) ... ok
+test_consistent_passes (tests.test_audit_hygiene.TestPromotionGateConsistency.test_consistent_passes) ... ok
+test_derive_unavailable_warns (tests.test_audit_hygiene.TestPromotionGateConsistency.test_derive_unavailable_warns) ... ok
+test_drift_both_non_approved_warns (tests.test_audit_hygiene.TestPromotionGateConsistency.test_drift_both_non_approved_warns) ... ok
+test_hand_filled_approved_fails (tests.test_audit_hygiene.TestPromotionGateConsistency.test_hand_filled_approved_fails) ... ok
+test_missed_upgrade_warns (tests.test_audit_hygiene.TestPromotionGateConsistency.test_missed_upgrade_warns) ... ok
+test_real_derive_path_smoke (tests.test_audit_hygiene.TestPromotionGateConsistency.test_real_derive_path_smoke)
+不注入 _derive_status_or_none：走真实惰性 import（core.model_registry ... ok
+test_comment_only_fakes_no_longer_pass (tests.test_audit_hygiene.TestShadowChannelsAST.test_comment_only_fakes_no_longer_pass)
+D-04 验收核心：通道名仅在注释/docstring ⇒ FAIL（旧判据会假 PASS）。 ... ok
+test_dynamic_channels_fails (tests.test_audit_hygiene.TestShadowChannelsAST.test_dynamic_channels_fails)
+动态构造（非字面量）⇒ 判据读不出定义，按漂移 FAIL 不猜。 ... ok
+test_extra_channel_fails_and_asks_sync (tests.test_audit_hygiene.TestShadowChannelsAST.test_extra_channel_fails_and_asks_sync)
+多出通道 = 两侧镜像漂移（audit classify() 会判成 unclassified）。 ... ok
+test_file_missing_warns (tests.test_audit_hygiene.TestShadowChannelsAST.test_file_missing_warns) ... ok
+test_function_local_channels_not_counted (tests.test_audit_hygiene.TestShadowChannelsAST.test_function_local_channels_not_counted)
+函数内局部 CHANNELS 不是模块级定义 ⇒ FAIL（判据只看模块级）。 ... ok
+test_loader_missing_fails (tests.test_audit_hygiene.TestShadowChannelsAST.test_loader_missing_fails) ... ok
+test_missing_channel_fails (tests.test_audit_hygiene.TestShadowChannelsAST.test_missing_channel_fails) ... ok
+test_no_heavy_import_side_effect (tests.test_audit_hygiene.TestShadowChannelsAST.test_no_heavy_import_side_effect)
+裁决依据留痕：判据不得把 shadow_policy 拉进 sys.modules（18 倍代价）。 ... ok
+test_real_repo_passes (tests.test_audit_hygiene.TestShadowChannelsAST.test_real_repo_passes)
+真仓 shadow_policy.py：判据必须 PASS（不得因改写引入误报）。 ... ok
+test_unparsable_warns_not_fails (tests.test_audit_hygiene.TestShadowChannelsAST.test_unparsable_warns_not_fails) ... ok
+test_wellformed_passes (tests.test_audit_hygiene.TestShadowChannelsAST.test_wellformed_passes) ... ok
+test_backups_and_tests_outside_scan (tests.test_audit_hygiene.TestTushareHttpsAST.test_backups_and_tests_outside_scan) ... ok
+test_clean_tree_passes (tests.test_audit_hygiene.TestTushareHttpsAST.test_clean_tree_passes) ... ok
+test_code_constant_fails (tests.test_audit_hygiene.TestTushareHttpsAST.test_code_constant_fails) ... ok
+test_comment_and_docstring_do_not_count (tests.test_audit_hygiene.TestTushareHttpsAST.test_comment_and_docstring_do_not_count) ... ok
+test_fstring_fragment_constant_still_counts (tests.test_audit_hygiene.TestTushareHttpsAST.test_fstring_fragment_constant_still_counts) ... ok
+test_unparsable_file_warns_not_passes (tests.test_audit_hygiene.TestTushareHttpsAST.test_unparsable_file_warns_not_passes) ... ok
+test_run_audit_includes_new_checks (tests.test_audit_hygiene.TestWiring.test_run_audit_includes_new_checks)
+P1-13 / P1-14 必须接进 run_audit（问题单落点，不只是函数存在）。 ... ok
+test_sorted_checks_orders_new_cids (tests.test_audit_hygiene.TestWiring.test_sorted_checks_orders_new_cids) ... ok
+
+----------------------------------------------------------------------
+Ran 57 tests in 0.709s
+
+OK
+
+--- returncode: 0 --- (1.2s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_provenance_binding -v
@@ -726,11 +802,11 @@ test_real_registry_attest_and_dry_run_unchanged (tests.test_provenance_binding.T
 验收「bind --dry-run 在真实 registry 全条目仍可判定」+ 回填值不变。 ... ok
 
 ----------------------------------------------------------------------
-Ran 46 tests in 17.768s
+Ran 46 tests in 17.353s
 
 OK
 
---- returncode: 0 --- (18.4s)
+--- returncode: 0 --- (18.0s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_evidence_anchor -v
@@ -811,7 +887,7 @@ test_anchor_consistent_with_report_passes (tests.test_evidence_binding_anchor.Te
 test_stored_anchor_diverging_from_report_is_refused (tests.test_evidence_binding_anchor.TestVerifyApprovalAnchorReportRecheck.test_stored_anchor_diverging_from_report_is_refused) ... ok
 
 ----------------------------------------------------------------------
-Ran 18 tests in 1.722s
+Ran 18 tests in 1.742s
 
 OK
 
@@ -947,11 +1023,11 @@ test_t5_ci_lower_bound_must_be_positive (tests.test_model_registry.TestPreregDeg
 test_t5_not_approved (tests.test_model_registry.TestPreregDegradation.test_t5_not_approved) ... ok
 
 ----------------------------------------------------------------------
-Ran 84 tests in 6.213s
+Ran 84 tests in 6.551s
 
 OK
 
---- returncode: 0 --- (6.8s)
+--- returncode: 0 --- (7.2s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer fast
@@ -959,15 +1035,15 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 ==============================================================================
 --- stdout ---
 [run_tests] 47 个测试文件（layer=fast）
-[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpa57qahta\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
-[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpa57qahta\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
-[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpy_ct7_c_\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmp25btia08\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmp25btia08\daily_runs\2099-01-01.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmp0hz1tp1u\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
 [append] SKIP：2099-01-02.md 已存在小节「[23:00 日汇总]」，拒绝重复追加（确要再加用 --force）
-[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmpy_ct7_c_\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
+[append] OK → C:\Users\Turn-\AppData\Local\Temp\tmp0hz1tp1u\daily_runs\2099-01-02.md（仅追加，未触碰既有内容）
 [fail] report↔evidence 配对锚点不成立：evidence_anchor_mismatch（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
 [fail] report↔evidence 配对锚点不成立：evidence_anchor_missing（锚点方向 = report PROVENANCE_JSON 声明 evidence 内容哈希；无锚点的旧格式证据不得绑定，D3-01）
 [fail] evidence JSON 不可读或不是 object
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3_4yh6t2\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpg_itiuw0\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -978,9 +1054,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp3_4yh6t2\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpg_itiuw0\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpi4zfcja0\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpo8ejyr4u\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -990,9 +1066,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpi4zfcja0\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpo8ejyr4u\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbn0wmn_5\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmplzq7w01r\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1003,9 +1079,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpbn0wmn_5\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmplzq7w01r\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpc7j3japq\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpferomrjh\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1016,9 +1092,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpc7j3japq\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpferomrjh\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp5jtyesz9\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpz156uwhf\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1029,9 +1105,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp5jtyesz9\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpz156uwhf\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_zzakt51\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmph8g26fn9\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1042,7 +1118,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp_zzakt51\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmph8g26fn9\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
 
 == P1-① 样本冻结结果 ==
@@ -1054,17 +1130,17 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpfg5bdgu1\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpfg5bdgu1\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpg5pd5rfn\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpg5pd5rfn\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
     ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
-        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp2fkpofl9\forecast_outputs\freeze_failed_20260930_091320
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpa_5ol6dq\forecast_outputs\freeze_failed_20260930_115809
 
 [ABORT] 捕获降级/频控征兆 —— 立即停手，勿重试（canonical 未落盘）：
     ! SUSPECT_DEGRADED: DegradedResponse 持仓拉取失败
-        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\freeze_failed_20260930_091320
+        留证目录 : C:\Users\Turn-\AppData\Local\Temp\tmpfl2ipe92\forecast_outputs\freeze_failed_20260930_115809
 
 == P1-① 样本冻结结果 ==
   样本数     : 2  （预期 ~3343）
@@ -1075,8 +1151,8 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=2 fund=2 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp8fvraxhh\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpfl2ipe92\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpfl2ipe92\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] 当日冻结件已存在，拒绝重采：samples_frozen_20260930.jsonl
@@ -1092,12 +1168,12 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp6yoo7wta\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp6yoo7wta\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpdjear781\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpdjear781\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] SNAPSHOT_INVALID —— code commit 取不到（三件套①缺失）
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp14meinn6\forecast_outputs\freeze_failed_20260930_091320_commit
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpdiwnr25q\forecast_outputs\freeze_failed_20260930_115809_commit
 
 == P1-① 样本冻结结果 ==
   样本数     : 1  （预期 ~3343）
@@ -1108,17 +1184,17 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
   K线指纹    : f5a2f60700000000000000000000000000000000000000000000000000000000（stock=1 fund=1 unreadable=0）-> kline_fingerprint_20260930.json
   KFP 口径   : universe=1 码, cutoff=2026-09-30（as-of + universe）
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  文件       : C:\Users\Turn-\AppData\Local\Temp\tmp4ebftzjc\forecast_outputs\samples_frozen_20260930.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp4ebftzjc\forecast_outputs\samples_frozen_20260930.meta.json
+  文件       : C:\Users\Turn-\AppData\Local\Temp\tmpemqlyhgu\forecast_outputs\samples_frozen_20260930.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpemqlyhgu\forecast_outputs\samples_frozen_20260930.meta.json
   告警数     : 0   用时 0.0s
 
 [ABORT] SNAPSHOT_INVALID —— KFP unreadable 非空: ['999999.json(stock:requested-missing)']
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpp3ktf095\forecast_outputs\freeze_failed_20260930_091320_kfp
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmp36wxirao\forecast_outputs\freeze_failed_20260930_115809_kfp
 
 [ABORT] SNAPSHOT_INVALID —— 个股K线拉取失败（数据质量门禁）：
     ! 000001 (0): ValueError: 全部数据源失败
-        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpmlm48bfh\forecast_outputs\freeze_failed_20260930_091320_stockfail
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp2do1qwu\samples_frozen_20260910.jsonl
+        留证目录: C:\Users\Turn-\AppData\Local\Temp\tmpuwp57q73\forecast_outputs\freeze_failed_20260930_115809_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmprsyqbutq\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1130,39 +1206,39 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpktikpcx2\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkc00zj95\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 不可解析（JSONDecodeError）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpd1jzmg2r\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（list）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpd1jzmg2r\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（str）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpxx42hdwy\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpd1jzmg2r\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 顶层非 object（int）—— 无法做 G-A 判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkzs4qc01\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkt8fstk7\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
 [freeze] meta     : 缺失 —— 无法做 G-A 内部完整性判定
 [freeze] VERDICT  : MISSING（按 fail-closed 处理，必须中止）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpg5bwt5yc\samples_frozen_20260910.jsonl
-[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmpg5bwt5yc\samples_frozen_20260910.jsonl
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmydzcvms\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpq8r18535\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING —— 样本文件不存在（拒绝回退到同名文件）：C:\Users\Turn-\AppData\Local\Temp\tmpq8r18535\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpy3fj1zma\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1173,7 +1249,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmgrcxovi\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpsnlamvdz\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1185,7 +1261,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzy076cc3\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl73auhiz\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1197,7 +1273,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmprnn40ta7\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl0glnou4\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1209,7 +1285,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpdhnv_sai\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpsyn0p1zy\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1221,7 +1297,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpka9afm4g\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphilew4bb\samples_frozen_20260910.jsonl
 [freeze] rows     : 3
 [freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 归一，判定口径)
 [freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (仅记录；CRLF 差异不判失败)
@@ -1233,7 +1309,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338… kfp=f5a2f6070000…
 [freeze] VERDICT  : MISMATCH —— G-A 失败，必须中止，不得继续复算
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp0u2l661\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpt5w49dpt\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1244,7 +1320,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkffxwos0\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaitieu70\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1255,7 +1331,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl3d8baj2\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmppovbabux\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1266,7 +1342,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkxn9lu05\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpmgx836m3\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1276,9 +1352,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpkxn9lu05\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpmgx836m3\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpggen4dsz\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpuwt9wn53\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1289,9 +1365,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : (未取到)
 [freeze] G-B K线指纹 : UNKNOWN（缺留档或重算聚合 sha）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=n/a…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpggen4dsz\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpuwt9wn53\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = UNKNOWN）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8megt9d4\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp1r2r7vzb\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1301,9 +1377,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : b5b25cd311111111111111111111111111111111111111111111111111111111
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp8megt9d4\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmp1r2r7vzb\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzwllvt3n\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpojv9pfzc\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1313,9 +1389,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : INCOMPLETE（当前缓存缺/坏码 1 项，聚合指纹有空洞，比对不成立: ['000001.json(stock:requested-missing)']）（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpzwllvt3n\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpojv9pfzc\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = INCOMPLETE）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpg9d3nz3m\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp67e0yg3j\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1326,7 +1402,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpn87b9a3d\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpv3yigrim\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1336,9 +1412,9 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=f5a2f6070000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpn87b9a3d\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpv3yigrim\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpr0yjg9_v\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpibk52zph\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 归一，判定口径)
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (仅记录；CRLF 差异不判失败)
@@ -1348,7 +1424,7 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [freeze] kfp 当前 : aaaa000000000000000000000000000000000000000000000000000000000000
 [freeze] G-B K线指纹 : DRIFTED（不一致 ⇒ 本轮数字与锚定历史轮次**不可比**，报告必须原样记录且不得引用历史绝对值作门槛）
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0… kfp=cccc00000000…
-[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpr0yjg9_v\triple.json
+[freeze] 三件套已落盘 : C:\Users\Turn-\AppData\Local\Temp\tmpibk52zph\triple.json
 [freeze] VERDICT  : PASS（G-A 过；可比性 = DRIFTED）
 [frozen] 消费冻结件: samples_frozen_20260910.jsonl
 [frozen] G-A 内部完整性 : INVALID（冻结时带降级/频控征兆: ['DegradedResponse']）
@@ -1440,13 +1516,13 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
 [mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
 [exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
-[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpfxl1snea\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpplp8rzud\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [exit] FAILED（exception:TypeError）——兜底清单亦未落盘，监控侧以「exit=1 且本次 run_id 无对应清单」识别
 [mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=SUCCESS）
 [exit] FAILED（exception:TypeError）——本次已有清单在档，不重复落盘
-[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpuq626aq2\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp8haxx2f9\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
-[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpxd1y46qr\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmppsiquri2\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [exit] DEGRADED（1 项降级：run_manifest_write_failed）
 [mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
 [warn] 510300 实时行情不可用：network down
@@ -1457,25 +1533,25 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 [rt  ] 159915 当日估算 -0.40%（前十大覆盖 80%，持仓截至 2026-06-30）
 [mani] 运行清单 → output/run_manifest/run_manifest_20260916_145500_post.json（status=DEGRADED）
 [mani] 运行清单 → output/run_manifest/run_manifest_20260916_183000_post.json（status=SUCCESS）
-[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp221u0gct\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpurs0jf8r\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [obs ] 未配置 Obsidian 信号流水路径（notify.obsidian_signal_log 留空）→ 跳过追加
 [obs ] 当日流水行已就地更新（幂等：不追加第二行，归并 2 行重复）
 [obs ] 当日流水行已就地更新（幂等：不追加第二行）
 [obs ] 当日流水行已就地更新（幂等：不追加第二行）
 
 --- stderr ---
-...............................................................................................[append] ERROR: 内容文件为空：C:\Users\Turn-\AppData\Local\Temp\tmpjda8uzgj\body.md
+..........................................................................................................[append] ERROR: 内容文件为空：C:\Users\Turn-\AppData\Local\Temp\tmpn6vzjy8e\body.md
 ..........................................................................................................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
   r, _ = spearmanr(xs, ys)
 ...............................................................................................................................................................D:\PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
   r, _ = spearmanr(xs, ys)
 ..........................................................................................................................................................................................................................................................................................................................................
 ----------------------------------------------------------------------
-Ran 770 tests in 21.850s
+Ran 781 tests in 22.129s
 
 OK
 
---- returncode: 0 --- (25.5s)
+--- returncode: 0 --- (26.0s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer slow
@@ -1496,26 +1572,17 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 run_tests.py --layer
 == 无需写入（全部已绑定）==
 
 --- stderr ---
-............................................................................sss................................C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=1184, family=2, type=1, proto=0, laddr=('127.0.0.1', 11518)>
-  if method() is not None:
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-.C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=1656, family=2, type=1, proto=0, laddr=('127.0.0.1', 11520)>
-  if method() is not None:
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-..................................D:\PythonProject\QuantV1\core\forecast_engine.py:174: ResourceWarning: unclosed <socket.socket fd=1556, family=2, type=1, proto=0, laddr=('127.0.0.1', 11522)>
-  v = s.get(k)
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-............................................................................
+............................................................................sss...............................................................................................................................................
 ----------------------------------------------------------------------
-Ran 222 tests in 55.380s
+Ran 222 tests in 55.976s
 
 OK (skipped=3)
 
---- returncode: 0 --- (58.8s)
+--- returncode: 0 --- (59.6s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 audit_project.py --no-write
-  (审计冒烟（--no-write 只读；exit=2 预期：唯一 FAIL 为 P1-2 历史报告缺失，即 D3-07 待裁决项，非本批引入）)
+  (审计冒烟（--no-write 只读；D3-07 落地后预期：P1-2 转 WARN，audit_health=PASS_WITH_WARNINGS，exit=0）)
 ==============================================================================
 --- stdout ---
 == V4 审计契约 ==
@@ -1531,38 +1598,37 @@ $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 audit_project.py --n
 -- P1-证据链 --
 [PASS] P1-1 模型权重 sha256 与注册表一致 —— 2 个模型
 [PASS] P1-10 registry 路径字段可判读 —— 2 个模型路径均为仓库相对路径
-[WARN] P1-11 工作区干净度（代码锚点可比） —— 40 项未提交改动（前 5：M backtest_forecast.py；M bind_provenance.py；M bind_validation_evidence.py；M core/model_registry.py；M core/validation_schema.py）——registry 绑定的 git_commit 未必等于当前运行代码
-[WARN] P1-12 release code tip 对账 —— release code tip=b49e125a250e；当前 HEAD^=589dc22dbca7… ⇒ release code tip 可能落后当前代码
+[WARN] P1-11 工作区干净度（代码锚点可比） —— 31 项未提交改动（前 5：M audit_project.py；M data/intraday_features.jsonl；M data/market_context/history.jsonl；M data/model_registry/registry.json；M evidence/INDEX.md）——registry 绑定的 git_commit 未必等于当前运行代码
+[WARN] P1-12 release code tip 对账 —— release code tip=b49e125a250e；当前 HEAD^=25d3817a8256… ⇒ release code tip 可能落后当前代码
 [PASS] P1-13 active model promotion 与纯函数推导一致（授权门一致性前哨） —— forecast_v3.pkl：stored=blocked · derived=blocked 一致
 [PASS] P1-14 shadow 降级授权（prereg）无过期未清理项 —— enabled=True；有效 1 条：['forecast_v3.pkl（expiry=2026-10-12）']
-[FAIL] P1-2 验证报告 sha256 与注册表绑定一致 —— 2 份报告已核验；active=forecast_v3.pkl；forecast_v2.pkl 报告缺失 output/backtest_forecast_v8_quantile_20260830.log；forecast_v3.pkl 报告缺失 output/backtest_forecast_v3_b1mask_20260831.log
+[WARN] P1-2 验证报告 sha256 与注册表绑定一致 —— 2 份报告已核验；active=forecast_v3.pkl；历史绑定已处置档案 2 条（WARN）；forecast_v2.pkl 报告缺失 output/backtest_forecast_v8_quantile_20260830.log（已处置档案，原件永久不可得）；forecast_v3.pkl 报告缺失 output/backtest_forecast_v3_b1mask_20260831.log（已处置档案，原件永久不可得）
 [PASS] P1-3 promotion 与 config.model_ready 一致 —— model_ready=False；active=forecast_v3.pkl；历史 blocked 1 个（不参与当前裁决）
 [PASS] P1-4 动作层历史验证硬门禁 —— history_validated=False
 [PASS] P1-5 影子证据通道隔离 —— CHANNELS=['approved_full', 'prereg_degraded', 'legacy_invalid']
 [PASS] P1-6 legacy_invalid 已移出活跃流 —— 活跃流分布 {'prereg_degraded': 44}
-[PASS] P1-7 运行清单已实际产出 —— 15 份；最新 run_manifest_20260929_145511_post.json status=SUCCESS · 证据截至 2026-09-29
+[PASS] P1-7 运行清单已实际产出 —— 16 份；最新 run_manifest_20260930_113017_mid.json status=SUCCESS · 证据截至 2026-09-30
 [PASS] P1-8 审批绑定数据快照 + 代码版本
-[WARN] P1-9 飞书发布资格（当日逐基金证据干净） —— 拦截(no_evidence_today) 当日无任何证据运行（无清单且无内存证据）
+[PASS] P1-9 飞书发布资格（当日逐基金证据干净） —— 当日 1 次证据运行（1 次完整评估），逐基金以最后一次为准 → 2/2 只干净 → 可发布
 
 -- P2-工程卫生 --
 [PASS] P2-1 manifest 原子写
-[PASS] P2-2 Tushare 走 HTTPS —— 扫描 126 个文件（AST 常量判据，注释/docstring 不计），零明文命中
+[PASS] P2-2 Tushare 走 HTTPS —— 扫描 123 个文件（AST 常量判据，注释/docstring 不计），零明文命中
 [PASS] P2-3 测试分层（fast/slow 实际生效） —— 测试文件 63 个；LAYERS 登记 63 条（fast 47）；四环完整（登记/死条目/conftest 接线/markers）
 [PASS] P2-4 密钥文件未入库
 
-RESULT: 18 PASS / 1 FAIL / 4 WARN
-AUDIT_HEALTH:      FAIL
+RESULT: 19 PASS / 0 FAIL / 4 WARN
+AUDIT_HEALTH:      PASS_WITH_WARNINGS
 MODEL_PROMOTION:   BLOCKED（model_ready=False）
 ACTION_ENABLE:     HOLD_ONLY（history_validated=False）
 PRODUCTION_STATUS: BLOCKED
   ↳ 审计健康与生产资格是两回事：本次审计可读、可信，但模型未获批/动作层锁死 ⇒ 不得据此启用动作。
-PUBLISH_GATE:      BLOCKED（clean 2/2 只；拦截器在 run.py 推送前置，此处仅呈现）
-  ↳ 拦截(no_evidence_today) 当日无任何证据运行（无清单且无内存证据）
+PUBLISH_GATE:      PASS（clean 2/2 只；拦截器在 run.py 推送前置，此处仅呈现）
 [json] --no-write：未落盘（本次仅内存结论）
 
 --- stderr ---
 
---- returncode: 2 --- (1.6s)
+--- returncode: 0 --- (1.6s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 evidence/probes/d3_recompute_probe.py
@@ -1587,7 +1653,7 @@ artifact models loaded: ['1', '3', '5']
 
 --- stderr ---
 
---- returncode: 0 --- (11.1s)
+--- returncode: 0 --- (11.0s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 evidence/probes/d3_backfill_probe.py
@@ -1614,7 +1680,31 @@ manifest.json: declared=e70f299bb2cd485c recomputed=e70f299bb2cd485c match=True 
 
 --- stderr ---
 
---- returncode: 0 --- (1.4s)
+--- returncode: 0 --- (1.5s)
+
+==============================================================================
+$ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 evidence/probes/d307_archive_probe.py
+  (D3-07：registry archived 逐字段 diff + 授权链零扰动实证探针)
+==============================================================================
+--- stdout ---
+== ① registry 逐字段 diff ==
+  forecast_v2.pkl: archived=True at=2026-09-30 by=Summer（2026-09-30 裁决 D3-…
+     report_sha256 未变: True
+  forecast_v3.pkl: archived=True at=2026-09-30 by=Summer（2026-09-30 裁决 D3-…
+     report_sha256 未变: True
+  violations: 无
+== ①② PASS ==
+
+== ③ 授权链零扰动实证 ==
+  prereg_degradation(forecast_v3): (True, 'prereg_degraded') PASS
+  verify_validation_report(forecast_v2.pkl): (False, 'validation_not_approved') PASS(仍拒)
+  verify_validation_report(forecast_v3.pkl): (False, 'validation_not_approved') PASS(仍拒)
+  derive_promotion(v3): blocked PASS
+  prereg_pinned_sha256(v3): 7b66ce123dfd577a… PASS
+
+--- stderr ---
+
+--- returncode: 0 --- (0.5s)
 
 ==============================================================================
 $ D:\PythonProject\QuantV1\.venv\Scripts\python.exe -X utf8 bind_provenance.py --dry-run

@@ -528,11 +528,32 @@ def check_validation_binding(a: Audit) -> None:
     现按 active / historical 分档（与 ② 同一套设计原则）：
       - active model 缺 report_file / report_sha256 ⇒ FAIL（生产资格证据必须齐）；
       - 历史模型缺绑定                    ⇒ WARN（档案事实，不阻断当前）。
+
+    D3-07（2026-09-30，Summer 裁决选项 2）：「报告原件缺失 / sha 不符」分支也引入
+    ``validation.archived`` 分档。背景（Agent A 只读核实）：旧实现的 active/历史分档
+    **只覆盖「缺字段」分支**，L549-550 的「原件缺失」是无条件 ``bad.append``，历史
+    模型不豁免 ⇒ registry 里两条 08-30/08-31 绑定（原件在本地与 git 历史中都不存在）
+    让 P1-2 常年 FAIL，FAIL 常态化会掩蔽未来真失败。
+
+    ``archived: true`` 语义 = 「原件永久不可得，已处置为档案事实」。落地后：
+      - archived 条目的缺失/sha 不符 ⇒ WARN，detail 带「已处置档案」字样；
+      - **未打标的缺失/sha 不符仍 FAIL**（删标记混回去即恢复红灯）；
+      - detail 显式给出「已处置 N 条（WARN）」与「未处置 M 条（FAIL）」计数，
+        使两档在审计输出里可分别核对。
+    与既有设计同构，不是为这一单开特例：P1-6 legacy_invalid（移出活跃流 → WARN）、
+    P1-10 历史绝对路径（→ WARN）、P1-13 非 active 不参与裁决。
+
+    ⚠ 打标权红线：**仅限 Summer 授权批次**（本批授权见 registry 内 archived_authorized_by
+    与 evidence/INDEX.md 拍板记录）。archived 只降 P1-2 的证据缺口噪音，**不松动任何
+    授权门**——已核实：verify_validation_report / verify_approval / evaluate_prereg_
+    degradation 均不读该键（prereg D3 判据只比对 report_sha256 的**值**，
+    core/model_registry.py L479），且测例钉死「active 条目打 archived ⇒ P1-13 推导
+    不受扰」，防标记被滥用为绕过可见性的通道。
     """
     models = _models()
     fc = (_config().get("forecast") or {})
     active = str(fc.get("active_model") or "").strip()
-    bad, warn, n = [], [], 0
+    bad, warn, n, n_archived = [], [], 0, 0
     for name, entry in models.items():
         v = entry.get("validation") or {}
         rf = v.get("report_file")
@@ -546,12 +567,26 @@ def check_validation_binding(a: Audit) -> None:
             continue
         n += 1
         got = sha256_file(BASE_DIR / rf)
+        # 严格 True：archived 被写成字符串 "true" / 1 等畸形值不生效（仍 FAIL），
+        # 与本模块 D-01 族「类型污染不静默放行」同口径。
+        archived = v.get("archived") is True
         if got is None:
-            bad.append(f"{name} 报告缺失 {rf}")
+            msg = f"{name} 报告缺失 {rf}"
         elif got != v.get("report_sha256"):
-            bad.append(f"{name} 报告 sha256 不符")
+            msg = f"{name} 报告 sha256 不符"
+        else:
+            continue
+        if archived:
+            n_archived += 1
+            warn.append(msg + "（已处置档案，原件永久不可得）")
+        else:
+            bad.append(msg)
     status = FAIL if bad else (WARN if warn else PASS)
     detail = f"{n} 份报告已核验；active={active or '未声明'}"
+    if n_archived:
+        detail += f"；历史绑定已处置档案 {n_archived} 条（WARN）"
+    if bad:
+        detail += f"；未处置 {len(bad)} 条（FAIL）"
     parts = bad + warn
     a.add("P1-2", "P1-证据链", "验证报告 sha256 与注册表绑定一致", status,
           detail + ("；" + "；".join(parts) if parts else ""))
