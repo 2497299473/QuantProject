@@ -1,7 +1,8 @@
 {
-  "topic": "D3 批次修复自测（面 3 · 证据与血缘，A 单 D3-01~07）",
+  "topic": "D3 批次修复自测（面 3 · 证据与血缘，A 单 D3-01~08）",
   "date": "2026-09-30",
   "base_commit": "25d3817a8256f9e7a1ae231228a40be3698035e9",
+  "log_sha256_convention": "sha256 over the **on-disk bytes** of the log file (read_bytes() after write_text()). Not the in-memory string: Windows text mode rewrites \\n as CRLF, so a string-based digest would not match the file bytes and external verification would fail (D3-08).",
   "scope": {
     "D3-01": "report↔evidence 配对锚点（门 A）+ 独立复算门（门 B，含 CI）+ 旧路径死亡（derive 门 0）；附带 D3-01a：产出端 PROVENANCE_JSON 补 validation_mode 键",
     "D3-02": "attest 前快照自洽校验（snapshot_id 复算 + n_files；旧格式如实标注非内容寻址）；n_files 键存在性判定收紧",
@@ -9,7 +10,8 @@
     "D3-04": "malformed meta JSON 库路径 INVALID / CLI exit 4（成对测例）",
     "D3-05": "n_samples 类型收口（键缺失不判；null/str/bool → INVALID/MISMATCH）",
     "D3-06": "pkl 身份比对升全长 sha256；SHA16 仅保留 manifest 文件身份口径",
-    "D3-07": "[CONFLICT] 待 Summer 裁决（registry.json 在 data/ 下，B 纪律禁改）——本批未动"
+    "D3-07": "Summer 裁决选项 2：registry 两条目 validation 块打 archived 标记（含 reason/授权日期/授权人）+ audit P1-2 增 archived 分档（已处置→WARN、未处置仍 FAIL）+ 13 条测例；授权链零扰动已实证（prereg 降级仍 True / verify_validation_report 仍拒 / derive 仍 blocked）",
+    "D3-08": "本收集器 log_sha256 改为对落盘字节计算 + meta 注明口径（消除换行陷阱造成的假 sha）"
   },
   "returncodes": {
     "$ git rev-parse HEAD": 0,
@@ -17,16 +19,11 @@
     "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 -m py_compil": 0,
     "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 -m unittest ": 0,
     "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 run_tests.py": 0,
-    "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 audit_projec": 2,
-    "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 _tmp_d3_reco": 0,
-    "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 _tmp_d3_prob": 0,
+    "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 audit_projec": 0,
+    "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 evidence/pro": 0,
     "$ D:\\PythonProject\\QuantV1\\.venv\\Scripts\\python.exe -X utf8 bind_provena": 0
   },
-  "log_sha256": "3ede9cb6f88198588d583afd30f957c12714ddd710110dceb57720c6cf80dae3",
-  "network": "零网络（全部命令只读 data/ forecast_outputs/ 与 tempdir；铁律 7/8）",
-  "probes_relocated": {
-    "_tmp_d3_probe.py": "evidence/probes/d3_backfill_probe.py",
-    "_tmp_d3_recompute_probe.py": "evidence/probes/d3_recompute_probe.py",
-    "_tmp_collect_selftest.py": "evidence/probes/d3_collect_selftest.py"
-  }
+  "log_sha256": "219126c0246c334c8d8d34202f72f2ecc997de0a048172ef059d3a98b95cc5b6",
+  "log_bytes": 153765,
+  "network": "零网络（全部命令只读 data/ forecast_outputs/ 与 tempdir；铁律 7/8）"
 }

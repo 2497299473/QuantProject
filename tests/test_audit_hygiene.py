@@ -458,6 +458,187 @@ class TestShadowChannelsAST(unittest.TestCase):
                          "P1-5 必须零依赖：import shadow_policy 实测 9.88s/1245 模块")
 
 
+# ---------------------------------------------------------------- D3-07 P1-2
+
+class TestP12ArchivedDisposition(unittest.TestCase):
+    """D3-07（2026-09-30，Summer 裁决选项 2）：P1-2 的 archived 分档。
+
+    A 单只读核实的事实：旧实现的 active/历史分档**只覆盖「缺字段」分支**，
+    「报告原件缺失 / sha 不符」是无条件 ``bad.append`` ⇒ registry 里两条
+    08-30/08-31 绑定（原件在本地与 git 历史中都不存在）让 P1-2 常年 FAIL。
+    FAIL 常态化会掩蔽未来真失败，故引入 ``validation.archived`` 分档。
+
+    本类钉死六件事（全程注入，零网络、不碰真实 data/——fast 层惯例）：
+      ① 未打标的原件缺失 / sha 不符 ⇒ **仍 FAIL**（删标记混回去即恢复红灯）；
+      ② archived=true 的缺失 / sha 不符 ⇒ WARN，detail 含「已处置档案」；
+      ③ detail 分别给出已处置（WARN）与未处置（FAIL）计数，两档可独立核对；
+      ④ ``archived`` 严格 True：字符串 "true" / 1 等类型污染不生效（仍 FAIL）；
+      ⑤ **语义红线**：active 条目打 archived ⇒ P1-2 也降 WARN（A 单如实指出的
+         代价），但 P1-13 的 derive_promotion 推导**不受扰**——标记不得成为
+         绕过授权门可见性的通道；
+      ⑥ 已核验计数 n 只统计「字段齐全」的条目（与旧行为一致）。
+    """
+
+    REPORT = "output/_p12_probe_report.log"
+    REPORT_SHA = "ab" * 32
+
+    def _models(self, **over):
+        """一条 legacy 绑定条目（decision=rejected + metrics，同真实 registry 形态）。"""
+        v = {"report_file": self.REPORT, "report_sha256": self.REPORT_SHA,
+             "decision": "rejected",
+             "metrics": {"1": {"rank_ic": 0.005, "ric_ci": [-0.066, 0.07],
+                               "decision": "rejected"}}}
+        v.update(over.pop("validation_extra", {}))
+        entry = {"path": "data/models/probe.pkl", "sha256": "cd" * 32,
+                 "validation": v,
+                 "promotion": {"status": "blocked", "reason": "CI 跨零"}}
+        entry.update(over.pop("entry_extra", {}))
+        models = {"probe.pkl": entry}
+        models.update(over.pop("extra_models", {}))
+        return models
+
+    def _p12(self, models, active="probe.pkl", report_exists=True,
+             report_sha=None):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            out = tmp / "output"
+            out.mkdir()
+            if report_exists:
+                (out / "_p12_probe_report.log").write_bytes(
+                    (report_sha or "irrelevant").encode("utf-8"))
+            return _run(ap.check_validation_binding,
+                        BASE_DIR=tmp,
+                        _models=lambda: models,
+                        _config=lambda: {"forecast": {"active_model": active}})
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    # ---- ① 未打标仍 FAIL ----
+    def test_missing_report_without_marker_fails(self):
+        c = self._p12(self._models(), report_exists=False)
+        self.assertEqual(c.cid, "P1-2")
+        self.assertEqual(c.status, ap.FAIL, c.detail)
+        self.assertIn("报告缺失", c.detail)
+
+    def test_sha_mismatch_without_marker_fails(self):
+        c = self._p12(self._models(), report_exists=True,
+                      report_sha="not-the-registered-bytes")
+        self.assertEqual(c.status, ap.FAIL, c.detail)
+        self.assertIn("sha256 不符", c.detail)
+
+    # ---- ② archived ⇒ WARN + 判词 ----
+    def test_archived_missing_report_warns_with_note(self):
+        c = self._p12(self._models(validation_extra={"archived": True}),
+                      report_exists=False)
+        self.assertEqual(c.status, ap.WARN, c.detail)
+        self.assertIn("已处置档案", c.detail)
+        self.assertIn("报告缺失", c.detail)
+
+    def test_archived_sha_mismatch_warns(self):
+        c = self._p12(self._models(validation_extra={"archived": True}),
+                      report_exists=True, report_sha="other-bytes")
+        self.assertEqual(c.status, ap.WARN, c.detail)
+        self.assertIn("已处置档案", c.detail)
+
+    # ---- ③ 两档计数并存 ----
+    def test_detail_separates_disposed_and_undisposed(self):
+        """一条已处置 + 一条未处置 ⇒ FAIL（未处置优先）且两档计数都可见。"""
+        models = self._models(validation_extra={"archived": True})
+        other = {"path": "data/models/other.pkl", "sha256": "ef" * 32,
+                 "validation": {"report_file": "output/_gone.log",
+                                "report_sha256": "11" * 32,
+                                "decision": "rejected"},
+                 "promotion": {"status": "blocked", "reason": "x"}}
+        models["other.pkl"] = other
+        c = self._p12(models, active="probe.pkl", report_exists=False)
+        self.assertEqual(c.status, ap.FAIL, c.detail)
+        self.assertIn("已处置档案 1 条", c.detail)
+        self.assertIn("未处置 1 条", c.detail)
+
+    def test_all_disposed_gives_warn_not_fail(self):
+        models = self._models(validation_extra={"archived": True})
+        models["other.pkl"] = {
+            "path": "data/models/other.pkl", "sha256": "ef" * 32,
+            "validation": {"report_file": "output/_gone2.log",
+                           "report_sha256": "11" * 32, "decision": "rejected",
+                           "archived": True},
+            "promotion": {"status": "blocked", "reason": "x"}}
+        c = self._p12(models, report_exists=False)
+        self.assertEqual(c.status, ap.WARN, c.detail)
+        self.assertIn("已处置档案 2 条", c.detail)
+        self.assertNotIn("未处置", c.detail)
+
+    # ---- ④ 类型污染不生效 ----
+    def test_archived_type_confusion_still_fails(self):
+        for bad in ("true", 1, [True], {}):
+            with self.subTest(archived=bad):
+                c = self._p12(self._models(validation_extra={"archived": bad}),
+                              report_exists=False)
+                self.assertEqual(c.status, ap.FAIL,
+                                 f"archived={bad!r} 不得被当成 True（严格判据）")
+
+    # ---- ⑤ 语义红线：active 打 archived 不扰动 P1-13 ----
+    def test_active_archived_p1_2_warns(self):
+        """如实钉住 A 单指出的代价：active 条目的 archived 也降 WARN。
+
+        这正是「打标权仅限 Summer 授权批次」红线的由来——审计侧不再对 active
+        原件在档做强制 FAIL，强制力转移给打标授权纪律（见 check_validation_binding
+        docstring 与 evidence/INDEX.md 拍板记录）。
+        """
+        c = self._p12(self._models(validation_extra={"archived": True}),
+                      active="probe.pkl", report_exists=False)
+        self.assertEqual(c.status, ap.WARN, c.detail)
+
+    def test_archived_marker_does_not_disturb_p1_13_derivation(self):
+        """active 条目带 archived ⇒ P1-13 的 derive_promotion 推导照常（blocked）。
+
+        防标记被滥用为绕过 P1-13 可见性的通道：archived 只降 P1-2 的证据缺口噪音，
+        不参与任何 promotion 裁决。
+        """
+        models = self._models(validation_extra={
+            "archived": True, "archived_at": "2026-09-30",
+            "archived_authorized_by": "Summer"})
+        c = _run(ap.check_promotion_gate_consistency,
+                 _models=lambda: models,
+                 _config=lambda: {"forecast": {"active_model": "probe.pkl",
+                                               "model_ready": False}})
+        self.assertEqual(c.cid, "P1-13")
+        self.assertEqual(c.status, ap.PASS, c.detail)
+        self.assertIn("derived=blocked", c.detail)
+
+    # ---- ⑥ 计数口径不变 ----
+    def test_field_missing_entries_not_counted_as_verified(self):
+        """缺 report_file 的条目走档案分支，不计入「已核验」n（旧行为保留）。"""
+        models = self._models()
+        models["nofile.pkl"] = {"path": "data/models/nofile.pkl",
+                                "sha256": "99" * 32,
+                                "validation": {"decision": "rejected"},
+                                "promotion": {"status": "blocked", "reason": "x"}}
+        c = self._p12(models, active="probe.pkl", report_exists=False)
+        self.assertIn("1 份报告已核验", c.detail)
+        self.assertIn("nofile.pkl 缺 report_file+report_sha256（档案）", c.detail)
+
+    def test_clean_binding_still_passes(self):
+        """正例回归：原件在档且 sha 相符 ⇒ PASS（本批不得松动正常路径）。"""
+        import hashlib
+        body = b"registered-report-bytes"
+        sha = hashlib.sha256(body).hexdigest()
+        models = self._models(validation_extra={"report_sha256": sha})
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "output").mkdir()
+            (tmp / "output" / "_p12_probe_report.log").write_bytes(body)
+            c = _run(ap.check_validation_binding,
+                     BASE_DIR=tmp, _models=lambda: models,
+                     _config=lambda: {"forecast": {"active_model": "probe.pkl"}})
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.assertEqual(c.status, ap.PASS, c.detail)
+        self.assertIn("1 份报告已核验", c.detail)
+
+
 # ---------------------------------------------------------------- 接线与排序
 
 class TestWiring(unittest.TestCase):

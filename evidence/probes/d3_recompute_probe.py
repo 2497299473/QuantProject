@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-BASE = Path(__file__).resolve().parent
+BASE = Path(__file__).resolve().parent.parent.parent   # evidence/probes/ -> 仓库根
 sys.path.insert(0, str(BASE))
 
 import evidence_recompute as erc

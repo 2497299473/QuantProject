@@ -62,7 +62,11 @@
             "n_oos": 905,
             "decision": "approved"
           }
-        }
+        },
+        "archived": true,
+        "archived_reason": "验证报告原件（本地与 git 历史中均不存在，09-23 三重核实：文件缺失 + git log --all 为空）永久不可得；P1-2 断链处置为档案事实，绑定其余字段（decision/metrics/report_sha256）保留原值不动",
+        "archived_at": "2026-09-30",
+        "archived_authorized_by": "Summer（2026-09-30 裁决 D3-07 选项 2；A 单核实分档实现后拍板）"
       },
       "promotion": {
         "status": "blocked",
@@ -159,7 +163,11 @@
             "n_oos": 905,
             "decision": "approved"
           }
-        }
+        },
+        "archived": true,
+        "archived_reason": "验证报告原件（本地与 git 历史中均不存在，09-23 三重核实：文件缺失 + git log --all 为空）永久不可得；P1-2 断链处置为档案事实，绑定其余字段（decision/metrics/report_sha256）保留原值不动",
+        "archived_at": "2026-09-30",
+        "archived_authorized_by": "Summer（2026-09-30 裁决 D3-07 选项 2；A 单核实分档实现后拍板）"
       },
       "promotion": {
         "status": "blocked",
