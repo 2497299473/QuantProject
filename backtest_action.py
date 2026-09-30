@@ -20,12 +20,14 @@
 - A. ADD 桶平均优势 > 0 且 bootstrap（按交易日聚类，B 契约 §8）95% CI 下界 > 0
 - B. REDUCE 桶平均优势 > 0 且 CI 下界 > 0
 - C. 前后两半 ADD 优势方向一致（均为 >0，防时段依赖）
-- D. 阈值区分度：倾向分 ≥60 桶优势 > 中间桶（-20~20）
+- D. 阈值区分度：倾向分 ≥add 桶优势 > 中间桶（mid_band）——阈值 =
+  config.decision.thresholds 当前值（D5-B3，与 decision_engine 同源同键，不硬编码）
 A+B+C+D 全过 → 可人工评估把 history_validated 置 true（仍需复核措辞红线）
 否则 → 维持观察层，本报告留档为证据。
 
 用法：python3 backtest_action.py
 """
+import json
 import sys
 from collections import defaultdict
 from datetime import datetime
@@ -70,6 +72,20 @@ def fmt_b(b):
     return f"{b['n']} | {b['mean']:+.2f}% | {b['win']:.0f}% | {ci_txt}"
 
 
+def action_thresholds(cfg: dict | None = None) -> tuple[float, float, float]:
+    """D5-B3（2026-09-30 面 5 审计）：动作阈值单一同源 = config.decision.thresholds。
+
+    返回 (add, mid_lo, mid_hi)。旧实现桶边界是字面量 60/-20/20，与
+    decision_engine 读的 config 阈值无引用关系——改 config 后验证与上线口径
+    可静默漂移。mid_band 为判定 D 的分析用中间桶（新增 config 键，缺省
+    [-20, 20] 与历史口径一致）；add 与 decision_engine.evaluate 同源同键。
+    """
+    thr = ((cfg or {}).get("decision") or {}).get("thresholds") or {}
+    add = float(thr.get("add", 60))
+    band = thr.get("mid_band") or [-20, 20]
+    return add, float(band[0]), float(band[1])
+
+
 def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
@@ -78,6 +94,8 @@ def main() -> int:
     ap.add_argument("--fresh", action="store_true",
                     help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
     args = ap.parse_args()
+    cfg = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+    thr_add, thr_mid_lo, thr_mid_hi = action_thresholds(cfg)
     samples, snap_info = resolve_samples(args.snapshot, args.fresh, BASE_DIR, load_samples)
     if snap_info["mode"] in ("MISSING", "INVALID"):
         return 4
@@ -138,8 +156,8 @@ def main() -> int:
     c_pass = (half_add["前半"] is not None and half_add["后半"] is not None
               and half_add["前半"] > 0 and half_add["后半"] > 0)
 
-    hi_b = [r for r in rows if r["score"] >= 60]
-    mid_b = [r for r in rows if -20 <= r["score"] <= 20]
+    hi_b = [r for r in rows if r["score"] >= thr_add]
+    mid_b = [r for r in rows if thr_mid_lo <= r["score"] <= thr_mid_hi]
     hi_mean = sum(r["adv"] for r in hi_b) / len(hi_b) * 100 if hi_b else None
     mid_mean = sum(r["adv"] for r in mid_b) / len(mid_b) * 100 if mid_b else None
     d_pass = hi_mean is not None and mid_mean is not None and hi_mean > mid_mean
@@ -172,7 +190,8 @@ def main() -> int:
         "3. 动作优势：ADD=fwd10（新增资金收益）；REDUCE=-fwd10（规避的涨跌）；HOLD=0 —— 比较对象即「不动」",
         "4. 账户维未回测（无历史持仓流水）：account_state=None = 维度不可用，不参与加权和（从分母移除）；",
         "   live 引擎对持仓基金含账户维（±10），属已知差异",
-        "5. 权重/阈值 = config.decision 当前值（GPT 建议框架初始值，未经校准）",
+        f"5. 权重/阈值 = config.decision 当前值（add={thr_add:g}，中间桶 [{thr_mid_lo:g}, {thr_mid_hi:g}]，"
+        "与 decision_engine 同源同键，D5-B3）",
         "6. （2026-09-22 重跑）旧报告（2026-08-25）曾把 account_state=None 误解为空仓，候选分含幽灵 +4（≈+1.63 倾向分，",
         "   恒定偏移：不改相对排序，但影响 ±60 穿越与桶归属）；本报告改用「维度不可用」语义",
         "7. （2026-09-23 B 契约 §8）CI 改按交易日聚类重抽样（复用 Forecast 层唯一实现）：",
@@ -182,7 +201,8 @@ def main() -> int:
         "- **A** ADD 桶平均优势 > 0 且 bootstrap（按交易日聚类，B 契约 §8）95% CI 下界 > 0",
         "- **B** REDUCE 桶平均优势 > 0 且 CI 下界 > 0",
         "- **C** 前后两半 ADD 优势方向一致（均 >0，防时段依赖）",
-        "- **D** 倾向分 ≥60 桶优势 > 中间桶（-20~20）",
+        f"- **D** 倾向分 ≥{thr_add:g} 桶优势 > 中间桶（{thr_mid_lo:g}~{thr_mid_hi:g}）"
+        "（阈值=config.decision.thresholds 当前值）",
         "",
         "## 二、分桶结果", "",
         "| 候选 | 样本 | 平均优势 | 胜率 | 95% CI |",
@@ -201,8 +221,10 @@ def main() -> int:
     lines.append(f"| 后半 | {half_add['后半']:+.2f}% |" if half_add["后半"] is not None else "| 后半 | 样本不足 |")
     lines += ["", f"**判定 C**（两半 ADD 优势均 >0）：{'✅' if c_pass else '❌'}",
               "", "## 四、阈值区分度", "", "| 桶 | 平均优势 |", "|---|---:|"]
-    lines.append(f"| 倾向分 ≥60 | {hi_mean:+.2f}% |" if hi_mean is not None else "| 倾向分 ≥60 | 样本不足 |")
-    lines.append(f"| 倾向分 -20~20 | {mid_mean:+.2f}% |" if mid_mean is not None else "| 倾向分 -20~20 | 样本不足 |")
+    lines.append(f"| 倾向分 ≥{thr_add:g} | {hi_mean:+.2f}% |" if hi_mean is not None
+                 else f"| 倾向分 ≥{thr_add:g} | 样本不足 |")
+    lines.append(f"| 倾向分 {thr_mid_lo:g}~{thr_mid_hi:g} | {mid_mean:+.2f}% |" if mid_mean is not None
+                 else f"| 倾向分 {thr_mid_lo:g}~{thr_mid_hi:g} | 样本不足 |")
     lines += ["", f"**判定 D**（高分桶 > 中间桶）：{'✅' if d_pass else '❌'}",
               "", "## 五、分基金 / 分年（ADD 桶）", "", "| 基金 | ADD 优势 |", "|---|---:|"]
     for c, v in by_fund.items():

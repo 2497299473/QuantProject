@@ -33,6 +33,21 @@ def days_between(a: str, b: str) -> int:
 def holdings_freshness(snapshot_date: str, today: str | None = None) -> float:
     """持仓新鲜度：≤45 天=1.0，45~120 天线性衰减，≥120 天=0.0（对齐准入红线 120 天）。"""
     age = days_between(snapshot_date, today or _today()) if snapshot_date else 0
+    return freshness_from_age(age)
+
+
+def freshness_from_age(age_days) -> float:
+    """按持仓年龄（自然日）算新鲜度（D5-B2，2026-09-30 面 5 审计）。
+
+    45/120 衰减曲线的**单一事实源**：holdings_freshness（日期口径）与
+    decision_engine._resolve_freshness（holdings_age_days 回退推导）共用本函数，
+    不得两处各写一条曲线。年龄不可判（None/畸形值）→ 中性 0.5——
+    「未知 ≠ 最鲜」，不注入 1.0（与幽灵 +4 同构的缺失→利好注入禁止）。
+    """
+    try:
+        age = abs(int(age_days))
+    except (TypeError, ValueError):
+        return 0.5
     if age <= 45:
         return 1.0
     if age >= 120:

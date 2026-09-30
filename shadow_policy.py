@@ -408,6 +408,18 @@ def _fmt(v) -> str:
     return f"{v:+.4f}" if isinstance(v, (int, float)) else "  —  "
 
 
+def a_relrank_health(records: list[dict]) -> tuple[int, int]:
+    """D5-C1（2026-09-30 面 5 审计）：本轮记录的 a_relrank 健康计数 → (n_ok, n_error)。
+
+    纯函数（可测缝）：候选 A 影子打分经 lab 子进程，失败被吞成 error 字段
+    （设计如此，不阻断主记录）——但全 error 可长期静默。计数上 stdout，
+    全灭时另打显式 WARN（只影响可见性，不改「只记录不执行」性质与退出码）。
+    """
+    n_ok = sum(1 for r in records
+               if isinstance(r.get("a_relrank"), dict) and "error" not in r["a_relrank"])
+    return n_ok, len(records) - n_ok
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=None,
@@ -558,6 +570,14 @@ def main() -> int:
 
     new_recs = [r for r in records if (r["date"], r["fund"]) not in known]
     skipped = len(records) - len(new_recs)
+    # D5-C1：a_relrank 健康计数上 stdout；全灭时显式 WARN（非静默，不改退出码——
+    # 候选 A 对照块落空不得把主记录拖成 shadow_failed，与「失败不阻断」设计一致）。
+    n_a_ok, n_a_err = a_relrank_health(records)
+    print(f"== [2.5] a_relrank 健康度：ok {n_a_ok} / error {n_a_err}（共 {len(records)} 条）==")
+    if records and n_a_ok == 0:
+        print("[warn] ⚠️ a_relrank 全灭（全部 error）——主记录仍有效，但候选 A 对照块"
+              "本轮零产出；连续多日如此请检查 .venv-lab 环境与 score_expert_a.py"
+              f"（最近错误：{next((r['a_relrank'].get('error') for r in records if isinstance(r.get('a_relrank'), dict) and 'error' in r['a_relrank']), '—')}）")
     if new_recs:
         n = append_records(out_path, new_recs)
         print(f"\n== [3] 落盘 → {out_path}（新增 {n} 条，同日已记录跳过 {skipped} 条）==")

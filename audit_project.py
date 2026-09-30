@@ -1567,6 +1567,51 @@ def check_prereg_grants(a: Audit) -> None:
           detail + ("；" + "；".join(problems) if problems else ""))
 
 
+DRIFT_REPORT_GLOB = "drift_monitor_*.md"
+DRIFT_MAX_AGE_DAYS = 14
+"""D5-E1（2026-09-30 面 5 审计）：drift 观察层报告的时效窗口（天）。
+
+drift_monitor 是刻意不绑定 registry/promotion 的观察层（其 docstring 自述），
+但「regime 变了没」的量化证据长期不产出 = 监控盲区。本窗口只用于
+「该跑了吗」的提醒（WARN），不解析报告结论、不进任何门禁判定。"""
+
+
+def check_drift_monitor_freshness(a: Audit, now: datetime | None = None) -> None:
+    """P1-15（D5-E1）：drift 观察层报告时效——只查文件存在与日期，不解析结论。
+
+    与 evidence_stale 同款自证模式：缺失/过期 ⇒ **WARN 非 FAIL**（维持观察层
+    定位，不拖 audit_health，也就不拖 production_status）；不触碰 registry /
+    promotion / model_ready 语义（观察层边界不破）。文件名日期不可解析
+    ⇒ 不计入候选（宁缺不猜）。
+    """
+    cid, axis = "P1-15", "P1-证据链"
+    title = "drift 观察层报告在时效窗口内"
+    now = now or datetime.now()
+    files = sorted(OUTPUT.glob(DRIFT_REPORT_GLOB)) if OUTPUT.is_dir() else []
+    dated: list[tuple[str, Path]] = []
+    for p in files:
+        stem = p.stem[len("drift_monitor_"):]
+        try:
+            dated.append((datetime.strptime(stem, "%Y%m%d").strftime("%Y-%m-%d"), p))
+        except ValueError:
+            continue
+    if not dated:
+        a.add(cid, axis, title, WARN,
+              f"output/{DRIFT_REPORT_GLOB} 无可解析报告（观察层证据缺位；"
+              f"不影响 audit_health 与生产资格）")
+        return
+    dated.sort()
+    latest_day, latest_p = dated[-1]
+    age = (now.date() - datetime.strptime(latest_day, "%Y-%m-%d").date()).days
+    if age > DRIFT_MAX_AGE_DAYS:
+        a.add(cid, axis, title, WARN,
+              f"最新 {latest_p.name} 距今 {age} 天 > {DRIFT_MAX_AGE_DAYS} 天窗口"
+              f"（共 {len(dated)} 份；观察层提醒，不解析结论、不进 promotion 判定）")
+        return
+    a.add(cid, axis, title, PASS,
+          f"共 {len(dated)} 份；最新 {latest_p.name}（距今 {age} 天 ≤ {DRIFT_MAX_AGE_DAYS} 天）")
+
+
 # ---------------------------------------------------------------- 四层状态
 
 def _config() -> dict:
@@ -1785,6 +1830,7 @@ def run_audit() -> Audit:
     check_legacy_archived(a)
     check_run_manifest(a)
     check_publish_gate(a)
+    check_drift_monitor_freshness(a)
     check_approval_binding(a)
     check_worktree_clean(a)
     check_release_code_tip(a)

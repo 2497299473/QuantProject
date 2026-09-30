@@ -33,10 +33,19 @@ from backtest_spread import load_samples
 from frozen_dataset import resolve_samples   # V4.3 P0-1：统一冻结样本入口
 from backtest_forecast import split_date_oos
 from backtest_walk_forward import build_wf_folds
+from core import no_net_guard                # D5-F2：默认路径零网络守卫（铁律 1/7/8）
 from core.forecast_engine import FEATURE_KEYS
 
 PSI_STABLE = 0.10      # 预注册：<0.10 特征分布稳定
 PSI_MODERATE = 0.25    # 预注册：0.10~0.25 中度漂移；>0.25 显著漂移
+
+FRESH_CONFIRM_FLAG = "--i-know-this-hits-network"
+"""D5-F2（2026-09-30 面 5 审计）：--fresh 活拉的双旗标人工确认。
+
+--fresh 经 resolve_samples→load_samples→data_loader/stock_data 全链活拉，是
+离线工具名下的真实触网入口（铁律 8 「load_samples 系」名单外等价物，
+09-18 同型事故在案）。无确认旗标 ⇒ 拒绝启动（exit 3）；有旗标 ⇒ 醒目警示
+后放行（铁律 7 四闸门仍需人工确认，代码不假装判断）。"""
 
 
 def psi_level(v: float | None) -> str:
@@ -142,15 +151,59 @@ def drift_summary(folds_drift: list[dict]) -> dict:
     return {"per_feat": per_feat}
 
 
-def main() -> int:
-    import argparse
+def _install_default_guard():
+    """D5-F2：默认（冻结件）路径守卫——零网络作业，socket 封锁（铁律 1/7/8）。
+
+    与 main 的装载点同一函数（接线可测）；长驻进程纪律下不 restore。
+    守卫是频控纪律墙，不是 PIT 防穿越机制（见 core.no_net_guard docstring）。
+    """
+    return no_net_guard.install(
+        f"[drift_monitor] 默认路径为零网络作业（只读冻结件）；活拉需 "
+        f"--fresh {FRESH_CONFIRM_FLAG} 双旗标（铁律 7/8）",
+        block_construction=False)
+
+
+def guard_selftest() -> tuple[bool, str]:
+    """D5-F2 自检：守卫装载后 connect/sendto 均被 NoNetViolation 拦截（非 OS 错）。
+
+    复用 core.no_net_guard.selftest 共享实现（ponytail：不另写拦截探针）；
+    「main 在 resolve_samples 之前装载」的接线时序由测试源码序断言钉住。
+    """
+    return no_net_guard.selftest("[drift_monitor] 默认路径零网络守卫")
+
+
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-days", type=int, default=63)
     ap.add_argument("--snapshot", default=None,
                     help="冻结样本 jsonl（默认自动选最新 forecast_outputs/samples_frozen_*.jsonl）")
     ap.add_argument("--fresh", action="store_true",
-                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）")
-    args = ap.parse_args()
+                    help="显式活拉样本（数字与冻结基线不可比；报告标 FRESH）——"
+                         f"需同时给 {FRESH_CONFIRM_FLAG} 双旗标确认（铁律 8）")
+    ap.add_argument(FRESH_CONFIRM_FLAG, dest="fresh_confirm", action="store_true",
+                    help="D5-F2 双旗标：确知本次会发真实网络请求（东财/腾讯全链），"
+                         "须已过铁律 7 四闸门并获人工授权（铁律 8）")
+    ap.add_argument("--selftest", action="store_true",
+                    help="零网络自检：守卫拦截行为（connect/sendto → NoNetViolation）")
+    args = ap.parse_args(argv)
+
+    if args.selftest:
+        ok, detail = guard_selftest()
+        print(f"[selftest] 零网络守卫：{'OK' if ok else 'FAIL'} {detail}")
+        return 0 if ok else 1
+
+    # D5-F2（2026-09-30 面 5 审计）：触网入口双旗标 + 默认路径守卫常开。
+    if args.fresh:
+        if not args.fresh_confirm:
+            print(f"[fail] --fresh 是活拉路径（load_samples 全链拉东财/腾讯）——铁律 8："
+                  f"冒烟＝真跑网络路径，必须先获人工授权。"
+                  f"获批后加双旗标：--fresh {FRESH_CONFIRM_FLAG}")
+            return 3
+        print("[warn] ⚠️ --fresh 双旗标已确认：本次将发真实网络请求。"
+              "请确认已过铁律 7 四闸门（上游已跑完/无频控征兆/无并行拉取/11:20 时间盒内）。")
+    else:
+        _install_default_guard()   # 默认（冻结件）路径：零网络守卫，无开关可关
+
     t0 = time.time()
 
     print("== [0] 加载样本 ==")

@@ -292,6 +292,33 @@ class TestExpertAShadowBlock(unittest.TestCase):
         self.assertEqual(out, {"error": "lab_env_or_script_missing"})
 
 
+class TestARelrankHealth(unittest.TestCase):
+    """D5-C1（2026-09-30 面 5 审计）：a_relrank 健康计数（静默全 error 可见化）。
+
+    只加可见性（stdout 计数 + 全灭 WARN），不改退出码、不改「只记录不执行」性质
+    ——候选 A 对照块落空不得把主记录拖成 shadow_failed（与「失败不阻断」设计一致）。
+    """
+
+    def test_counts_ok_and_error(self):
+        recs = [{"a_relrank": {"arms": {}}},
+                {"a_relrank": {"error": "subprocess:TimeoutExpired"}},
+                {"a_relrank": {"error": "fund_not_scored"}},
+                {}]                                    # 缺块计 error（保守口径）
+        self.assertEqual(shadow_policy.a_relrank_health(recs), (1, 3))
+
+    def test_empty_records_zero_zero(self):
+        self.assertEqual(shadow_policy.a_relrank_health([]), (0, 0))
+
+    def test_wiring_counts_on_stdout_before_write(self):
+        """接线守护：健康计数行必须在落盘前打印（[2.5] 在 [3] 之前）。"""
+        src = (BASE_DIR / "shadow_policy.py").read_text(encoding="utf-8")
+        self.assertIn("a_relrank_health(records)", src)
+        i_health = src.index("== [2.5] a_relrank 健康度")
+        i_write = src.index("== [3]")
+        self.assertLess(i_health, i_write)
+        self.assertIn("a_relrank 全灭", src, "全灭必须有显式 WARN 措辞")
+
+
 class TestEvidenceChannels(unittest.TestCase):
     """V4-A（2026-09-16·P0-1 尾巴清扫）：三通道隔离——跨通道默认禁止聚合。"""
 

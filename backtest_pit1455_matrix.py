@@ -273,6 +273,10 @@ def main() -> int:
             return 2
     if args.net_guard:
         _block_network()
+    else:
+        # D5-F3（2026-09-30 面 5 审计）：关守卫必须显式警示（与 early_stopping_ab 同款）。
+        print("[warn] ⚠️ --no-net：socket 守卫已关闭——本脚本定位为零网络作业（铁律 7）；"
+              "确需联网请先按铁律 8 获人工授权。本次关闭已写入产物 meta（socket_guard）。")
 
     print("== [0] 输入件与血缘 ==")
     print(f"  PIT  {pit_p.name}  sha256(前12)={_sha12(pit_p)}")
@@ -371,6 +375,7 @@ def main() -> int:
     print("\n== [5] 矩阵组格 ==")
     results: dict[str, dict] = {"meta": {
         "run_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "socket_guard": bool(args.net_guard),   # D5-F3：守卫开关状态进产物（机读留痕，报告行同源）
         "pit_file": pit_p.name, "pit_sha256_12": _sha12(pit_p),
         "split_src": src_p.name, "split_src_sha256_12": _sha12(src_p),
         "oos_start": oos_start, "n_train": len(train), "n_oos": len(oos),

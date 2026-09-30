@@ -38,6 +38,18 @@ def source_trace_notes(signals: dict) -> list[str]:
             and s.get("source") and s["source"] != "eastmoney"]
 
 
+def nav_fallback_notes(signals: dict) -> list[str]:
+    """D5-D2（2026-09-30 面 5 审计）：cache:fallback 基金标注行（报告/卡片共用）。
+
+    判定走 `data_loader.is_nav_fallback` 单一事实源（不另写 startswith）；
+    旧实现里 fallback 告警只进落盘报告不上卡片——手机侧（触达面最广）看不到
+    「数据可能是旧缓存」信号，现两处共用本函数。
+    """
+    return [f"{code}（净值截至 {s.get('last_nav_date', '?')}）"
+            for code, s in signals.items()
+            if data_loader.is_nav_fallback(s)]
+
+
 def _data_source_notice(signals: dict) -> str:
     """数据来源透明度提示（融合版增强：吸收 quant_test 母本的降级告警链路）。
 
@@ -50,12 +62,11 @@ def _data_source_notice(signals: dict) -> str:
     主源 eastmoney 为默认态不提示；**回落到备源（如 sina）必须显式提示**——
     这是「多源链换源」这一新行为第一次在报告可见（历史持仓口径不同，值得读者知道）。
     """
-    warns, notes, switched = [], [], []
+    notes = []
+    warns = nav_fallback_notes(signals)     # D5-D2：判定单一事实源，与飞书卡片共用
     for code, s in signals.items():
         src = s.get("_source", "fresh")
-        if data_loader.is_nav_fallback(s):        # V4.1 ③：谓词单一事实源，不再两处 startswith
-            warns.append(f"{code}（净值截至 {s['last_nav_date']}）")
-        elif src == "cache":
+        if not data_loader.is_nav_fallback(s) and src == "cache":
             notes.append(f"{code}（截至 {s['last_nav_date']}）")
     switched = source_trace_notes(signals)   # 单一事实源，与飞书卡片共用
     lines = []
@@ -68,6 +79,20 @@ def _data_source_notice(signals: dict) -> str:
     if notes:
         lines.append(f"<sub>本地缓存复用（TTL 内未重新抓取）：{'、'.join(notes)}。</sub>")
     return "\n".join(lines)
+
+
+def production_section(production: dict | None) -> str:
+    """D5-A1（2026-09-30 面 5 审计）：生产资格（production_status）在落盘报告的标注段。
+
+    只渲染 `run.production_eligibility` 产出的 note 文本（措辞单一真源），
+    不做第二套判定；production 缺省/note=None（READY）⇒ 空串，旧调用方行为不变。
+    语义：只标注不拦截——BLOCKED 当前是常态（模型未获批），拦推送会语义漂移成
+    第二个 publish_gate；本段让「系统未获生产资格」在报告里可见。
+    """
+    if not production or not production.get("note"):
+        return ""
+    return "\n".join(["## 🏭 生产资格状态（四层状态机总裁决）", "",
+                      f"> {production['note']}", ""])
 
 
 def gate_section(gate: dict | None) -> str:
@@ -300,7 +325,9 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
                     decisions: dict | None = None,
                     market_context: dict | None = None,
                     lt_missing: list | None = None,
-                    gate: dict | None = None) -> str:
+                    gate: dict | None = None,
+                    nav_fresh: dict | None = None,
+                    production: dict | None = None) -> str:
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d")
     header = {"mid": "⏰ 午盘 · 实时参考", "post": "🌙 收盘前 · 最终参考"}.get(
@@ -309,7 +336,13 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
     parts = [f"# 基金日频参谋 · {header}", "",
              f"> 生成时间：{now.strftime('%Y-%m-%d %H:%M')} · 风险边界：**只出参考建议，绝不自动下单**", ""]
 
-    parts += [f"## 📊 基金池弱参考（净值截至 {account['as_of_nav_date']}）", "", _fund_table(signals), ""]
+    parts += [f"## 📊 基金池弱参考（净值截至 {account['as_of_nav_date']}）", ""]
+    # D5-D1（2026-09-30 面 5 审计）：净值日期陈旧（旧于应披露档）时表头显式警示；
+    # 判定在 run.nav_freshness（日历口径复用 audit 侧），本层只渲染不判定。
+    if nav_fresh and nav_fresh.get("stale"):
+        parts += [f"> ⚠️ **净值滞后警示**：{nav_fresh.get('detail')}"
+                  "——下表净值为旧披露值，非数据错误但结论时效受限。", ""]
+    parts += [_fund_table(signals), ""]
     rt_sec = _realtime_section(realtime)
     if rt_sec:
         parts += [rt_sec]
@@ -350,6 +383,10 @@ def generate_report(slot: str, signals: dict, account: dict, lookthrough: dict |
     gate_md = gate_section(gate)
     if gate_md:
         parts += [gate_md]
+
+    prod_md = production_section(production)
+    if prod_md:
+        parts += [prod_md]
 
     parts += ["---", "", "*基金日频参谋 v5 · 三因子弱参考 + 决策倾向 + 多周期预测（观察层）· 不构成投资建议*"]
     report = "\n".join(parts)
