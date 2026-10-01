@@ -1,0 +1,46 @@
+=== ��6 commit �嵥��baseline 2089d54 ֮�ϣ�=== 
+13dbfca evidence: 面 6 测试语义修复自测留档——fast 844 OK(skipped=0) / all 1072 FAILED(failures=1 基线固有已归因,skipped=3) + 注入验证七组全还原 + C-6 sha 门隔离探针
+abd76f3 test: 源码级守护统一标注钉死判据与行为兜底对应关系；publish_gate 顺序断言前置 count==1 防 index 错位
+343c1d0 test: 退出码 exit=1 与 freshness 接线补行为兜底——_finalize_failed 直调断言 + stub 引擎捕获 predict 实收 freshness
+f7bf570 test: prereg 钉住闸门补行为级验证——钉住时 save_models 拒写且目标 pkl 字节不变，无钉住正例对照防假绿
+428da97 test: feature_protocol 严格校验迁 tempdir 全隔离（MODELS_DIR+REGISTRY_PATH 重定向，fast 层不再写真实 registry.json）
+498b6ce test: 分层守护补两盲区——pytest 风格 *_test.py 命名红灯 + 全部测试文件必须 unittest.TestCase 风格（AST 传递解析）
+26c7f8f run_tests: --list 末尾磁盘核对 fail-closed（LAYERS 与 tests/ 漂移即 exit 1，报警提前到最轻入口）
+1312bd3 docs: 测试指南如实重写——run_tests.py 主路径声明 + discover 语义纠偏（重型默认跳过承诺失实）+ 留档 skipped 呈现协议
+ 
+=== ���ջ��� diff --stat��2089d54..HEAD��=== 
+ evidence/probes/face6_all_after_fix_2026-10-01.log | 542 +++++++++++++++++++++
+ .../probes/face6_all_baseline_proof_2026-10-01.log | 536 ++++++++++++++++++++
+ evidence/probes/face6_all_final_2026-10-01.log     | 542 +++++++++++++++++++++
+ .../probes/face6_all_stash_baseline_2026-10-01.log | 537 ++++++++++++++++++++
+ .../probes/face6_c6_probe_injected_2026-10-01.log  |  13 +
+ evidence/probes/face6_c6_probe_real_2026-10-01.log |  13 +
+ .../probes/face6_c6_probe_restored_2026-10-01.log  |  13 +
+ .../probes/face6_c6_sha_gate_isolation_probe.py    |  66 +++
+ .../probes/face6_fast_after_fix_2026-10-01.log     | 520 ++++++++++++++++++++
+ evidence/probes/face6_fast_final_2026-10-01.log    | 520 ++++++++++++++++++++
+ .../face6_inject_b3_guard_removed_2026-10-01.log   |  17 +
+ ...e6_inject_b4_return2_dead_branch_2026-10-01.log | 108 ++++
+ ...ce6_inject_c1c4c6_guards_removed_2026-10-01.log | 497 +++++++++++++++++++
+ evidence/probes/face6_layers_list_2026-10-01.log   |  70 +++
+ .../face6_list_diskcheck_inject_2026-10-01.log     |  73 +++
+ .../probes/face6_list_diskcheck_ok_2026-10-01.log  |  71 +++
+ .../face6_selftest_summary_2026-10-01.meta.json    |   1 +
+ run_tests.py                                       |  14 +
+ tests/README.md                                    |  89 +++-
+ tests/layers.py                                    |   2 +-
+ tests/test_b3_sample_retention.py                  |   5 +
+ tests/test_batch_a_hardening.py                    |  74 ++-
+ tests/test_data_fingerprint.py                     |   4 +
+ tests/test_dataset_snapshot_scope.py               |   7 +-
+ tests/test_face5_production_path.py                |  67 +++
+ tests/test_feature_protocol_strict.py              |  27 +-
+ tests/test_layers.py                               |  53 ++
+ tests/test_nav_fallback_degraded.py                |   8 +-
+ tests/test_publish_gate.py                         |   6 +
+ tests/test_run_manifest.py                         |  67 ++-
+ tests/test_shadow_policy.py                        |   7 +-
+ 31 files changed, 4526 insertions(+), 43 deletions(-)
+ 
+=== ��Ʒ����Ķ�֤����core/ run.py freeze_verify_tool.py Ӧ�������=== 
+[��Ʒ�� diff ����]
