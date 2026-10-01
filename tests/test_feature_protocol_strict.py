@@ -5,7 +5,9 @@
 现 protocol_version / n_features / masking 整块（enabled+layout+
 missing_value+mask_value）全部纳入 exact 比较。
 """
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -20,20 +22,25 @@ KEYS = ["est_chg", "est_sign", "breadth", "concentration", "covered_pct",
 
 
 class TestFeatureProtocolStrictVerify(unittest.TestCase):
-    def setUp(self):
-        model_registry.MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        self.test_pkl = model_registry.MODELS_DIR / "_test_protocol_strict.pkl"
-        self.test_pkl.write_bytes(b"protocol-strict-bytes")
-        self._cleanup_registry()
+    """fast 层纪律（面 6 D6-F-1，2026-10-01）：MODELS_DIR + REGISTRY_PATH 一并
+    重定向到 tempdir（同 test_evidence_binding_anchor._RegistrySandbox 惯例），
+    全程不触碰真实 data/model_registry/。旧实现直接写真实 registry.json 再靠
+    tearDown pop 复原——测试中途崩溃会留残条，且违反 fast 层"不碰真实 data/"定义。
+    """
 
-    def _cleanup_registry(self):
-        reg = model_registry.load_registry()
-        reg["models"].pop(self.test_pkl.name, None)
-        model_registry._save_registry(reg)
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig_models_dir = model_registry.MODELS_DIR
+        self._orig_registry_path = model_registry.REGISTRY_PATH
+        model_registry.MODELS_DIR = self.tmp
+        model_registry.REGISTRY_PATH = self.tmp / "registry.json"
+        self.test_pkl = self.tmp / "_test_protocol_strict.pkl"
+        self.test_pkl.write_bytes(b"protocol-strict-bytes")
 
     def tearDown(self):
-        self._cleanup_registry()
-        self.test_pkl.unlink(missing_ok=True)
+        model_registry.MODELS_DIR = self._orig_models_dir
+        model_registry.REGISTRY_PATH = self._orig_registry_path
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _bind(self, masking=B1_MASKING_PROTOCOL) -> dict:
         model_registry.register_model(self.test_pkl, meta={})
