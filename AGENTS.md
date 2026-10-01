@@ -22,7 +22,9 @@
    `pull_sector_klines.py` 最多跑 2 轮（第 2 轮靠脚本自身 skip 已成功码补拉缺口）。
    两轮后仍有 fail → **禁止第三轮原生脚本，禁止盲跑 pw 兜底**（盲跑 = 拿被掐的 IP 反复
    撞，09-08 曾自动重启浏览器 12 次全灭）。先跑分类诊断：
-   `.\.venv\Scripts\python.exe -X utf8 experiments\channel_diag\diag_20260908.py <任一FAIL码>`
+   `D:\Python\python.exe -X utf8 experiments\channel_diag\diag_20260908.py <任一FAIL码>`
+   （该诊断脚本 import playwright，venv 故意不装 → 必须用全局 Python，同上 pw 兜底脚本的解释器规则；
+   脚本 docstring 自述用法与 2026-10-01 实操日志 daily_runs/2026-10-01.md 均为全局 Python）
    - B/C/D/E 全 FAIL = IP/接口层掐 → 停手，等 21:30 晚间补拉或下一交易日
    - 仅 C FAIL（B 或 D 成功）= CORS/姿势问题 → 此时才跑 pull_sector_klines_pw.py
    - A 恢复 200 = 频控已解除 → 回主通道再跑一轮
@@ -33,7 +35,8 @@
    任何输出不得包含建议实盘操作的措辞，记录本身不构成投资建议。
 3. **幂等优先**：报"全部幂等跳过"是正常状态，不要为重跑出结果而反复执行。
 4. **不改数据**：只读 `data/`，脚本自身写 `output/`；不修改任何 .py / .md 笔记
-   （季度重估任务除外，其 prompt 明确要求补记 Obsidian 对照笔记）。
+   （季度重估任务除外，其 prompt 明确要求补记 Obsidian 对照笔记。
+   本条限无人值守任务；交互开发会话改 .py 走下节 ponytail lite 及 A/B 协作授权）。
 5. **失败平铺直叙**：命令失败/退出码非 0 → 如实记录 stderr 末行，最多重试 1 次。
 6. 已知顽固失败码：BK1137 存储芯片、BK1163 可控核聚变，偶发 RemoteDisconnected，
    单次失败不需人工介入。
@@ -73,9 +76,10 @@
 来源 `DietrichGebert/ponytail`（精简/lite 档），仅约束**交互开发会话**里"新写或改代码"的行为；
 不改变上面「铁律」对无人值守定时任务的约束（定时任务依旧不改任何 .py）。
 
-- **适用范围**：工具/胶水层收敛重复。已核实的重复点（2026-09-14 扫描根目录 16 个
-  `backtest_*.py`）：`main` 样板 ×16、`pearson` ×3、`_window_slices` ×3、`spread` ×2、
-  `_fit_one_horizon` ×2 —— 这类先提公共、不再复制粘贴。
+- **适用范围**：工具/胶水层收敛重复。已核实的重复点（2026-09-14 扫描快照：根目录 16 个
+  `backtest_*.py`、`main` 样板 ×16；2026-10-01 实测：18 个 / `main` ×18——其后新增
+  pit1455_matrix、early_stopping_ab 两文件。子项计数截至 2026-10-01 仍准：`pearson` ×3、
+  `_window_slices` ×3、`spread` ×2、`_fit_one_horizon` ×2）—— 这类先提公共、不再复制粘贴。
 - **不碰清单（永不精简）**：因子逻辑、数据校验、错误处理、回测口径。ponytail 原规则同样
   规定"never cut validation, error handling, security"，与本仓库「八荣八耻」第 5 条一致。
 - 动手改前按七级阶梯，停在成立的最早一档：
