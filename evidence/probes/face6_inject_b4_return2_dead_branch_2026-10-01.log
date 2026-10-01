@@ -1,0 +1,108 @@
+test_labels_documented (tests.test_run_manifest.TestExitCodeSemantics.test_labels_documented) ... ok
+test_finalize_failed_does_not_overwrite_existing_manifest (tests.test_run_manifest.TestFailedExitCode.test_finalize_failed_does_not_overwrite_existing_manifest) ... ok
+test_finalize_failed_records_exception_class_not_message (tests.test_run_manifest.TestFailedExitCode.test_finalize_failed_records_exception_class_not_message)
+P0-2 隐私面：清单只留异常类名，完整消息只进本地日志。 ... ok
+test_finalize_failed_returns_one_and_writes_evidence (tests.test_run_manifest.TestFailedExitCode.test_finalize_failed_returns_one_and_writes_evidence) ... ok
+test_exception_message_not_written_to_manifest (tests.test_run_manifest.TestFailedManifestFallback.test_exception_message_not_written_to_manifest)
+异常原文（可能含真实代码）只进本地日志；清单只留类名。 ... ok
+test_exception_writes_failed_manifest_and_exit_1 (tests.test_run_manifest.TestFailedManifestFallback.test_exception_writes_failed_manifest_and_exit_1) ... ok
+test_failed_manifest_passes_audit_three_state_vocabulary (tests.test_run_manifest.TestFailedManifestFallback.test_failed_manifest_passes_audit_three_state_vocabulary)
+兜底清单必须能被审计按三态词表**识别**（而不是判「非三态词表」）。 ... ok
+test_fund_pool_safe_survives_missing_config (tests.test_run_manifest.TestFailedManifestFallback.test_fund_pool_safe_survives_missing_config) ... ok
+test_manifest_write_failure_still_returns_exit_1 (tests.test_run_manifest.TestFailedManifestFallback.test_manifest_write_failure_still_returns_exit_1)
+兜底清单自身也写不出时，不得抛异常、不得改判成功。 ... ok
+test_second_call_does_not_overwrite_richer_evidence (tests.test_run_manifest.TestFailedManifestFallback.test_second_call_does_not_overwrite_richer_evidence)
+正常路径已落清单后若再抛异常，不得用 FAILED 覆盖那份更完整的证据。 ... ok
+test_stage_from_log_extracts_tag_without_fund_codes (tests.test_run_manifest.TestFailedManifestFallback.test_stage_from_log_extracts_tag_without_fund_codes) ... ok
+test_failure_returns_false (tests.test_run_manifest.TestManifestFailureContract.test_failure_returns_false) ... ok
+test_finalize_clean_run_is_exit_0 (tests.test_run_manifest.TestManifestFailureContract.test_finalize_clean_run_is_exit_0) ... ok
+test_finalize_maps_manifest_failure_to_exit_2 (tests.test_run_manifest.TestManifestFailureContract.test_finalize_maps_manifest_failure_to_exit_2) ... FAIL
+test_success_returns_true_and_leaves_no_tmp (tests.test_run_manifest.TestManifestFailureContract.test_success_returns_true_and_leaves_no_tmp) ... ok
+test_case_a_fetch_exception_is_degraded (tests.test_run_manifest.TestRealtimeDegradedContract.test_case_a_fetch_exception_is_degraded) ... ok
+test_case_b_logs_warning (tests.test_run_manifest.TestRealtimeDegradedContract.test_case_b_logs_warning) ... ok
+test_case_b_none_estimate_is_degraded (tests.test_run_manifest.TestRealtimeDegradedContract.test_case_b_none_estimate_is_degraded) ... ok
+test_case_c_clean_run_no_false_degradation (tests.test_run_manifest.TestRealtimeDegradedContract.test_case_c_clean_run_no_false_degradation) ... ok
+test_empty_lookthrough_is_not_a_failure (tests.test_run_manifest.TestRealtimeDegradedContract.test_empty_lookthrough_is_not_a_failure) ... ok
+test_degraded_manifest_keeps_reasons (tests.test_run_manifest.TestRunManifestWrite.test_degraded_manifest_keeps_reasons) ... ok
+test_success_manifest_roundtrip (tests.test_run_manifest.TestRunManifestWrite.test_success_manifest_roundtrip) ... ok
+test_write_failure_does_not_raise (tests.test_run_manifest.TestRunManifestWrite.test_write_failure_does_not_raise) ... ok
+test_fallback_is_degraded (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_fallback_is_degraded) ... ok
+test_fresh_is_not_degraded (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_fresh_is_not_degraded) ... ok
+test_missing_source_key_is_not_degraded (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_missing_source_key_is_not_degraded) ... ok
+test_prefix_constant_matches_generation_literal (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_prefix_constant_matches_generation_literal) ... ok
+test_sina_fresh_is_not_degraded (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_sina_fresh_is_not_degraded) ... ok
+test_ttl_cache_is_not_degraded (tests.test_nav_fallback_degraded.TestFallbackPredicate.test_ttl_cache_is_not_degraded) ... ok
+test_attributed_per_fund_not_run_level (tests.test_nav_fallback_degraded.TestGateAttribution.test_attributed_per_fund_not_run_level) ... ok
+test_out_of_universe_code_is_fail_closed (tests.test_nav_fallback_degraded.TestGateAttribution.test_out_of_universe_code_is_fail_closed) ... ok
+test_prefix_registered_in_gate_table (tests.test_nav_fallback_degraded.TestGateAttribution.test_prefix_registered_in_gate_table) ... ok
+test_unattributable_is_fail_closed_run_level (tests.test_nav_fallback_degraded.TestGateAttribution.test_unattributable_is_fail_closed_run_level) ... ok
+test_clean_run_exit_zero_unchanged (tests.test_nav_fallback_degraded.TestManifestAndExitCode.test_clean_run_exit_zero_unchanged) ... ok
+test_fallback_survives_manifest_roundtrip (tests.test_nav_fallback_degraded.TestManifestAndExitCode.test_fallback_survives_manifest_roundtrip) ... ok
+test_finalize_exit_two_when_only_fallback (tests.test_nav_fallback_degraded.TestManifestAndExitCode.test_finalize_exit_two_when_only_fallback) ... FAIL
+test_empty_input (tests.test_nav_fallback_degraded.TestNavFallbackFunds.test_empty_input) ... ok
+test_filters_only_fallback (tests.test_nav_fallback_degraded.TestNavFallbackFunds.test_filters_only_fallback) ... ok
+test_batch_semantics_any_contamination_blocks_all (tests.test_nav_fallback_degraded.TestPublishGateBlocks.test_batch_semantics_any_contamination_blocks_all) ... ok
+test_clean_fresh_run_passes (tests.test_nav_fallback_degraded.TestPublishGateBlocks.test_clean_fresh_run_passes) ... ok
+test_disk_manifest_of_earlier_run_also_counts (tests.test_nav_fallback_degraded.TestPublishGateBlocks.test_disk_manifest_of_earlier_run_also_counts)
+同一事实在「落盘清单」路径下同样拦得住（不只内存 extra 路径）。 ... ok
+test_fallback_blocks_publish_for_that_fund (tests.test_nav_fallback_degraded.TestPublishGateBlocks.test_fallback_blocks_publish_for_that_fund) ... ok
+test_fallback_is_not_in_self_lock_whitelist (tests.test_nav_fallback_degraded.TestPublishGateBlocks.test_fallback_is_not_in_self_lock_whitelist) ... ok
+test_fallback_counts_into_degraded_before_gate (tests.test_nav_fallback_degraded.TestWiringGuards.test_fallback_counts_into_degraded_before_gate) ... ok
+test_report_layer_shares_predicate_not_second_startswith (tests.test_nav_fallback_degraded.TestWiringGuards.test_report_layer_shares_predicate_not_second_startswith) ... ok
+test_run_emits_fallback_reason (tests.test_nav_fallback_degraded.TestWiringGuards.test_run_emits_fallback_reason) ... ok
+
+======================================================================
+FAIL: test_finalize_maps_manifest_failure_to_exit_2 (tests.test_run_manifest.TestManifestFailureContract.test_finalize_maps_manifest_failure_to_exit_2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\PythonProject\QuantV1\tests\test_run_manifest.py", line 271, in test_finalize_maps_manifest_failure_to_exit_2
+    self.assertEqual(code, 2)
+AssertionError: 0 != 2
+
+======================================================================
+FAIL: test_finalize_exit_two_when_only_fallback (tests.test_nav_fallback_degraded.TestManifestAndExitCode.test_finalize_exit_two_when_only_fallback)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\PythonProject\QuantV1\tests\test_nav_fallback_degraded.py", line 218, in test_finalize_exit_two_when_only_fallback
+    self.assertEqual(code, 2)
+AssertionError: 0 != 2
+
+----------------------------------------------------------------------
+Ran 46 tests in 0.620s
+
+FAILED (failures=2)
+[exit] FAILED（test_crash_reason）——本次已有清单在档，不重复落盘
+[mani] 运行清单 → output/run_manifest/run_manifest_20261001_153000_mid.json（status=FAILED）
+[exit] FAILED（boom）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20261001_153000_post.json（status=FAILED）
+[exit] FAILED（test_crash_reason）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:ValueError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=FAILED）
+[exit] FAILED（exception:TypeError）——兜底清单已落盘，异常原文见 output/logs/
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpllm0l5ic\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] FAILED（exception:TypeError）——兜底清单亦未落盘，监控侧以「exit=1 且本次 run_id 无对应清单」识别
+[mani] 运行清单 → output/run_manifest/run_manifest_20260923_145504_post.json（status=SUCCESS）
+[exit] FAILED（exception:TypeError）——本次已有清单在档，不重复落盘
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpslgdfk13\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp4gps3kk2\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[exit] DEGRADED（1 项降级：run_manifest_write_failed）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260917_113003_mid.json（status=SUCCESS）
+[warn] 510300 实时行情不可用：network down
+[rt  ] 159915 当日估算 +0.50%（前十大覆盖 80%，持仓截至 2026-06-30）
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[warn] 159915 实时行情可得但估值不可用（est_change_pct=None，覆盖 80.0%）——该基金今日证据缺位
+[rt  ] 510300 当日估算 +1.20%（前十大覆盖 80%，持仓截至 2026-06-30）
+[rt  ] 159915 当日估算 -0.40%（前十大覆盖 80%，持仓截至 2026-06-30）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_145500_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260916_183000_post.json（status=SUCCESS）
+[warn] 运行清单写入失败（本次运行判为 DEGRADED）：FileNotFoundError [WinError 3] 系统找不到指定的路径。: 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpicgn60n8\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=SUCCESS）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[mani] 运行清单 → output/run_manifest/run_manifest_20260918_145600_post.json（status=DEGRADED）
+[exit] DEGRADED（1 项降级：fund_data_fallback:002112）
+
+--- 注（B 记录，2026-10-01）：注入已还原（git diff run.py 为空），还原后 46 tests 全绿。本注入实证的是 B-4 清单第 6 处（exit=1 无兜底）修复前的缺口形态：字符串保留+语义死分支时，仅字符串断言测不到；行为断言（本 log 两条 FAIL）能抓到。exit=1 语义的行为兜底已由 TestFailedExitCode 补齐（本次新增）。

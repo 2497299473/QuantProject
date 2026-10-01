@@ -1,0 +1,13 @@
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_0rygc0k\samples_frozen_20260910.jsonl
+[freeze] rows     : 2
+[freeze] sha256   : 68fe77a07f1deb9f1fadca2b8900bee90f95f7d51075a86315476dd09062f3d3  (LF 归一，判定口径)
+[freeze] raw-bytes: fd9db6acf114d2a4d54649d402b96261525b54dd831d53cebe09b5e905e2f223  (仅记录；CRLF 差异不判失败)
+[freeze] meta     : samples_frozen_20260910.meta.json  记录 sha256=89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106
+[freeze] G-A 样本 sha 一致 : OK
+[freeze] kfp 留档 : f5a2f60700000000000000000000000000000000000000000000000000000000  <- kline_fingerprint_20260910.json
+[freeze] kfp 当前 : f5a2f60700000000000000000000000000000000000000000000000000000000
+[freeze] G-B K线指纹 : SAME
+[freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=68fe77a07f1d… kfp=f5a2f6070000…
+[freeze] VERDICT  : PASS（G-A 过；可比性 = SAME）
+
+[PROBE] 行数不变篡改 → exit=0 (PASS/逃逸)

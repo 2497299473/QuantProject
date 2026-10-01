@@ -1,0 +1,73 @@
+
+[fast] 48 个文件
+  - test_a158lite.py
+  - test_action_bootstrap.py
+  - test_audit_hygiene.py
+  - test_audit_states.py
+  - test_b3_sample_retention.py
+  - test_chanlun.py
+  - test_daily_runs_tool.py
+  - test_dataset_snapshot_scope.py
+  - test_datasource_chain.py
+  - test_datasource_providers.py
+  - test_decision_edge.py
+  - test_delta_intraday.py
+  - test_diag_entry_unify.py
+  - test_drift_monitor.py
+  - test_dynamics.py
+  - test_evidence_anchor.py
+  - test_evidence_binding_anchor.py
+  - test_face5_production_path.py
+  - test_feature_protocol_strict.py
+  - test_forecast_contract.py
+  - test_forecast_evidence.py
+  - test_freeze_verify_tool.py
+  - test_frozen_dataset.py
+  - test_fund_datasource.py
+  - test_holidays.py
+  - test_intraday.py
+  - test_layers.py
+  - test_lookthrough_pit.py
+  - test_manifest_fund_mask.py
+  - test_metric_status.py
+  - test_model_registry.py
+  - test_nav_fallback_degraded.py
+  - test_pit1455_contract.py
+  - test_pit1455_matrix.py
+  - test_pit_guard.py
+  - test_promotion_rule_v2.py
+  - test_publish_gate.py
+  - test_quantile_calib.py
+  - test_realtime_datasource.py
+  - test_report_source_trace.py
+  - test_run_manifest.py
+  - test_state_engine.py
+  - test_state_lookup.py
+  - test_stock_data_cache.py
+  - test_t5_scorecard.py
+  - test_v42_contracts.py
+  - test_validation_schema.py
+  - test_walk_forward.py
+
+[slow] 16 个文件
+  - test_batch_a_hardening.py
+  - test_contracts.py
+  - test_data_fingerprint.py
+  - test_evidence_recompute.py
+  - test_forecast.py
+  - test_forecast_lifecycle.py
+  - test_forecast_split.py
+  - test_holdings_tristate.py
+  - test_holdings_visibility.py
+  - test_lofo_evidence.py
+  - test_market_context.py
+  - test_netutil.py
+  - test_path_and_store.py
+  - test_pit.py
+  - test_provenance_binding.py
+  - test_shadow_policy.py
+
+合计 64 个文件
+
+⚠️ 磁盘 test_*.py = 65 个，与登记 64 不一致
+  未登记（会被静默漏跑）：['test_zz_scratch.py']
