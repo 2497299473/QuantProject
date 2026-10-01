@@ -1,0 +1,17 @@
+test_pinned_refuses_overwrite (tests.test_batch_a_hardening.TestPreregPinGateBehavior.test_pinned_refuses_overwrite) ... FAIL
+test_unpinned_overwrites_normally (tests.test_batch_a_hardening.TestPreregPinGateBehavior.test_unpinned_overwrites_normally) ... ok
+
+======================================================================
+FAIL: test_pinned_refuses_overwrite (tests.test_batch_a_hardening.TestPreregPinGateBehavior.test_pinned_refuses_overwrite)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\PythonProject\QuantV1\tests\test_batch_a_hardening.py", line 441, in test_pinned_refuses_overwrite
+    self.assertIsNone(rc, "钉住的 artifact 必须拒绝普通重训覆盖")
+AssertionError: WindowsPath('C:/Users/Turn-/AppData/Local/Temp/tmp9gdk0vof/forecast_v3.pkl') is not None : 钉住的 artifact 必须拒绝普通重训覆盖
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.614s
+
+FAILED (failures=1)
+ core/forecast_engine.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
