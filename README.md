@@ -2,7 +2,7 @@
 
 > 场外开放式基金日频参考系统。**只出参考建议，绝不自动下单。**
 > 依据：[[基金日频参谋-v2-重建记录-20260820]] · [[基金日频参谋-回测校准-20260822]] · [[基金日频参谋-v3-融合整合记录-20260823]] · [[基金日频参谋-v4-决策引擎重构-20260825]]
-> 主线：QuantTestByGLM（v2.3.0-glm → v4.0.0-decision → **v5.0.0-forecast**，2026-08-26 引入多周期条件分布预测；纯 Python 标准库 + 可选 sklearn，无需 pip install 即可跑通核心）。
+> 主线：QuantTestByGLM（v2.3.0-glm → v4.0.0-decision（引擎）+ forecast v3（预测模型，2026-08-26 引入多周期条件分布预测）；依赖：标准库 + numpy（必装，见 requirements.txt），预测链另需 scikit-learn（forecast_v3.pkl 反序列化即需））。
 
 ## V4 总原则（护栏 · 2026-09-16 拍板）
 
@@ -15,9 +15,9 @@
 > 穿透升级：2026-08-23 对齐 `book-to-skill/chanlun` skill（动力学口径 + 全量形态学 + 防狼术）
 > v4 重构：2026-08-25 吸收 GPT-5.6 诊断 + 项目回测铁律融合——日内特征引擎 / 11:30→14:55 快照变化量 / 决策倾向引擎（五维加权 + 四道门槛）/ 动作收益回测。动作层经 `backtest_action.py` 裁决未通过 → `history_validated=false` 锁死，只输出倾向分与候选动作，实际动作恒为「保持不动/观察」。
 
-## Project State（2026-09-08 · 迁移 Windows 原生 · Market Context v0.1 封版）
+## Project State（2026-10-01 · Windows 原生自 2026-09-08 · Market Context v0.1 封版）
 
-- 代际命名（V4 · 2026-09-16 拍板）：**V4 = 证据链闭环代（Evidence-Contract Generation）**。本行为代际名的**唯一权威落点**。三轴并存、互不覆盖：**Project Generation: V4** / **Engine Version: 4.0.0-decision** / **Forecast Model Version: 3（协议 B1）**。`config.json` 的 `version` 字段被代码引用，**不改**（改它不属于 bug 修复，违反 v0.1 冻结纪律）。历史代际 `V3 = Windows Native Generation / 数据架构重构代` 已封版；文档中**不再使用「README 标题 v5」这类代际混淆写法**。
+- 代际命名（V4 · 2026-09-16 拍板）：**V4 = 证据链闭环代（Evidence-Contract Generation）**。本行为代际名的**唯一权威落点**。三轴并存、互不覆盖：**Project Generation: V4** / **Engine Version: 4.0.0-decision** / **Forecast Model Version: 3（协议 B1）**。`config.json` 的 `version` 字段属 v0.1 冻结面，**不改**（改它不属于 bug 修复；2026-10-01 全仓 grep 复核无任何代码读取该字段，不改纪律由 v0.1 冻结纪律独立支撑）。历史代际 `V3 = Windows Native Generation / 数据架构重构代` 已封版；文档中**不再使用「README 标题 v5」这类代际混淆写法**。
 
 - 运行环境: **Windows 原生**（2026-09-08 自 WSL Ubuntu 迁至 `D:\PythonProject\QuantV1`；项目自带 `.venv` Python 3.12.13，依赖版本与 WSL 侧锁死一致（见 `requirements.txt`）；全量单测入口见「快速开始」，不写死项数，forecast_v3.pkl 已实测 `load_models()=True`）
 - Forecast model version: **3**（B1 双列 14 维，MODEL_VERSION 闸）
@@ -27,7 +27,7 @@
 - T+3 三拆（研究轨，2026-09-18）: **三尺度均不显著，「仅点估计」维持**（D-lite 冻结面板 a158+LGB WF：pooled +0.0299 CI[-0.0061,+0.0647] / CS 日均 +0.009 CI[-0.0236,+0.0365]（333日，宽≥4） / TS 成员均 +0.0218 正值占比 0.652<2/3（23员，n≥60）；pool17 敏感性同向更弱；判据见 forecast_lab_prereg_T3decomp_20260918.md，生产轨 C2 重跑另行授权）
 - Quantile: **CALIBRATED（CV conformal-style 诊断）**（09-23 在 0910 冻结件重出：原始 coverage 51.9~59.4% 过窄，CQR 外扩后 73.8~76.3% 入带宽 70%~90%；G-B DRIFTED ⇒ 与 09-01 锚定轮次绝对值不可直接比；不绑 registry）
 - CQR-WF: **DEPLOYMENT-STYLE READY（观察层）**（09-01 P1-③：逐折折内 split-conformal，T+1/3/5 pooled cov 85.6%/87.7%/84.2% 全部入带宽，qhat 折间窄；正式口径仍以 calib 报告为准）
-- Path: **OBSERVATION ONLY**（v1.3 基金级 20 交易日 σ，RECENT_WINDOW 冻结；Path-WF pooled hit mdd10 10.8% ≈ 期望 10%，mfe50 31% 低估观察中）
+- Path: **OBSERVATION ONLY**（v1.3 基金级 20 交易日 σ，RECENT_WINDOW 冻结；Path-WF pooled hit mdd10 9.5% ≈ 期望 10%，mfe50 29.6% 低估观察中——09-30 在 0910 冻结件重出（G-B DRIFTED ⇒ 绝对值与历史锚定轮次不可直接比）；09-01 基线：mdd10 10.8% / mfe50 31.2%）
 - Path-WF: **OBSERVATION（部署式逐折校准）**（折间 hit 波动大 → 已接 Drift 监控）
 - Policy: **BLOCKED**（ML 超额 -3.041% vs 单因子 +0.167%，θ=0.6 预注册不动）
 - Shadow Policy: **ENABLED (paper-only)**（shadow_actions.jsonl：run.py post 时点自动 + 每日 22:30 cron；每条内嵌 Evidence Contract）
@@ -54,9 +54,11 @@
 - V4.4-步3: **四基金 × 多周期 14:55 验收矩阵（2026-09-22，零网络研究层，不动门禁）**（① 新脚本 `backtest_pit1455_matrix.py`：三轨对照——**A**=线上现行 `forecast_v3.pkl` 权重只推理、**C**=旧 label 重训（自校验轨）、**B**=1455 label 重训（反事实轨，`--retrain`）；每轨 × {old, 1455} 双 label × {池级, 逐基金 002112/002207/022853/025687} × T+1/3/5，出 RankIC+cluster bootstrap CI、多类/二值 Brier、多数类基线、ACE/ECE/校准斜率、可靠性分桶、Q80−Q20 经济价值、OOS 分窗轨迹。② **切分真源=0910 冻结件**（train<2025-05-14 共 2438 / OOS 923），PIT 件只按 (fund,date) 贴 `fwd*_1455` 列 ⇒ 池成员与历史报告逐行一致（若对 PIT 件重切会把 train 推到 2025-05-14 之后、与线上不可比）；未匹配即 fail-closed 退出。③ **自校验通过**：C 轨 old 列 RankIC +0.0485/+0.0480/−0.0191 vs 步 2 报告基准 +0.049/+0.048/−0.019（|Δ|≤5e-4，容差 0.002）⇒ 本矩阵指标实现与 `backtest_forecast.py` 等价，1455 列才可按同口径解读；另设等价性守卫（`build_xy` 行过滤/取值/特征矩阵逐位断言）。④ **G-B DRIFTED 澄清**：按当前 `data/klines` 重算旧口径 label 与 0910 存量比，mean|Δ|=0、max|Δ|=0（3371 行×3 周期）⇒ 缓存净值层与冻结时点一致，新旧对照是**纯口径差**、未被缓存漂移混入（G-B 变的是 K 线聚合口径，非历史净值被改写）。⑤ **本步最关键发现（第四个 P0 级结构问题）**：契约分母含 `est_chg` ⇒ 与输入特征机械耦合，精确式 `1+fwd_1455=(1+fwd_old)(1+a_T)/(1+est_chg)`（实测残差 5e-7；label 位移与 `a_T−est_chg` 的 Spearman=+0.9998）⇒ **零成本公式「预测分=−est_chg」在 1455 口径的池级 OOS IC 就有 +0.1278/+0.0393/+0.0567**（T+1/3/5，n=923），而同公式对 old 仅 +0.013 ⇒ B 轨 1455 IC +0.1139 看着漂亮、**超额 −0.0139 不及零成本基线**，9 格中 8 格跑输基线（唯一例外 C 轨 T+3 +0.0203）。已把「1455 口径裁决基线必须是 −est_chg、不得与 0 比」写进 `core/pit1455_contract.py` 消费纪律注释（**契约式一字未改**，分母含 est_chg 正是 14:55 可观测状态的定义所在）。⑥ **基线确证换口径**：OOS `P(fwd>0)` old→1455 = 0.5114→0.5070 / 0.5276→0.5298 / 0.5385→0.5298，印证步 1 「52.8% 多数类基线必换」。⑦ **Q2 校准读数**：C 轨 mean p_up 0.400/0.465/0.477 系统性**低于**实际上涨率（偏差 −0.059/−0.036/−0.036）⇒ 现行模型是**低估**上涨而非高估；A/C 轨池级 ACE 0.039~0.092、ECE 0.041~0.082，B 轨明显更差（ACE 0.121~0.155、ECE 0.106~0.145）⇒ 1455 训练把概率整体推高、校准退化；0.60~0.80 高概率桶 n=2~54 属稀疏区、校准斜率不可信。⑧ **逐基金**（C 轨 T+1）：002112 +0.0601 CI[−0.056,+0.172]、002207 +0.1034 CI[−0.009,+0.212]、022853 −0.0042、025687（n=35）标 LOW_N 只出数不下判 ⇒ 全池 CI 跨零，与步 2 一致。⑨ **对 09-26「是否重训 v4」的直接含义**：B 轨的提升是算术耦合、**不构成重训依据**；若将来真用 1455 训练，预注册里必须先写死 −est_chg 基线。⑩ 测试 +14（`tests/test_pit1455_matrix.py`，fast 层：基线方向符号/超额、`_feature_matrix`≡`build_xy` 协议等价、缺失 mask 列、低样本与常量输入守卫、分窗守卫、PIT 重复键 fail-closed、步 2 基准常量）；**实跑 fast 474→488、slow 158 = 646 OK(skipped=3)**——⚠️ 本仓 README 历史 fast 数有漂移（步 2 记 477、实跑 474），延续步 1 教训：**以 `run_tests.py --layer fast/slow` 实跑为准**。⑪ 产物：报告 `output/backtest_pit1455_matrix_20260922.md` + 机读 `forecast_outputs/pit1455_matrix_20260922.json`（均 .gitignore 拦截，本地留档）；**未改任何生产脚本/冻结件/model_ready/门禁，未发任何东财请求**（socket 守卫默认开，铁律 7 以「无请求」满足、铁律 8 无触网路径））
 - V4.4-附: **数据源 P0-2 修复：腾讯分页中途失败改 fail-closed（2026-09-23，Summer 授权）**（① 问题：`stock_tencent.py` 旧行为（迁移自旧实现）在分页中途某页失败时仍拿已取页出 `ok=True` ⇒ 截断历史静默写入 `data/stock_klines/` 缓存并污染下游回测。② 修法：`err is not None` 前置判失败（不再 `not pages` 才判），错误文本带 `partial_page: got=N/5`；首页即失败的旧文本格式逐字节不变（兼容）；前缀仍走 `classify_exc`——网络类计入健康度连续失败（达 3 次链执行器跳至链尾），非传输类归 `data:` 不冤枉降级；`run_chain` 见 ok=False 继续走链由东财等下一源补全量。③ 测例：`test_partial_page_failure_keeps_fetched_pages` 改名 `test_partial_page_failure_is_not_success`（断言反转：ok=False、payload=None、network: 前缀、partial_page got=1/），新增 data 类前缀中途失败 1 项；fast 实跑 489（步 3 基线 488，净 +1：净增 1 测例 + 改名 1 项）、slow 158 OK，零回归。④ 全程零东财请求（stub netutil），铁律 7/8 以「无请求」满足；未动任何门禁/冻结件/模型权重）
 - V4.4-附: **生产停摆修复：门禁参数错位两处补齐 + 签名对齐守护（2026-09-23）**（① 事故：`672b9ed`（09-22 16:07）给 `generate_report` 与 `push_feishu` 都传了 `gate=`，但两个函数签名从未接收该参数 ⇒ 09-23 mid/post 两连崩（`Last Result: 1`，日志停在 `[stat]` 之后、`[repo]` 之前，报告未落盘、飞书未推、Obsidian 流水无今日行）。fast 层测例全用旧签名直调，511 项全绿照样漏 ⇒ 根因不是逻辑错而是**调用方与被调方签名漂移无人守护**。② 修法（两处都补，不删调用方——门禁前移本是 V4-A 的设计意图）：`report_generator.gate_section(gate)` 在落盘报告加「🚦 发布资格门禁」段（判据与措辞取 `publish_gate.detail` 单一真源，本函数只呈现、不另起判定）；`notify.gate_note(gate)` + `_build_card(..., gate=)` 在飞书卡片免责脚注前插一行门禁状态；两处 gate 缺省一律出空串，旧调用方行为逐字节不变。③ 防复发测例 4 项（`tests/test_publish_gate.py`，fast 层零网络）：`test_gate_kwargs_match_callee_signatures` 用 AST 扫 run.py 实调的关键字参数 ⊆ 被调函数签名（无 `**kwargs` 兜底时多一个键即红），另三项钉报告段/卡片行的展示契约（含 superseded 观测痕迹、卡片脚注仍在最后、未配 webhook 走降级不抛 TypeError）。④ 验证：`.venv` fast **511→515 OK**、slow **158 OK (skipped=3)**，零回归；全程零东财请求，未动模型权重/门禁判据/冻结件，可回滚。⑤ 遗留（不属本修复、待 Summer 定夺）：09-23 两槽报告与 Obsidian 流水行缺失，补跑需发东财请求（过铁律 7 四闸门 + 显式授权））
+- V4.5: **evidence/ 证据落档层 + FAILED 清单兜底（2026-09-23）**（① `e983354` 新增 git 跟踪的证据落档层：validation/ probes/ contracts/ + INDEX.md 索引，落档纪律见 evidence/README.md，补 P1-2「模型 ↔ 验证报告」断链（首份落档 = 0910 冻结件 backtest_forecast 重跑）；② `51d2806` 修 09-23 post 证据链断档：异常与早退路径补齐 FAILED 运行清单，事故登记见 evidence/INDEX.md incidents 行（OPEN））
+- AB 对抗审计 面 1-6 修复批次: **已完成（2026-09-28 ~ 10-01，625af6a..72f8fbc）**（面1 审计状态机 D 批 `625af6a`+`a2c19dd` / 面2 registry malformed fail-closed `25d3817` / 面3 证据与血缘 D3 批 `09b52fe`+`cf6a9c8`（P1-2 FAIL→WARN 档案化）/ 面4 PIT/时间一致性 `d8ca111` / 面5 生产接线 `2089d54` / 面6 测试语义 `1312bd3..13dbfca`+基线留档 `72f8fbc`；落档实跑数：面5 fast 838 OK / slow 226 OK(skipped=3)，面6 fast 844 OK(skipped=0) / --all 1072（failures=1 系基线固有已归因，skipped=3）——原始输出见 evidence/probes/ 的 d5_*_20260930.log 与 face6_*_2026-10-01.log）
 - Forecast/Policy 整合: **LOCKED**（Market Context 仅描述性标签，不进 Forecast、不进 Policy、不改任何门禁）
 - Intraday delta: **DATA ACCUMULATION**（配对日 < 15 门槛，不产 verdict）
-- 下次重估: **2026-09-26 阶段性复核**（数据源稳定性 + Market Context 首批样本质量 + Forecast 既有证据重估；**≠ 晋升评估**，Market Context 晋升在满 60 有效交易日后）
+- 重估记录: **2026-09-26 阶段性复核——阶段 1 停手，未产出新结论**（样本冻结 SNAPSHOT_INVALID：688 段个股数据缺失触发硬闸门 exit 1，canonical 三件套未发布，详见 output/daily_runs/2026-09-30.md 待拍板节。原复核范围 = 数据源稳定性 + Market Context 首批样本质量 + Forecast 既有证据重估，**≠ 晋升评估**；Market Context 晋升仍在满 60 有效交易日后）。**下一次节点待 Summer 拍板**（调度层该 job 下次触发 2026-10-26，不会自动补跑）
 
 ## 快速开始
 
@@ -159,6 +161,7 @@ QuantV1/
 ├── backups/                 # 重构前代码备份（backups/20260825-v4/）
 ├── tests/                   # 单测：契约/PIT/预测/门禁/影子通道（分层清单见 tests/layers.py）
 │   └── layers.py            # 测试分层唯一事实来源（fast/slow），conftest.py 映射 pytest marker
+├── evidence/                # 验证/探针/契约证据落档（git 跟踪；INDEX.md 索引，纪律见 evidence/README.md）
 ├── output/                  # 报告 + 回测报告 + logs/；audit_current.json（当前审计指针）+ audit_history/
 └── deploy/                  # Windows 部署：定时任务（11:30/14:55）+ 桌面快捷方式
 ```
@@ -295,4 +298,5 @@ copy .env.example .env                 # 填 FEISHU_WEBHOOK（可选签名 FEISH
 | 持仓快照（重仓股） | 每季度 | 自动（季报披露后接口自动可见） |
 | 025687 历史补齐 | 自动 | 净值满 120 条后自动去掉「数据不足」 |
 | 动作层解锁复查 | 信号迭代后 | 重跑 `backtest_action.py`，A+B+C+D 全过才人工置 history_validated=true（仍需复核措辞红线） |
-| 数据源互备 | 待办 | 个股K线现仅腾讯单源；可接 tdxrs（本地通达信）/Tushare 作备胎（见 YMOS 实测记录 Level 分级） |
+| 数据源互备 | 三源已就绪 · 余 tdxrs 待办 | 个股K线三源链已就绪：腾讯 0 → 东财 1（已接，2026-09-17 步 2）→ Tushare 2（可选，需 TUSHARE_TOKEN）；待办仅剩 tdxrs（本地通达信）本地源评估（见 YMOS 实测记录 Level 分级） |
+| 验证与自测落档 | 每轮审计/验证后 | 按 evidence/README.md 纪律落 validation/ 或 probes/（原文不改 + meta 四件），并在 evidence/INDEX.md 登记一行（日期/主题/文件/状态/裁决） |

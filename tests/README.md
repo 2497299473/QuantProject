@@ -19,7 +19,10 @@
 ## fast / slow 的真实语义（如实描述，勿凭印象）
 
 - `--layer fast`：48 个文件，纯函数 / 契约 / 解析器；无重依赖（sklearn/scipy）、
-  不碰真实 `data/` 与 `output/`、零网络。日常回归跑这个。
+  不**写**真实 `data/` 与 `output/`、零网络。日常回归跑这个。
+  只读触点（如实列举）：节假日历（`test_holidays` 经 `from run import HOLIDAYS` →
+  run.py 模块级读真实 `data/holidays.json`）、交易日历（`test_pit_guard`，缺席自动 skip）、
+  冻结件/契约文本（`test_forecast_contract` / `test_validation_schema`，缺席自动 skip）。
 - `--layer slow`：16 个文件，模型 / 回测 / 真实数据 / 网络耦合。
 
 ⚠️ **`unittest discover tests` 不是轻量快路径**：它会把 slow 层 16 个文件全部执行
@@ -48,9 +51,10 @@ python -m unittest tests.test_forecast_split -v
 Ran N tests ... OK (skipped=k: 理由列表)
 ```
 
-k>0 时必须列理由（哪些文件哪些方法因何被跳过）。fast 层存在 2 个潜伏 skip 点
-（`test_validation_schema` 契约文本缺席、`test_forecast_contract` 冻结件缺席——
-两者都是"环境缺文件自动 skip"），在缺这些文件的机器上跑 fast 也会出 skip，
+k>0 时必须列理由（哪些文件哪些方法因何被跳过）。fast 层存在 3 个文件共 4 个潜伏 skip 点
+（`test_validation_schema` 契约文本缺席 ×1、`test_forecast_contract` 冻结件缺席 ×1、
+`test_pit_guard` 交易日历缺席 ×2——均为"环境缺文件自动 skip"），
+在缺这些文件的机器上跑 fast 也会出 skip，
 留档不带 skipped 数会构成隐性漏报。
 
 ## 新增测试文件的纪律
@@ -58,5 +62,6 @@ k>0 时必须列理由（哪些文件哪些方法因何被跳过）。fast 层�
 1. 命名必须 `test_*.py`（pytest 风格 `*_test.py` 三口径都收不到，守护测试会红）；
 2. 必须是 `unittest.TestCase` 子类（模块级 `def test_*` 函数 discover 收不到，会红）；
 3. 登记进 `tests/layers.py` 的 `LAYERS`（漏登记 `run_tests.py --layer fast` 会红）；
-4. 归 fast 层的文件遵守：零网络、不碰真实 `data/` 与 `output/`（registry 触点用
+4. 归 fast 层的文件遵守：零网络、不**写**真实 `data/` 与 `output/`（只读触点限
+   节假日历/交易日历/冻结件与契约文本，缺席自动 skip；registry 触点用
    tempdir 重定向，惯例见 `test_evidence_binding_anchor._RegistrySandbox`）。

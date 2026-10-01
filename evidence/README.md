@@ -26,7 +26,9 @@ evidence/
     <topic>_<YYYYMMDD>.log      原始输出，逐字节落档，不改写
     <topic>_<YYYYMMDD>.meta.json 运行元数据（输入指纹 / commit / 命令 / 结论）
   probes/                    ← 一次性探针与对照实验的输出
-  incidents/                 ← 事故与修复的取证材料
+  contracts/                 ← 契约文本（如晋升契约 B 20260923；test_validation_schema 只读校验，缺席自动 skip）
+  incidents/                 ← 事故与修复的取证材料（暂未建目录：事故先以 INDEX.md incidents 节的 OPEN 行登记，
+                                待有材料需补时再建）
 ```
 
 ## 落档纪律
