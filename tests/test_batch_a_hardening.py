@@ -376,10 +376,82 @@ class TestPreregPinGate(unittest.TestCase):
             "pinned_without_sha")
 
     def test_save_models_wiring(self):
-        """接线护栏：save_models 必须经 prereg 钉住闸门（缺失即测试红，防静默断线）。"""
+        """接线护栏：save_models 必须经 prereg 钉住闸门（缺失即测试红，防静默断线）。
+
+        钉死判据（非行为测试）：防接线静默拆除；「钉住时拒写且不覆盖」的语义由
+        下方 TestPreregPinGateBehavior 行为用例兜底（面 6 D6-B-3 补齐）。
+        """
         src = (BASE_DIR / "core" / "forecast_engine.py").read_text(encoding="utf-8")
         self.assertIn("prereg_pinned_sha256", src)
         self.assertIn("拒绝普通重训静默覆盖", src)
+
+
+class TestPreregPinGateBehavior(unittest.TestCase):
+    """A5 闸门行为级验证（面 6 D6-B-3，2026-10-01）：钉住 → save_models 拒写且不覆盖。
+
+    此前只有字符串接线断言：把 `pinned = ...` 短路成 None（注释保留）字符串照样绿。
+    本类实际调 save_models：
+    - 负例：prereg 钉住 forecast_v{MODEL_VERSION}.pkl → 返回 None + 目标 pkl 字节不变；
+    - 正例对照：无钉住 → 正常落盘覆盖（证明负例的 None 确因钉住门，而非其他前置失败）。
+
+    纪律：MODELS_DIR / REGISTRY_PATH / PROMOTION_PREREG_PATH 全部重定向 tempdir，
+    不触真实 data/（engine 以合成 cfg 构造，不读真实 config.json）。
+    """
+
+    def setUp(self):
+        import io
+        import contextlib
+        self._io, self._ctx = io, contextlib
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig = (forecast_engine.MODELS_DIR,
+                      model_registry.MODELS_DIR, model_registry.REGISTRY_PATH,
+                      model_registry.PROMOTION_PREREG_PATH)
+        forecast_engine.MODELS_DIR = self.tmp
+        model_registry.MODELS_DIR = self.tmp
+        model_registry.REGISTRY_PATH = self.tmp / "registry.json"
+        model_registry.PROMOTION_PREREG_PATH = self.tmp / "promotion_prereg.json"
+        self.target = self.tmp / f"forecast_v{forecast_engine.MODEL_VERSION}.pkl"
+        self.ORIGINAL = b"ORIGINAL-PINNED-ARTIFACT-BYTES"
+        self.target.write_bytes(self.ORIGINAL)
+
+    def tearDown(self):
+        (forecast_engine.MODELS_DIR, model_registry.MODELS_DIR,
+         model_registry.REGISTRY_PATH, model_registry.PROMOTION_PREREG_PATH) = self._orig
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _engine_fit_ok(self):
+        eng = forecast_engine.ForecastEngine(
+            cfg={"forecast": {"horizons": [1, 3, 5], "prob_flat_margin": 0.003}})
+        eng._fit_ok = True          # 直达持久化段，不真训（本用例只测覆写闸门）
+        return eng
+
+    def _save(self):
+        buf = self._io.StringIO()
+        with self._ctx.redirect_stdout(buf):
+            rc = self._engine_fit_ok().save_models()
+        return rc, buf.getvalue()
+
+    def test_pinned_refuses_overwrite(self):
+        model_registry.PROMOTION_PREREG_PATH.write_text(json.dumps(
+            {"enabled": True,
+             "grants": {self.target.name: {"model_sha256": "ab" * 32}}}),
+            encoding="utf-8")
+        rc, out = self._save()
+        self.assertIsNone(rc, "钉住的 artifact 必须拒绝普通重训覆盖")
+        self.assertEqual(self.target.read_bytes(), self.ORIGINAL,
+                         "拒写后目标 pkl 字节必须原封不动")
+        self.assertIn("拒绝普通重训静默覆盖", out)
+
+    def test_unpinned_overwrites_normally(self):
+        # 正例对照：无 prereg 文件（prereg_pinned_sha256 → None）→ 正常原子覆盖
+        rc, _out = self._save()
+        self.assertEqual(rc, self.target, "无钉住时 save_models 应正常落盘")
+        self.assertNotEqual(self.target.read_bytes(), self.ORIGINAL,
+                            "正例必须真的覆盖——否则负例的『未覆盖』证明不了钉住门生效")
+        with open(self.target, "rb") as fh:
+            payload = pickle.load(fh)
+        self.assertEqual(payload["model_version"], forecast_engine.MODEL_VERSION)
 
 
 if __name__ == "__main__":
