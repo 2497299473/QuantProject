@@ -208,8 +208,66 @@ class TestResolveFreshness(unittest.TestCase):
                     and len(node.args) >= 2):
                 self.fail(f"holdings_freshness 带默认值的 .get 仍在 L{node.lineno}（旧路径未死）")
         # 新解析单点必须在 evaluate_with_forecast 里接线
+        # 钉死判据（非行为测试）：防接线静默拆除；「freshness 实际流入 predict」
+        # 的语义由下方 test_freshness_wired_into_evaluate_with_forecast 行为用例兜底。
         self.assertIn("freshness = _resolve_freshness(inp.feat_1455)", 
                       (BASE_DIR / "core" / "decision_engine.py").read_text(encoding="utf-8"))
+
+    def test_freshness_wired_into_evaluate_with_forecast(self):
+        """行为级验证（面 6 D6-B-4，2026-10-01）：_resolve_freshness 真接进了 predict。
+
+        旧实现 `(feat_1455 or {}).get("holdings_freshness", 1.0)` 把「未知」注入为
+        「最鲜」；上面的字符串断言只能防拆线，防不了「接线在、语义换回旧默认」。
+        本用例用 stub 引擎捕获 predict 实收的 freshness：
+        - 缺失 → 0.5（中性，不是 1.0）；显式值 → 原样透传。
+        拆线或换回旧默认，捕获值即变 → 红。
+
+        fast 层纪律：cfg/state 表/引擎单例全部注入，零真实 data/output 触点。
+        """
+        from core import forecast_engine as fe
+        from core import state_lookup as slk
+
+        captured = {}
+
+        class _StubEngine:
+            def predict(self, features, freshness=None, data_quality=None,
+                        fund_code=None):
+                captured["freshness"] = freshness
+                return fe.Forecast(
+                    t1=fe.HorizonForecast(1, 0, 0, 0, 0, 0, 0, 0, 0, False),
+                    t3=fe.HorizonForecast(3, 0, 0, 0, 0, 0, 0, 0, 0, False),
+                    t5=fe.HorizonForecast(5, 0, 0, 0, 0, 0, 0, 0, 0, False),
+                    state="STUB", path="stub", overall_confidence=0.0,
+                    meta={"model_ready": False})
+
+        orig = (de._load_cfg, fe.get_loaded_engine, slk.TABLE_PATH)
+        de._load_cfg = lambda: {
+            "decision": {"weights": {"intraday_trend": 0.35, "breadth": 0.25,
+                                     "relative_pool": 0.15, "mid_trend": 0.15,
+                                     "account": 0.10},
+                         "thresholds": {"add": -100, "reduce": -100},
+                         "gates": {"min_coverage": 60, "max_snapshot_age_days": 120,
+                                   "max_position_pct": 0.8,
+                                   "history_validated": True}}}
+        fe.get_loaded_engine = lambda: _StubEngine()
+        slk.TABLE_PATH = Path(tempfile.mkdtemp()) / "absent_table.json"
+        try:
+            base = dict(code="002112", name="测试基金", slot="post",
+                        pool_est={"002112": 1.0},
+                        account_state={"current_weight": 0.2})
+            # ① 缺失 holdings_freshness → 中性 0.5（旧默认是 1.0，接错线即红）
+            de.evaluate_with_forecast(de.DecisionInput(
+                feat_1455={"est_return": 1.0, "breadth": 0.6, "covered_pct": 90.0},
+                **base))
+            self.assertEqual(captured["freshness"], 0.5)
+            # ② 显式值原样透传（接线在、但取值逻辑坏也会红）
+            de.evaluate_with_forecast(de.DecisionInput(
+                feat_1455={"est_return": 1.0, "breadth": 0.6, "covered_pct": 90.0,
+                           "holdings_freshness": 0.2},
+                **base))
+            self.assertEqual(captured["freshness"], 0.2)
+        finally:
+            de._load_cfg, fe.get_loaded_engine, slk.TABLE_PATH = orig
 
 
 # ---------------------------------------------------------------- D5-B3
@@ -451,6 +509,9 @@ class TestDriftFreshnessCheck(unittest.TestCase):
 # ---------------------------------------------------------------- D5-F1
 
 class TestPanelDliteMainGuard(unittest.TestCase):
+    # 钉死判据（非行为测试，面 6 D6-B-4 标注）：防接线静默拆除；守卫装载顺序
+    # 无法在不跑整个面板实验的前提下行为化（main 内联），降级 P2 接受；
+    # 守卫本体语义由 core.no_net_guard 自身测试与 D5-F2 的 dm.main 行为用例兜底。
     def test_main_guard_installed_before_build(self):
         i_install = SRC_PANEL.index('_restore_main = no_net_guard.install(')
         i_build = SRC_PANEL.index("rows, stats = _build_rows()")
@@ -476,6 +537,8 @@ class TestDriftNetGuard(unittest.TestCase):
         self.assertTrue(ok, detail)
         self.assertIn("blocked", detail)
 
+    # 钉死判据（非行为测试，面 6 D6-B-4 标注）：防守卫接线被拆；「--fresh 无双旗标
+    # 拒绝启动」的语义由同文件 test_fresh_requires_double_flag（rc=3 行为断言）兜底。
     def test_default_guard_wired_before_resolve(self):
         i_main = SRC_DRIFT.index("def main(")
         i_guard = SRC_DRIFT.index("        _install_default_guard()", i_main)
@@ -491,6 +554,10 @@ class TestDriftNetGuard(unittest.TestCase):
 # ---------------------------------------------------------------- D5-F3
 
 class TestNoNetSwitchLeavesTrace(unittest.TestCase):
+    # 钉死判据（非行为测试，面 6 D6-B-4 标注）：防 meta 留痕/警示措辞被拆。
+    # 无法行为化：payload 内联在 main() 中，跑到落盘需真实冻结件+训练全流程，
+    # 超出 fast 纪律；行为化需产品侧抽取 meta 构造函数（跨域改造）→ 已记
+    # backlog，降级 P2 接受。
     def test_early_stopping_meta_records_guard_state(self):
         self.assertIn('"socket_guard": bool(args.net_guard)', SRC_ESAB)
         self.assertIn("[warn] ⚠️ --no-net", SRC_ESAB)
