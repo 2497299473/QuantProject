@@ -19,6 +19,7 @@ sys.path.insert(0, str(BASE_DIR))
 import run                                              # noqa: E402
 
 POOL = ["002112", "002207", "022853", "025687"]      # V4.1 ④ 别名基准表（== config.fund_pool）
+NOW_FAILED = datetime(2026, 10, 1, 15, 30, 0)        # 面 6 D6-B-4：exit=1 行为用例专用时刻
 
 
 class TestRunManifestWrite(unittest.TestCase):
@@ -81,15 +82,79 @@ class TestRunManifestWrite(unittest.TestCase):
 
 
 class TestExitCodeSemantics(unittest.TestCase):
-    """退出码契约：0=SUCCESS / 2=DEGRADED / 1=FAILED（源码级守护）。"""
+    """退出码契约：0=SUCCESS / 2=DEGRADED / 1=FAILED。
+
+    0 与 2 由 test_nav_fallback_degraded.TestNavFallbackDegradedContract 的
+    `run._finalize_run` 行为断言兜底；1 此前只有源码字符串证据，现由下方
+    TestFailedExitCode 行为用例兜底（面 6 D6-B-4）。
+    """
 
     def test_labels_documented(self):
+        # 钉死判据（非行为测试）：防三个退出码字面量被整体删除；
+        # 语义由 test_nav_fallback_degraded（exit 0/2）与
+        # TestFailedExitCode（exit 1）行为用例兜底。
         src = (BASE_DIR / "run.py").read_text(encoding="utf-8")
         for marker in ("return 2", "return 1", "degraded_reasons"):
             self.assertIn(marker, src)
         # 无数据 ⇒ FAILED（1），降级 ⇒ 2，干净 ⇒ 0
         self.assertIn("return 1", src)
         self.assertIn("log(f\"[exit] DEGRADED", src)
+
+
+class TestFailedExitCode(unittest.TestCase):
+    """exit=1（FAILED）行为级验证（面 6 D6-B-4，2026-10-01）。
+
+    此前 `return 1` 只有源码字符串断言：把该语句移进永不执行的分支，字符串仍在，
+    断言照样绿。本类实际调 `run._finalize_failed`（V4.5 P0 异常兜底路径）：
+    - 未落过清单 ⇒ 返回 1 且兜底清单以 status=FAILED 落盘（异常变成可判读证据）；
+    - 已落过清单 ⇒ 仍返回 1 但不重复落盘（不覆盖更完整的证据）。
+    全程 tempdir（重定向 run.BASE_DIR），不碰真实 output/。
+    """
+
+    def setUp(self):
+        self._orig_base = run.BASE_DIR
+        self._orig_written = run._MANIFEST_WRITTEN
+        self._td = tempfile.TemporaryDirectory()
+        run.BASE_DIR = Path(self._td.name)
+        run._MANIFEST_WRITTEN = False
+        run._LOG.clear()
+
+    def tearDown(self):
+        run.BASE_DIR = self._orig_base
+        run._MANIFEST_WRITTEN = self._orig_written
+        run._LOG.clear()
+        self._td.cleanup()
+
+    def _manifests(self):
+        return sorted((Path(self._td.name) / "output" / "run_manifest").glob("*.json"))
+
+    def test_finalize_failed_returns_one_and_writes_evidence(self):
+        code = run._finalize_failed(NOW_FAILED, "post", "test_crash_reason")
+        self.assertEqual(code, 1, "FAILED 路径退出码必须是 1")
+        files = self._manifests()
+        self.assertEqual(len(files), 1, f"兜底清单应恰好落盘 1 份，实际 {files}")
+        payload = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertEqual(payload["status"], "FAILED")
+        self.assertEqual(payload["failure_reason"], "test_crash_reason")
+        self.assertIn("test_crash_reason", payload["degraded_reasons"])
+
+    def test_finalize_failed_does_not_overwrite_existing_manifest(self):
+        run._MANIFEST_WRITTEN = True          # 本次已有更完整的清单在档
+        code = run._finalize_failed(NOW_FAILED, "post", "test_crash_reason")
+        self.assertEqual(code, 1, "退出码与是否落盘无关：FAILED 恒为 1")
+        self.assertEqual(self._manifests(), [], "已有清单在档时不得重复落盘")
+        self.assertTrue(any("不重复落盘" in ln for ln in run._LOG))
+
+    def test_finalize_failed_records_exception_class_not_message(self):
+        """P0-2 隐私面：清单只留异常类名，完整消息只进本地日志。"""
+        code = run._finalize_failed(
+            NOW_FAILED, "mid", "boom", exc=ValueError("002112 敏感明细"), stage="[stat]")
+        self.assertEqual(code, 1)
+        text = self._manifests()[0].read_text(encoding="utf-8")
+        payload = json.loads(text)
+        self.assertEqual(payload["failure_detail"], "ValueError")
+        self.assertEqual(payload["failure_stage"], "[stat]")
+        self.assertNotIn("敏感明细", text, "异常原文不得进随仓库跟踪的清单")
 
 
 class TestRealtimeDegradedContract(unittest.TestCase):
