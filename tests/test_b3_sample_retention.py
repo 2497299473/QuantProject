@@ -63,6 +63,11 @@ class TestRequireFwdsContract(unittest.TestCase):
             self.assertAlmostEqual(s["excess10"], a - base, places=12)
 
     def test_entry_gate_wired_in_source(self):
+        # 钉死判据（非行为测试，面 6 D6-B-4 标注）：防入口门接线被拆。
+        # assertNotIn 旧写法确可被改名/换空格逃逸——但入口保留语义的行为兜底
+        # 在同文件 test_forecast_horizons_decoupled_from_fwd20（_sample_row_complete
+        # 直调：require_fwds=() 全保留 / (1,) 短周期保留）；load_samples 本体
+        # 需真实数据+网络，无法进 fast 层行为化，降级 P2 接受。
         src = (BASE_DIR / "backtest_spread.py").read_text(encoding="utf-8")
         self.assertNotIn('all(f"fwd{f}" in row for f in FWD_LIST)', src)
         self.assertIn("_sample_row_complete(row, require_fwds)", src)

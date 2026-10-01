@@ -310,7 +310,12 @@ class TestARelrankHealth(unittest.TestCase):
         self.assertEqual(shadow_policy.a_relrank_health([]), (0, 0))
 
     def test_wiring_counts_on_stdout_before_write(self):
-        """接线守护：健康计数行必须在落盘前打印（[2.5] 在 [3] 之前）。"""
+        """接线守护：健康计数行必须在落盘前打印（[2.5] 在 [3] 之前）。
+
+        钉死判据（非行为测试，面 6 D6-B-4 标注）：防打印/落盘顺序接线被拆；
+        a_relrank_health 计数语义由同类上方 test_counts_ok_and_error /
+        test_empty_records_zero_zero 行为用例兜底。
+        """
         src = (BASE_DIR / "shadow_policy.py").read_text(encoding="utf-8")
         self.assertIn("a_relrank_health(records)", src)
         i_health = src.index("== [2.5] a_relrank 健康度")

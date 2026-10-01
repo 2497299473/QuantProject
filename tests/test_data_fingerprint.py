@@ -75,6 +75,10 @@ class TestArchivePrevious(unittest.TestCase):
 
 class TestAtomicWriteContract(unittest.TestCase):
     def test_main_writes_via_replace(self):
+        # 钉死判据（非行为测试，面 6 D6-B-4 标注）：防原子写/归档接线被拆；
+        # _archive_previous 的归档行为语义由同文件 TestArchivePrevious 行为用例
+        # （mtime 回退/归档目录排除）兜底，tmp.replace 的原子性由 os.replace
+        # 标准库语义保证，行为化需断电注入不可行，降级 P2 接受。
         src = (BASE_DIR / "data_fingerprint.py").read_text(encoding="utf-8")
         self.assertIn("tmp.replace(out)", src)
         self.assertIn("_archive_previous(out)", src)

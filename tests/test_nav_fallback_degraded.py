@@ -224,7 +224,13 @@ class TestManifestAndExitCode(unittest.TestCase):
 
 
 class TestWiringGuards(unittest.TestCase):
-    """源码级守护：接线不许日后被悄悄拆掉（与本仓 test_publish_gate 同风格）。"""
+    """源码级守护：接线不许日后被悄悄拆掉（与本仓 test_publish_gate 同风格）。
+
+    钉死判据（非行为测试，面 6 D6-B-4 标注）：以下三例防接线静默拆除；
+    exit=2/exit=0 的语义由同文件 TestNavFallbackDegradedContract 的
+    run._finalize_run 行为断言兜底（index 定位失败即 ValueError 报错，
+    fail-closed 方向正确，维护脆性已知并接受）。
+    """
 
     def setUp(self):
         self.src = (BASE_DIR / "run.py").read_text(encoding="utf-8")
