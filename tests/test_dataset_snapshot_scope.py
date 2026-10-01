@@ -76,7 +76,12 @@ class TestAcyclicGuard(unittest.TestCase):
         })
 
     def test_guard_runs_before_any_write(self):
-        """环检测必须先于落盘：否则自指清单已经写出去了。"""
+        """环检测必须先于落盘：否则自指清单已经写出去了。
+
+        钉死判据（非行为测试，面 6 D6-B-4 标注）：防"先写盘后校验"的接线顺序
+        被拆；_assert_acyclic 的环检测语义由同文件 TestCycleDetection 行为用例
+        （自指清单必抛）兜底，index 顺序断言维护脆性已知并接受。
+        """
         src = (BASE_DIR / "data_fingerprint.py").read_text(encoding="utf-8")
         # build_manifest 内部第一句就是校验；main 先 build 再 write
         build = src[src.index("def build_manifest"):src.index("def main")]

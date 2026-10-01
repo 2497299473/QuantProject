@@ -174,6 +174,12 @@ class TestRunWiring(unittest.TestCase):
     def test_push_is_gated_before_notify(self):
         self.assertIn('reason": "blocked_publish_gate', self.src)
         self.assertIn("publish_gate_blocked:", self.src)
+        # 面 6 D6-B-5：index 单点定位前置防线——出现次数先钉死，重复出现（注释/
+        # docstring 混入）时本断言先红，顺序判断不会静默错位。实测基线 count=1
+        # （2026-10-01，A 单验收标准中的 ==2 为笔误，按实测钉死）。
+        self.assertEqual(self.src.count("blocked_publish_gate"), 1,
+                         "blocked_publish_gate 应恰出现 1 次；新增出现点会使下方"
+                         " index 顺序断言对象错位，需改为 AST 判据")
         self.assertLess(self.src.index("blocked_publish_gate"),
                         self.src.index("notify.push_feishu"),
                         "门禁必须在真正推送之前判定")
