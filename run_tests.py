@@ -42,6 +42,20 @@ def main() -> int:
             for n in names:
                 print(f"  - {n}")
         print(f"\n合计 {len(LAYERS)} 个文件")
+        # 面 6 D6-G-3（2026-10-01）：磁盘核对 fail-closed——LAYERS 与磁盘漂移时
+        # --list 不得照常打印后静默退出。守护测试（test_layers.py）要跑 fast 层
+        # 才触发，只跑 --list 的人看不到；这里把报警提前到最轻的入口。
+        disk = sorted(p.name for p in (BASE_DIR / "tests").glob("test_*.py"))
+        missing = sorted(set(disk) - set(LAYERS))      # 磁盘有但未登记 → 静默漏跑
+        ghost = sorted(set(LAYERS) - set(disk))        # 登记了但磁盘无 → 幽灵条目
+        if missing or ghost:
+            print(f"\n⚠️ 磁盘 test_*.py = {len(disk)} 个，与登记 {len(LAYERS)} 不一致")
+            if missing:
+                print(f"  未登记（会被静默漏跑）：{missing}")
+            if ghost:
+                print(f"  幽灵条目（指向不存在的文件）：{ghost}")
+            return 1
+        print(f"磁盘核对：test_*.py = {len(disk)} 个，与登记 {len(LAYERS)} 一致 ✅")
         return 0
 
     if args.layer and not args.all:
