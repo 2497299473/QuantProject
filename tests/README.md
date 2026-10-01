@@ -1,27 +1,62 @@
-# 测试运行指南（2026-08-31，A6 分层）
+# 测试运行指南（2026-10-01，面 6 D6-A-3/D6-D-3 重写；初版 2026-08-31 A6 分层）
 
 项目测试为 unittest 风格（无需 pytest；pip 受 PEP 668 限制时用标准库跑法）。
 
-## 快路径（开发回归，秒级~十几秒）
-```bash
-cd /home/summer/QuantV1
-python3 -m unittest discover tests
-```
-重型测试（真实数据/网络依赖）默认跳过：
-- `test_holdings_visibility.py`（约 76s，持仓历史网络可见性）
+## 主路径声明（以谁为准）
 
-## 全量（含重型，CI/发版前）
+**分层跑测以仓库根 `run_tests.py` 为主路径**，`tests/layers.py` 是分层唯一事实来源：
+
 ```bash
-RUN_SLOW_TESTS=1 python3 -m unittest discover tests
+.\.venv\Scripts\python.exe run_tests.py --layer fast    # 日常开发（真正的轻量快路径）
+.\.venv\Scripts\python.exe run_tests.py --layer slow    # 提交前 / 夜间
+.\.venv\Scripts\python.exe run_tests.py --all           # 全量
+.\.venv\Scripts\python.exe run_tests.py --list          # 只看分层清单（含磁盘核对）
 ```
+
+`unittest discover` 为兼容旧习惯保留；两口径的加载集合一致性由
+`tests/test_layers.py` 守护（未登记文件 / pytest 风格命名 / 非 TestCase 风格都会红灯）。
+
+## fast / slow 的真实语义（如实描述，勿凭印象）
+
+- `--layer fast`：48 个文件，纯函数 / 契约 / 解析器；无重依赖（sklearn/scipy）、
+  不碰真实 `data/` 与 `output/`、零网络。日常回归跑这个。
+- `--layer slow`：16 个文件，模型 / 回测 / 真实数据 / 网络耦合。
+
+⚠️ **`unittest discover tests` 不是轻量快路径**：它会把 slow 层 16 个文件全部执行
+（含 sklearn 重型训练、真实冻结件只读复算、`test_netutil` 起本地 http.server 等），
+只有 `test_holdings_visibility` 的 3 个方法被 `RUN_SLOW_TESTS` 门控跳过。
+历史上本文档曾宣称"重型测试默认跳过"——失实（slow 16 文件中仅 1 个有门），已改正。
+
+## RUN_SLOW_TESTS 的现行作用域（如实）
+
+`RUN_SLOW_TESTS=1` **只解锁 `test_holdings_visibility` 的 3 个方法**（持仓历史网络
+可见性，约 76s），不再是"全量开关"——全量请用 `run_tests.py --all`。
+slow 层其余 15 个文件在 discover 下本来就会执行，不受该环境变量影响。
 
 ## 单文件
+
 ```bash
-python3 -m unittest tests.test_forecast_split -v
+python -m unittest tests.test_forecast_split -v
 ```
 
-## 分层约定（对齐 GPT 四审建议的 unit/integration/e2e）
-- 快路径 ≈ unit + 轻量集成（不依赖真实网络/重型数据）
-- `RUN_SLOW_TESTS=1` ≈ 完整回归（真实数据、重型计算）
-- 新增重型用例时：文件级加
-  `@unittest.skipUnless(os.environ.get("RUN_SLOW_TESTS") == "1", "重型：RUN_SLOW_TESTS=1 才运行")`
+## 留档呈现协议（面 6 D6-D-2，2026-10-01）
+
+任何自测留档（`evidence/probes/`、`output/daily_runs/`、INDEX）呈现测试结果时，
+格式统一为：
+
+```
+Ran N tests ... OK (skipped=k: 理由列表)
+```
+
+k>0 时必须列理由（哪些文件哪些方法因何被跳过）。fast 层存在 2 个潜伏 skip 点
+（`test_validation_schema` 契约文本缺席、`test_forecast_contract` 冻结件缺席——
+两者都是"环境缺文件自动 skip"），在缺这些文件的机器上跑 fast 也会出 skip，
+留档不带 skipped 数会构成隐性漏报。
+
+## 新增测试文件的纪律
+
+1. 命名必须 `test_*.py`（pytest 风格 `*_test.py` 三口径都收不到，守护测试会红）；
+2. 必须是 `unittest.TestCase` 子类（模块级 `def test_*` 函数 discover 收不到，会红）；
+3. 登记进 `tests/layers.py` 的 `LAYERS`（漏登记 `run_tests.py --layer fast` 会红）；
+4. 归 fast 层的文件遵守：零网络、不碰真实 `data/` 与 `output/`（registry 触点用
+   tempdir 重定向，惯例见 `test_evidence_binding_anchor._RegistrySandbox`）。
