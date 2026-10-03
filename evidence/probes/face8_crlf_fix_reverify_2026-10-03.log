@@ -1,0 +1,174 @@
+.\.venv\Scripts\python.exe : ..............C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Li
+b\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=368, family=2, type=1, proto=0, laddr=('127.0.0.1',
+ 4042)>
+所在位置 行:1 字符: 1
++ .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_netutil_bre ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (..............C....0.0.1', 4042)>:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: u
+nclosed <socket.socket fd=356, family=2, type=1, proto=0, laddr=('127.0.0.1', 4044)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.........<frozen importlib._bootstrap_external>:757: ResourceWarning: unclosed <socket.socket fd=368, family=2, type=1,
+ proto=0, laddr=('127.0.0.1', 4046)>
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[evening] trigger=scheduler scope=prod codes=4
+written C:\Users\Turn-\AppData\Local\Temp\tmpeb34i88e\evening.md
+appended daily_runs report (trigger=scheduler)
+[evening] trigger=manual scope=prod codes=4
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛?
+written C:\Users\Turn-\AppData\Local\Temp\tmpxnenoexk\evening.md
+appended daily_runs report (trigger=manual)
+[浼戝競璺宠繃] 2026-10-05 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmp3mktlgsu\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmppwdohjlg\pull_main.md
+[浼戝競璺宠繃] 2026-10-03 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmpbd69roi2\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 RuntimeError:empty_payload
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmp086pnob7\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 ThrottleSuspected:杩炵画 8 娆?
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙級
+written C:\Users\Turn-\AppData\Local\Temp\tmpmcv3rv9b\pull_main.md
+...................C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\argparse.py:1954: Reso
+urceWarning: unclosed <socket.socket fd=852, family=2, type=1, proto=0, laddr=('127.0.0.1', 4054)>
+  def _parse_known_args(self, arg_strings, namespace, intermixed):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\argparse.py:1954: ResourceWarning: unclos
+ed <socket.socket fd=784, family=2, type=1, proto=0, laddr=('127.0.0.1', 4049)>
+  def _parse_known_args(self, arg_strings, namespace, intermixed):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpuzee_9rq\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpihk5n94c\pull_main.md
+target: 2026-09-04 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmptaxaxz44\output\pull_sector_klines_pw_20260904.md
+...usage: python.exe -m unittest [-h] [--date DATE]
+python.exe -m unittest: error: unrecognized arguments: 2026-09-04
+..usage: python.exe -m unittest [-h] [--date DATE]
+python.exe -m unittest: error: unrecognized arguments: --force-full
+usage: python.exe -m unittest [-h] [--date DATE]
+
+Playwright 椤甸潰鍐?fetch 鎷夊彇涓滆储鏉垮潡 K 绾匡紙鎸囩汗鎷︽埅鏈熷厬搴曢€氶亾锛?
+
+options:
+  -h, --help   show this help message and exit
+  --date DATE  鐩爣鏃ユ湡 YYYY-MM-DD锛堣ˉ鍘嗗彶缂哄彛锛夛紱缂虹渷=浠婂ぉ(宸ヤ綔鏃?鎴栦笂涓€浜ゆ槗鏃ャ€侱8-05锛氭棫瑁镐綅缃弬鏁板凡姝讳骸锛?-help
+               鏇捐褰撴棩鏈熻Е鍙戝叏閲忔媺鍙栵級
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 FAIL stub: throttled
+[2/20] BK0002 FAIL stub: throttled
+[3/20] BK0003 FAIL stub: throttled
+[4/20] BK0004 FAIL stub: throttled
+[5/20] BK0005 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[6/20] BK0006 FAIL stub: throttled
+[7/20] BK0007 FAIL stub: throttled
+[8/20] BK0008 FAIL stub: throttled
+[9/20] BK0009 FAIL stub: throttled
+[10/20] BK0010 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[11/20] BK0011 FAIL stub: throttled
+[12/20] BK0012 FAIL stub: throttled
+[13/20] BK0013 FAIL stub: throttled
+[14/20] BK0014 FAIL stub: throttled
+[15/20] BK0015 FAIL stub: throttled
+!! 杩炶触 >=5 涓旈噸鍚凡鐢ㄥ敖锛?/2 娆★級锛屽垽瀹?IP 琚帎锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙紝绛?21:30 鏅氶棿琛ユ媺鎴栦笅涓€浜ゆ槗鏃ワ級
+written C:\Users\Turn-\AppData\Local\Temp\tmpt18o2xf1\output\pull_sector_klines_pw_20261002.md
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmp_q9c1e2a\output\pull_sector_klines_pw_20261002.md
+target: 2026-10-02 | todo: 0 of 20
+nothing to do, written C:\Users\Turn-\AppData\Local\Temp\tmpppmglb_y\output\pull_sector_klines_pw_20261002.md
+......D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceWarning: unclosed <core.no_net_guard._make_guard.<loca
+ls>._NoNet fd=944, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:90: ResourceWarning: unclosed <core.no_net_guard._make_guard.<local
+s>._NoNet fd=936, family=2, type=1, proto=0>
+  ok, _ = no_net_guard.selftest(block_curl=True)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceWarning: unclosed <core.no_net_guard._make_guard.<locals>
+._NoNet fd=936, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:70: ResourceWarning: unclosed <core.no_net_guard._make_guard.<local
+s>._NoNet fd=952, family=2, type=1, proto=0>
+  ok, detail = no_net_guard.selftest("[test] block_curl selftest",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceWarning: unclosed <core.no_net_guard._make_guard.<locals>.
+_NoNet fd=952, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:109: ResourceWarning: unclosed <core.no_net_guard._make_guard.<loca
+ls>._NoNet fd=936, family=2, type=1, proto=0>
+  ok, detail = no_net_guard.selftest("[test] 缂虹渷")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: ResourceWarning: 
+unclosed <core.no_net_guard._make_guard.<locals>._NoNet fd=936, family=2, type=1, proto=0>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.............................................
+----------------------------------------------------------------------
+Ran 106 tests in 4.918s
+
+OK
