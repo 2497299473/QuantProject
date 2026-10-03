@@ -20,10 +20,16 @@ V3 改造（依据 output/V3_data_layer_plan_20260908.md 第三节，Summer 2026
   FALLBACK_FULL（防板块指数编制或历史修订被静默吃掉）。
   每周一（或 --force-full）对 prod 全码强制全量 2015→今覆盖校验。
 - 数据完整性：空 payload 一律记 FAIL 且**不写缓存**（旧版会写出 bars=0 的半成品）。
+- D8-01（面 8，2026-10-03）：main() 加休市日守卫（is_trading_day，自 evening 上移
+  为单一来源）——非交易日写「休市跳过」报告并 0 请求返回（旧版主通道裸跑，
+  10-01/10-02 休市日各白烧 12/8 个逻辑请求；holidays.json 国庆含 10-05/06/07）。
+- D8-02（面 8）：某码触发 netutil 熔断（ThrottleSuspected）→ 整轮中止（对齐 burst
+  MAX_CONSEC 语义），报告记 aborted=THROTTLE，不再逐码撞被掐接口。
+- D8-09（面 8）：报告汇总行附 netutil.wire_attempts()（真实发包数，区别于逻辑请求数）。
 
 本模块同时是共享逻辑的唯一出处（load_codes / plan_beg / merge_klines /
-fetch_and_store / make_rec），evening 与 burst 脚本一律 import 复用，避免三份
-断言各自漂移。
+fetch_and_store / make_rec / is_trading_day），evening 与 burst 脚本一律 import 复用，
+避免三份断言各自漂移。
 
 缓存：data/sector_klines/{BK}.json，klines 为 [date,open,close,high,low,volume] 数组。
 产物：output/pull_sector_klines_YYYYMMDD.md（一天一份；首行写明 scope= 与 codes=，
@@ -47,6 +53,7 @@ OUT_DIR = BASE / 'data' / 'sector_klines'
 OUT_MD = BASE / 'output' / f'pull_sector_klines_{date.today().strftime("%Y%m%d")}.md'
 MAP_MD = BASE / 'output' / 'sector_name_mapping_20260902.md'
 T1_JSON = BASE / 'data' / 't1_watchlist.json'
+HOLIDAYS_JSON = BASE / 'data' / 'holidays.json'   # D8-01：休市守卫单一来源（自 evening 上移）
 TODAY = date.today().isoformat()
 OOS_START = '2020-01-01'
 SLEEP = 2.0
@@ -204,6 +211,26 @@ def is_weekly_full_day(today: str, scope: str) -> bool:
         return False
 
 
+def is_trading_day(today: date | None = None) -> bool:
+    """周一~五 且 非法定休市日（D8-01：自 evening 上移为单一来源，evening 改 import）。
+
+    自包含读 data/holidays.json（不 import run，避免副作用）。today 缺省用 date.today()；
+    显式传入供测试/补历史。读不到节假日表时按工作日处理（宁可多拉，skip 逻辑会挡重复）。
+    """
+    d = today or date.today()
+    if d.weekday() >= 5:
+        return False
+    try:
+        data = json.loads(HOLIDAYS_JSON.read_text(encoding='utf-8'))
+    except Exception:
+        return True
+    days = set()
+    for year in data.get('years', {}).values():
+        for dates in year.values():
+            days.update(dates)
+    return d.isoformat() not in days
+
+
 def load_old(fp: Path) -> dict | None:
     try:
         return json.loads(fp.read_text(encoding='utf-8'))
@@ -278,9 +305,11 @@ def fetch_and_store(bk: str, info: dict, fp: Path, *, today: str,
                 'note': note, 'error': '', 'requests': requests}
     except Exception as e:
         # 拉取失败按 skip 不中断；不写缓存（不产生半成品）
+        # D8-02：ThrottleSuspected（netutil 熔断）单独标记 throttled，供主/evening 整轮中止
         return {'status': 'fail', 'mode': mode, 'beg': beg, 'bars': 0,
                 'first': '', 'last': '', 'covers_oos': False, 'appended': 0,
                 'note': note, 'error': '%s:%s' % (type(e).__name__, str(e)[:60]),
+                'throttled': type(e).__name__ == 'ThrottleSuspected',
                 'requests': requests}
 
 
@@ -295,6 +324,28 @@ def main(argv=None):
 
     today = args.date or TODAY
     codes = load_codes(args.scope)
+
+    # D8-01：休市日守卫（与 evening 同源 is_trading_day）。旧版主通道裸跑，
+    # 10-01/10-02 休市日各白烧 12/8 个逻辑请求（全 fail=empty_payload）；
+    # 现 0 请求写「休市跳过」报告并返回（报告首行仍带 scope=/codes=，审计可区分
+    # 「没拉」与「不需要拉」）。
+    try:
+        guard_day = datetime.strptime(today, '%Y-%m-%d').date()
+    except ValueError:
+        guard_day = None
+    if guard_day is not None and not is_trading_day(guard_day):
+        lines = ['# 板块 K 线拉取缓存 %s scope=%s codes=%d' % (today, args.scope, len(codes)),
+                 'scope=%s codes=%s force_full=%s monday_full=%s' % (
+                     args.scope, ','.join(sorted(codes)), args.force_full,
+                     is_weekly_full_day(today, args.scope)),
+                 '',
+                 '== 休市跳过（非交易日：%s）：东财请求数=0 ==' % today,
+                 '== done ==']
+        OUT_MD.write_text('\n'.join(lines), encoding='utf-8')
+        print('[休市跳过] %s 非交易日，0 请求；报告 %s' % (today, OUT_MD), flush=True)
+        return
+
+    wire_start = netutil.wire_attempts()      # D8-09：真实发包计数起点（进程级）
     weekly_full = is_weekly_full_day(today, args.scope)
     print('scope:', args.scope, 'codes:', len(codes),
           'force_full:', args.force_full, 'monday_full:', weekly_full, flush=True)
@@ -306,6 +357,7 @@ def main(argv=None):
              '| BK | 名称 | 类型 | mode | beg | bars | 首根 | 末根 | OOS | 状态 |',
              '|---|---|---|---|---|---:|---|---|---|---|']
     ok = skip = fail = fallback_full = requests_sent = 0
+    aborted = ''
     fail_codes = []
     for i, (bk, info) in enumerate(sorted(codes.items()), 1):
         d = fetch_and_store(bk, info, OUT_DIR / (bk + '.json'), today=today,
@@ -328,6 +380,13 @@ def main(argv=None):
                          % (bk, info['name'], info['type'], d['mode'], d['beg'],
                             d['error']))
             print('[FAIL]', bk, info['name'], d['error'], flush=True)
+            if d.get('throttled'):
+                # D8-02：熔断触发（疑似频控）→ 整轮中止，不再拿被掐的 IP 继续撞
+                # （对齐 burst MAX_CONSEC 语义；铁律 1「同 IP 被掐即停手」）。
+                aborted = 'THROTTLE'
+                print('!! %s 触发熔断（疑似频控），整轮中止（铁律 1：不再撞墙）' % bk,
+                      flush=True)
+                break
             time.sleep(SLEEP)
             continue
         ok += 1
@@ -339,11 +398,15 @@ def main(argv=None):
               'appended=%d' % d['appended'], d['first'], d['last'], d['note'], flush=True)
         time.sleep(SLEEP)
 
+    wire_delta = netutil.wire_attempts() - wire_start   # D8-09：真实发包数（含重试/failover/兑底）
     lines += ['',
-              '== 汇总：ok=%d skip=%d fail=%d fallback_full=%d / %d =='
-              % (ok, skip, fail, fallback_full, len(codes)),
-              '== 东财请求数=%d（scope=%s；改造前 full 口径每轮 %d）=='
+              '== 汇总：ok=%d skip=%d fail=%d fallback_full=%d / %d%s =='
+              % (ok, skip, fail, fallback_full, len(codes),
+                 (' aborted=%s' % aborted) if aborted else ''),
+              '== 东财请求数=%d（逻辑口径；scope=%s；改造前 full 口径每轮 %d）=='
               % (requests_sent, args.scope, len(load_codes('full'))),
+              '== wire_attempts=%d（netutil 真实发包数，含重试/failover/兑底；D8-09）=='
+              % wire_delta,
               'FAIL 码: ' + (','.join(fail_codes) if fail_codes else '无'),
               '== done ==']
     OUT_MD.write_text('\n'.join(lines), encoding='utf-8')
