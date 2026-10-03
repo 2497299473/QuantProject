@@ -20,7 +20,10 @@ V3 改造（output/V3_data_layer_plan_20260908.md 第三节）
 
 纪律（与主脚本一致）：
   - 非交易日直接退出（周末 + 法定休市，读 data/holidays.json 自判，不 import run）；
+    D8-01（面 8，2026-10-03）：_is_trading_day 本地上移为 pull_sector_klines.is_trading_day
+    单一来源，本脚本改 import（旧本地定义删除，旧路径死亡）；
   - 单轮不重跑（频控防护：绝不循环重试东财）；FAIL 跳过不中断、不写半成品缓存；
+    D8-02：某码触发 netutil 熔断（ThrottleSuspected）→ 整轮中止，报告记 aborted=THROTTLE；
   - 当日已拉（last==今天）→ skip，不重拉。
 
 用法：
@@ -34,33 +37,20 @@ import time
 from datetime import date
 from pathlib import Path
 
+from core import netutil
 from pull_sector_klines import (OOS_START, SLEEP, fetch_and_store,
-                                is_weekly_full_day, load_codes)
+                                is_trading_day, is_weekly_full_day, load_codes)
 
 BASE = Path(__file__).resolve().parent
 CACHE = BASE / 'data' / 'sector_klines'
-HOLIDAYS_JSON = BASE / 'data' / 'holidays.json'
+HOLIDAYS_JSON = BASE / 'data' / 'holidays.json'   # 保留常量供历史引用；判定已收敛 is_trading_day
 TODAY = date.today().isoformat()
 OUT_MD = BASE / 'output' / f'pull_sector_klines_evening_{date.today().strftime("%Y%m%d")}.md'
 ZRUNS_MD = BASE / 'output' / 'daily_runs' / (date.today().isoformat() + '.md')
 TASK_NAME = 'QuantFund_KlineEvening'
 
-
-def _is_trading_day() -> bool:
-    """周一~五 且 非法定休市日。自包含读 holidays.json（不 import run，避免副作用）。"""
-    today = date.today()
-    if today.weekday() >= 5:
-        return False
-    try:
-        data = json.loads(HOLIDAYS_JSON.read_text(encoding='utf-8'))
-    except Exception:
-        # 读不到节假日表时按工作日处理（宁可多拉，skip 逻辑会挡住重复）
-        return True
-    days = set()
-    for year in data.get('years', {}).values():
-        for dates in year.values():
-            days.update(dates)
-    return today.isoformat() not in days
+# D8-01：旧本地 _is_trading_day 已删除（单一来源 = pull_sector_klines.is_trading_day，
+# evening 与主通道同判定同口径；旧路径死亡由测例钉住）。
 
 
 def _task_snapshot() -> str:
@@ -87,7 +77,7 @@ def main(argv=None):
     ap.add_argument('--force-full', action='store_true')
     args = ap.parse_args(argv)
 
-    if not _is_trading_day():
+    if not is_trading_day():
         print('[evening] 非交易日（周末/休市），跳过')
         return
     codes = load_codes(args.scope)
@@ -95,6 +85,7 @@ def main(argv=None):
     print('[evening] trigger=%s scope=%s codes=%d' % (
         args.trigger, args.scope, len(codes)), flush=True)
 
+    wire_start = netutil.wire_attempts()      # D8-09：真实发包计数起点
     lines = ['# 板块 K 线晚间补拉 %s scope=%s codes=%d' % (TODAY, args.scope, len(codes)),
              'scope=%s codes=%s trigger=%s force_full=%s monday_full=%s' % (
                  args.scope, ','.join(sorted(codes)), args.trigger,
@@ -103,6 +94,7 @@ def main(argv=None):
              '| BK | 名称 | 类型 | mode | beg | bars | 首根 | 末根 | 状态 |',
              '|---|---|---|---|---|---:|---|---|---|']
     ok = skip = fail = fallback_full = requests_sent = 0
+    aborted = ''
     fail_codes = []
     for bk, info in sorted(codes.items()):
         d = fetch_and_store(bk, info, CACHE / (bk + '.json'), today=TODAY,
@@ -121,6 +113,11 @@ def main(argv=None):
             lines.append('| %s | %s | %s | %s | %s | - | - | - | FAIL %s |'
                          % (bk, info['name'], info['type'], d['mode'], d['beg'],
                             d['error']))
+            if d.get('throttled'):
+                # D8-02：熔断触发（疑似频控）→ 整轮中止（单轮不重跑纪律叠加）
+                aborted = 'THROTTLE'
+                print('!! %s 触发熔断（疑似频控），整轮中止（铁律 1）' % bk, flush=True)
+                break
         else:
             ok += 1
             lines.append('| %s | %s | %s | %s | %s | %d | %s | %s | ok%s |'
@@ -129,10 +126,13 @@ def main(argv=None):
                             (' ' + d['note']) if d['note'] else ''))
         time.sleep(SLEEP)
 
+    wire_delta = netutil.wire_attempts() - wire_start   # D8-09
     lines += ['',
-              '== 汇总：ok=%d skip=%d fail=%d fallback_full=%d / %d =='
-              % (ok, skip, fail, fallback_full, len(codes)),
-              '== 东财请求数=%d ==' % requests_sent,
+              '== 汇总：ok=%d skip=%d fail=%d fallback_full=%d / %d%s =='
+              % (ok, skip, fail, fallback_full, len(codes),
+                 (' aborted=%s' % aborted) if aborted else ''),
+              '== 东财请求数=%d（逻辑口径）；wire_attempts=%d（真实发包；D8-09）=='
+              % (requests_sent, wire_delta),
               'FAIL 码: ' + (','.join(fail_codes) if fail_codes else '无'),
               '== done ==']
     OUT_MD.write_text('\n'.join(lines), encoding='utf-8')
@@ -142,18 +142,20 @@ def main(argv=None):
     ZRUNS_MD.parent.mkdir(parents=True, exist_ok=True)
     now = time.strftime('%Y-%m-%d %H:%M:%S %z')
     hhmm = time.strftime('%H:%M')
-    concl = ('全部补齐' if fail == 0
-             else ('部分补齐，剩余 %d 个待下一交易日' % fail))
+    concl = ('全部补齐' if fail == 0 and not aborted
+             else ('熔断中止（疑似频控），剩余码顺延下一交易日' if aborted
+                   else '部分补齐，剩余 %d 个待下一交易日' % fail))
     block = ('## [%s 板块K线补拉]（晚间脚本直跑非 agent）\n'
              '- **执行时间**：%s\n'
              '- **执行方式**=%s（来源由 --trigger 决定，默认 manual）\n'
              '- **任务快照**：%s\n'
-             '- **scope**：%s codes=%d（请求数 %d）\n'
-             '- **结果**：ok=%d skip=%d fail=%d fallback_full=%d / %d\n'
+             '- **scope**：%s codes=%d（请求数 %d；wire_attempts=%d）\n'
+             '- **结果**：ok=%d skip=%d fail=%d fallback_full=%d / %d%s\n'
              '- **FAIL 码**：%s\n'
              '- **一句话结论**：%s。\n' % (
                  hhmm, now, args.trigger, _task_snapshot(), args.scope, len(codes),
-                 requests_sent, ok, skip, fail, fallback_full, len(codes),
+                 requests_sent, wire_delta, ok, skip, fail, fallback_full, len(codes),
+                 (' aborted=%s' % aborted) if aborted else '',
                  ','.join(fail_codes) if fail_codes else '无', concl))
     with ZRUNS_MD.open('a', encoding='utf-8') as f:
         f.write('\n' + block)

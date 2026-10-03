@@ -1,0 +1,82 @@
+﻿.\.venv\Scripts\python.exe : test_imports_shared_implementation (tests.test_pull_sector_klines.TestEveningSingleSource.
+test_imports_shared_implementation) ... ok
+所在位置 行:11 字符: 4
++ }; .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_pull_sec ...
++    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_imports_sh...ntation) ... ok:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+test_local_definition_removed (tests.test_pull_sector_klines.TestEveningSingleSource.test_local_definition_removed) ...
+ ok
+test_main_uses_shared_guard (tests.test_pull_sector_klines.TestEveningSingleSource.test_main_uses_shared_guard) ... ok
+[evening] trigger=scheduler scope=prod codes=4
+written C:\Users\Turn-\AppData\Local\Temp\tmphsrsy4bn\evening.md
+appended daily_runs report (trigger=scheduler)
+test_normal_path_unaffected (tests.test_pull_sector_klines.TestEveningThrottleAbort.test_normal_path_unaffected) ... ok
+[evening] trigger=manual scope=prod codes=4
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛?
+written C:\Users\Turn-\AppData\Local\Temp\tmptwdplshl\evening.md
+appended daily_runs report (trigger=manual)
+test_throttled_aborts_round_and_marks_report (tests.test_pull_sector_klines.TestEveningThrottleAbort.test_throttled_abo
+rts_round_and_marks_report) ... ok
+test_default_arg_uses_today (tests.test_pull_sector_klines.TestIsTradingDay.test_default_arg_uses_today) ... ok
+test_legal_holiday_is_not_trading (tests.test_pull_sector_klines.TestIsTradingDay.test_legal_holiday_is_not_trading) ..
+. ok
+test_missing_table_fails_open_to_workday (tests.test_pull_sector_klines.TestIsTradingDay.test_missing_table_fails_open_
+to_workday)
+琛ㄨ涓嶅埌 鈫?鎸夊伐浣滄棩澶勭悊锛堟棦鏈夊彛寰勶細瀹佸彲澶氭媺锛宻kip 閫昏緫鎸￠噸澶嶏級銆?... ok
+test_normal_weekday_is_trading (tests.test_pull_sector_klines.TestIsTradingDay.test_normal_weekday_is_trading) ... ok
+test_weekend_is_not_trading (tests.test_pull_sector_klines.TestIsTradingDay.test_weekend_is_not_trading) ... ok
+[浼戝競璺宠繃] 2026-10-05 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmpej1o4l7n\pull_main.md
+test_holiday_skips_with_zero_fetch (tests.test_pull_sector_klines.TestMainHolidayGuard.test_holiday_skips_with_zero_fet
+ch) ... ok
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmp7qwlejgv\pull_main.md
+test_trading_day_proceeds (tests.test_pull_sector_klines.TestMainHolidayGuard.test_trading_day_proceeds) ... ok
+[浼戝競璺宠繃] 2026-10-03 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmpjlfb899g\pull_main.md
+test_weekend_skips (tests.test_pull_sector_klines.TestMainHolidayGuard.test_weekend_skips) ... ok
+test_fetch_and_store_marks_throttled_flag (tests.test_pull_sector_klines.TestThrottleAbort.test_fetch_and_store_marks_t
+hrottled_flag)
+浼犺緭鍥炶皟鎶?ThrottleSuspected 鈫?detail['throttled']=True锛堢绾挎敞鍏ワ紝涓嶇鐪熷疄 netutil 璺緞锛夈€?... ok
+test_fetch_and_store_plain_error_not_throttled (tests.test_pull_sector_klines.TestThrottleAbort.test_fetch_and_store_pl
+ain_error_not_throttled) ... ok
+test_plain_fail_continues_next_code (tests.test_pull_sector_klines.TestThrottleAbort.test_plain_fail_continues_next_cod
+e)
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 RuntimeError:empty_payload
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpawofzjms\pull_main.md
+瀵圭収锛氭櫘閫?FAIL锛堥潪鐔旀柇锛変繚鎸佹棫璇箟鈥斺€旇烦杩囦笉涓柇銆?... ok
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 ThrottleSuspected:杩炵画 8 娆?
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙級
+written C:\Users\Turn-\AppData\Local\Temp\tmpes46cxjl\pull_main.md
+test_throttled_first_code_aborts_round (tests.test_pull_sector_klines.TestThrottleAbort.test_throttled_first_code_abort
+s_round) ... ok
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpe_bab3dx\pull_main.md
+test_report_contains_wire_attempts_delta (tests.test_pull_sector_klines.TestWireAttemptsInReport.test_report_contains_w
+ire_attempts_delta) ... ok
+test_wire_delta_not_absolute (tests.test_pull_sector_klines.TestWireAttemptsInReport.test_wire_delta_not_absolute)
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmp9q6evpr0\pull_main.md
+璧风偣闈為浂鏃舵姤鍛婄殑鏄?delta锛堣繘绋嬬骇璁℃暟鍣ㄤ笉琚褰撴湰杞粷瀵瑰€硷級銆?... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.374s
+
+OK
