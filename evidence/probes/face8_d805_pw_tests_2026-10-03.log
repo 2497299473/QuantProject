@@ -1,0 +1,108 @@
+.\.venv\Scripts\python.exe : test_date_flag_drives_target_and_cache (tests.test_pull_sector_klines_pw.TestExplicitDateP
+ath.test_date_flag_drives_target_and_cache)
+所在位置 行:1 字符: 1
++ .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_pull_sector ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_date_flag_...rget_and_cache):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+target: 2026-09-04 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmps25dz9dw\output\pull_sector_klines_pw_20260904.md
+鏄惧紡 --date 璺緞涓庣幇鐗堜竴鑷达細TARGET 杩涙枃浠跺悕涓?fetched_at锛岀紦瀛樼収甯稿啓銆?... ok
+test_bare_positional_date_is_dead (tests.test_pull_sector_klines_pw.TestHelpAndArgvDeath.test_bare_positional_date_is_d
+ead)
+鏃ц矾寰勬浜★細瑁镐綅缃弬鏁帮紙鏃?sys.argv[1] 鐢ㄦ硶锛夆啋 argparse 鎷掔粷锛堢爜 2锛夈€?... usage: python.exe -m unittest [-h] [--date DATE]
+python.exe -m unittest: error: unrecognized arguments: 2026-09-04
+ok
+test_help_exits_zero_without_launch (tests.test_pull_sector_klines_pw.TestHelpAndArgvDeath.test_help_exits_zero_without
+_launch)
+楠屾敹锛?-help 閫€鍑虹爜 0銆? 娆?playwright 鍚姩銆?... ok
+test_unknown_flag_rejected (tests.test_pull_sector_klines_pw.TestHelpAndArgvDeath.test_unknown_flag_rejected)
+浜嬫晠鍚屽瀷闃茬嚎锛氫换浣曟湭鐧昏鍙傛暟锛堝 --force-full锛変笉寰楄褰撴棩鏈熷悶涓嬨€?... usage: python.exe -m unittest [-h] [--date DATE]
+python.exe -m unittest: error: unrecognized arguments: --force-full
+ok
+test_consecutive_fail_aborts_after_max_restarts (tests.test_pull_sector_klines_pw.TestRestartCap.test_consecutive_fail_
+aborts_after_max_restarts)
+usage: python.exe -m unittest [-h] [--date DATE]
+
+Playwright 椤甸潰鍐?fetch 鎷夊彇涓滆储鏉垮潡 K 绾匡紙鎸囩汗鎷︽埅鏈熷厬搴曢€氶亾锛?
+
+options:
+  -h, --help   show this help message and exit
+  --date DATE  鐩爣鏃ユ湡 YYYY-MM-DD锛堣ˉ鍘嗗彶缂哄彛锛夛紱缂虹渷=浠婂ぉ(宸ヤ綔鏃?鎴栦笂涓€浜ゆ槗鏃ャ€侱8-05锛氭棫瑁镐綅缃弬鏁板凡姝讳骸锛?-help
+               鏇捐褰撴棩鏈熻Е鍙戝叏閲忔媺鍙栵級
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 FAIL stub: throttled
+[2/20] BK0002 FAIL stub: throttled
+[3/20] BK0003 FAIL stub: throttled
+[4/20] BK0004 FAIL stub: throttled
+[5/20] BK0005 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[6/20] BK0006 FAIL stub: throttled
+[7/20] BK0007 FAIL stub: throttled
+[8/20] BK0008 FAIL stub: throttled
+[9/20] BK0009 FAIL stub: throttled
+[10/20] BK0010 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[11/20] BK0011 FAIL stub: throttled
+[12/20] BK0012 FAIL stub: throttled
+[13/20] BK0013 FAIL stub: throttled
+[14/20] BK0014 FAIL stub: throttled
+[15/20] BK0015 FAIL stub: throttled
+!! 杩炶触 >=5 涓旈噸鍚凡鐢ㄥ敖锛?/2 娆★級锛屽垽瀹?IP 琚帎锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙紝绛?21:30 鏅氶棿琛ユ媺鎴栦笅涓€浜ゆ槗鏃ワ級
+written C:\Users\Turn-\AppData\Local\Temp\tmpe8rei9uc\output\pull_sector_klines_pw_20261002.md
+楠屾敹锛氳繛璐ラ噸鍚揪 2 娆″悗鏁磋疆涓涓旀姤鍛婅 aborted=True銆?... ok
+test_mixed_success_never_restarts (tests.test_pull_sector_klines_pw.TestRestartCap.test_mixed_success_never_restarts)
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmpgd3vggps\output\pull_sector_klines_pw_20261002.md
+瀵圭収锛氬叏鎴愬姛璺緞 0 娆￠噸鍚紙灏侀《閫昏緫涓嶈浼ゆ甯歌疆锛夈€?... ok
+test_cache_fresh_skips_without_launch (tests.test_pull_sector_klines_pw.TestTodoSkipUnaffected.test_cache_fresh_skips_w
+ithout_launch)
+target: 2026-10-02 | todo: 0 of 20
+nothing to do, written C:\Users\Turn-\AppData\Local\Temp\tmpqpi58637\output\pull_sector_klines_pw_20261002.md
+鏃㈡湁璇箟淇濇寔锛氬叏閮ㄧ爜褰撴棩宸叉媺 鈫?todo 绌猴紝0 launch銆佸啓绌烘眹鎬绘姤鍛娿€?... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.657s
+
+OK

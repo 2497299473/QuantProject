@@ -7,16 +7,25 @@
 - 真实 Chromium 页面内 fetch 曾验证可通（00:13），后因高频请求触发频控失效；
 - 本脚本与原版 pull_sector_klines.py 输出格式完全兼容（同一缓存目录/schema）。
 
-用法：
-- python3 pull_sector_klines_pw.py           # TARGET=今天(工作日)或上一交易日
-- python3 pull_sector_klines_pw.py 2026-09-04  # 显式指定目标日期（补历史缺口）
+用法（D8-05 起 argparse 化，裸位置参数已死亡）：
+- python3 pull_sector_klines_pw.py                      # TARGET=今天(工作日)或上一交易日
+- python3 pull_sector_klines_pw.py --date 2026-09-04    # 显式指定目标日期（补历史缺口）
+- python3 pull_sector_klines_pw.py --help               # 安全退出（码 0，0 次 playwright 启动）
 
 纪律：限速 >=2s；FAIL 跳过不中断；缓存 last==TARGET 则 skip；
-连续 5 失败重启浏览器；每 10 码 reload 刷新连接池。
+连续 5 失败重启浏览器（D8-05：封顶 MAX_RESTARTS=2，达上限仍连败 → 判定 IP 被掐
+整轮中止，报告记 aborted=True —— 09-08「自动重启 12 次全灭」事故形态的代码封口）；
+每 10 码 reload 刷新连接池。
+
+D8-05（面 8，2026-10-03）：旧版 sys.argv[1] 直读日期 —— `--help` 会被当成 TARGET
+字符串（old.get('last') != '--help' 恒真）触发全量 65 码真实拉取，违反铁律 8
+「--help 属零副作用自检」前提；同型事故已实际发生一次（2026-10-02 01:35，
+diag 脚本 secid=90.--help 真实发请求）。argparse 化后未知参数直接报错退出，
+--help 在解析层安全退出（码 0，不触达 sync_playwright）。
 """
+import argparse
 import json
 import re
-import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -30,6 +39,7 @@ CACHE = BASE / 'data' / 'sector_klines'
 MAP_MD = BASE / 'output' / 'sector_name_mapping_20260902.md'
 OOS_START = '2020-01-01'
 SLEEP = 2.0
+MAX_RESTARTS = 2      # D8-05：连败重启封顶（旧版无上限，65 码理论最多 13 轮重启）
 FIELDS = ['date', 'open', 'close', 'high', 'low', 'volume']
 
 
@@ -50,10 +60,15 @@ def load_codes():
     return seen
 
 
-def main():
-    TARGET = (date.today() if date.today().weekday() < 5 else _last_weekday()).isoformat()
-    if len(sys.argv) > 1:
-        TARGET = sys.argv[1]
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        description='Playwright 页面内 fetch 拉取东财板块 K 线（指纹拦截期兑底通道）')
+    ap.add_argument('--date', default=None,
+                    help='目标日期 YYYY-MM-DD（补历史缺口）；缺省=今天(工作日)或上一交易日。'
+                         'D8-05：旧裸位置参数已死亡（--help 曾被当日期触发全量拉取）')
+    args = ap.parse_args(argv)
+    TARGET = args.date or (date.today() if date.today().weekday() < 5
+                           else _last_weekday()).isoformat()
     OUT_MD = BASE / 'output' / ('pull_sector_klines_pw_' + TARGET.replace('-', '') + '.md')
 
     codes = load_codes()
@@ -83,6 +98,8 @@ def main():
              '|---|---|---|---:|---|---|---|---|']
     ok = fail = 0
     consec_fail = 0
+    restarts = 0          # D8-05：重启计数（封顶 MAX_RESTARTS）
+    aborted = False       # 重启用尽仍连败 → 整轮中止（报告记 aborted=True）
     JS_FETCH = '''async (url) => {
         try {
             const resp = await fetch(url, {credentials: 'include'});
@@ -112,7 +129,18 @@ def main():
                     except Exception:
                         pass
                 if consec_fail >= 5:
-                    print('consecutive fail >=5, restart browser', flush=True)
+                    if restarts >= MAX_RESTARTS:
+                        # D8-05：封顶——铁律 1 禁盲跑 pw（拿被掐的 IP 反复撞）；
+                        # 09-08 实证：自动重启 12 次全灭。达上限即整轮中止。
+                        print('!! 连败 >=5 且重启已用尽（%d/%d 次），判定 IP 被掐，'
+                              '整轮中止（铁律 1：不再撞墙，等 21:30 晚间补拉或下一交易日）'
+                              % (restarts, MAX_RESTARTS), flush=True)
+                        aborted = True
+                        break
+                    restarts += 1
+                    print('[warn] THROTTLE 嫌疑：连续失败 >=5，重启浏览器（%d/%d）——'
+                          '重启后仍连败将按铁律 1 中止整轮'
+                          % (restarts, MAX_RESTARTS), flush=True)
                     try:
                         ctx.close()
                         b.close()
@@ -162,8 +190,8 @@ def main():
             except Exception:
                 pass
 
-    lines += ['', '== 汇总：ok=%d skip=%d fail=%d / %d =='
-              % (ok, len(codes) - len(todo), fail, len(codes)), '== done ==']
+    lines += ['', '== 汇总：ok=%d skip=%d fail=%d / %d（aborted=%s）=='
+              % (ok, len(codes) - len(todo), fail, len(codes), aborted), '== done ==']
     OUT_MD.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     print('written', OUT_MD, flush=True)
 

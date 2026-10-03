@@ -86,6 +86,7 @@ LAYERS: dict[str, str] = {
     "test_netutil.py": SLOW,
     "test_netutil_breaker.py": FAST,   # 面 8 D8-02/06/09：v6 熔断器/prime 退避/wire 计数，全 mock 零网络零 DNS 零建连
     "test_pull_sector_klines.py": FAST,   # 面 8 D8-01/02/09：休市守卫/熔断中止/wire 报告；打桩 fetch_and_store + tempdir，绝不运行脚本本体（铁律 8）
+    "test_pull_sector_klines_pw.py": FAST,   # 面 8 D8-05：--help 安全退出/裸位置参数死亡/重启封顶；假 playwright 注入，0 真实浏览器 0 网络
     "test_path_and_store.py": SLOW,
     "test_pit.py": SLOW,
     "test_provenance_binding.py": SLOW,
