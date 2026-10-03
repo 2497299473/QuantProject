@@ -25,10 +25,13 @@ V3 改造（output/V3_data_layer_plan_20260908.md 第三节）
   - 单轮不重跑（频控防护：绝不循环重试东财）；FAIL 跳过不中断、不写半成品缓存；
     D8-02：某码触发 netutil 熔断（ThrottleSuspected）→ 整轮中止，报告记 aborted=THROTTLE；
   - 当日已拉（last==今天）→ skip，不重拉。
+  - D8-04（面 8，Summer 2026-10-03 裁决选项 1）：授权闸门——manual（默认）必须配
+    --authorized，裸跑拒绝退出码 3、0 网络请求；scheduler 由计划任务显式传参
+    （install_scheduled_tasks.ps1）。消除「任何人任何时候裸跑都直发东财请求」缺口。
 
 用法：
   .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines_evening.py --trigger scheduler
-  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines_evening.py            # 手动
+  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines_evening.py --authorized           # 人工授权补拉（裸跑拒绝，码 3）
 """
 import argparse
 import json
@@ -38,8 +41,9 @@ from datetime import date
 from pathlib import Path
 
 from core import netutil
-from pull_sector_klines import (OOS_START, SLEEP, fetch_and_store,
-                                is_trading_day, is_weekly_full_day, load_codes)
+from pull_sector_klines import (AUTH_REQUIRED_MSG, OOS_START, SLEEP,
+                                fetch_and_store, is_trading_day,
+                                is_weekly_full_day, load_codes)
 
 BASE = Path(__file__).resolve().parent
 CACHE = BASE / 'data' / 'sector_klines'
@@ -74,8 +78,15 @@ def main(argv=None):
                     help='默认 prod（生产最小集 4 码）；full 为回滚路径')
     ap.add_argument('--trigger', choices=('scheduler', 'manual'), default='manual',
                     help='执行方式。计划任务必须显式传 scheduler；默认 manual')
+    ap.add_argument('--authorized', action='store_true',
+                    help='D8-04 授权旗标：manual 执行必须显式授权（铁律 7 四闸门 + Summer 批准）')
     ap.add_argument('--force-full', action='store_true')
     args = ap.parse_args(argv)
+
+    # D8-04 授权闸门：先于任何网络路径（is_trading_day/load_codes/fetch_and_store 均未触达）。
+    if args.trigger != 'scheduler' and not args.authorized:
+        print(AUTH_REQUIRED_MSG, flush=True)
+        raise SystemExit(3)
 
     if not is_trading_day():
         print('[evening] 非交易日（周末/休市），跳过')

@@ -8,7 +8,7 @@
   这正是 D8-05 要钉住的安全语义）；
 - BASE/CACHE/load_codes/SLEEP 全部重定向 tempdir/桩，不碰真实 data/ 与 output/。
 
-覆盖（D8-05 验收口径）：
+覆盖（D8-05/D8-04 验收口径）：
 1. `--help` 退出码 0、0 次 playwright 启动（旧版 sys.argv[1] 直读会把 --help
    当日期字符串 → 全量 65 码真实拉取；同型事故 2026-10-02 01:35 实录）。
 2. 旧裸位置参数路径死亡：main(['2026-09-04']) → argparse 报错退出码 2。
@@ -16,6 +16,8 @@
    成功码照常写缓存。
 4. 连败重启封顶 MAX_RESTARTS=2：达上限仍连败 → 整轮中止、报告记 aborted=True、
    launch 总数 = 1 + 2（09-08「自动重启 12 次全灭」事故形态封口）。
+5. D8-04（选项 1）授权闸门：裸跑（无 --authorized）拒绝退出码 3、0 次
+   playwright 启动（闸门先于浏览器，拒绝路径零副作用）。
 """
 import sys
 import tempfile
@@ -160,6 +162,14 @@ class TestHelpAndArgvDeath(_PwHarness):
         self.assertEqual(LAUNCH_COUNT["n"], 0,
                          "--help 必须在解析层退出，不得触达浏览器/网络")
 
+    def test_bare_run_rejected_exit3_zero_launch(self):
+        """D8-04 验收：裸跑拒绝退出码 3、0 次浏览器启动（闸门先于 sync_playwright）。"""
+        with self.assertRaises(SystemExit) as ctx:
+            PW.main([])
+        self.assertEqual(ctx.exception.code, 3)
+        self.assertEqual(LAUNCH_COUNT["n"], 0,
+                         "授权闸门拒绝时不得启动浏览器")
+
     def test_bare_positional_date_is_dead(self):
         """旧路径死亡：裸位置参数（旧 sys.argv[1] 用法）→ argparse 拒绝（码 2）。"""
         with self.assertRaises(SystemExit) as ctx:
@@ -179,7 +189,7 @@ class TestExplicitDatePath(_PwHarness):
     def test_date_flag_drives_target_and_cache(self):
         """显式 --date 路径与现版一致：TARGET 进文件名与 fetched_at，缓存照常写。"""
         self._set_response(_ok_klines_response())
-        PW.main(["--date", "2026-09-04"])
+        PW.main(["--date", "2026-09-04", "--authorized"])
         out = self.tmp / "output" / "pull_sector_klines_pw_20260904.md"
         self.assertTrue(out.exists(), "报告文件名必须由 --date 驱动")
         import json
@@ -200,7 +210,7 @@ class TestRestartCap(_PwHarness):
         launch 总数 = 1(初始) + 2(重启) = 3；旧版无上限会一直重启到撞完全部码。
         """
         self._set_response({"error": "stub: throttled"})
-        PW.main([])
+        PW.main(["--authorized"])
         self.assertEqual(LAUNCH_COUNT["n"], 1 + PW.MAX_RESTARTS,
                          "重启用尽即停：launch 不得超过 1+MAX_RESTARTS")
         import re as _re
@@ -218,7 +228,7 @@ class TestRestartCap(_PwHarness):
     def test_mixed_success_never_restarts(self):
         """对照：全成功路径 0 次重启（封顶逻辑不误伤正常轮）。"""
         self._set_response(_ok_klines_response())
-        PW.main([])
+        PW.main(["--authorized"])
         self.assertEqual(LAUNCH_COUNT["n"], 1)
         from datetime import date as _date
         target = (_date.today() if _date.today().weekday() < 5
@@ -238,7 +248,7 @@ class TestTodoSkipUnaffected(_PwHarness):
             (PW.CACHE / (bk + ".json")).write_text(
                 json.dumps({"last": target}), encoding="utf-8")
         self._set_response({"error": "must not be called"})
-        PW.main([])
+        PW.main(["--authorized"])
         self.assertEqual(LAUNCH_COUNT["n"], 0)
         out = self.tmp / "output" / ("pull_sector_klines_pw_" + target.replace("-", "") + ".md")
         self.assertIn("ok=0 skip=20", out.read_text(encoding="utf-8"))

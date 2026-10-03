@@ -124,7 +124,7 @@ for trig in ('manual', 'scheduler'):
     E.fetch_and_store = fake_store
     E._task_snapshot = lambda: 'LastRunTime=09/08/2026 21:30:00|LastTaskResult=0'
     E.SLEEP = 0
-    E.main(['--trigger', trig])
+    E.main(['--trigger', trig, '--authorized'])   # D8-04 授权闸门：manual 须配旗标（2026-10-03）
     head = md.read_text(encoding='utf-8').splitlines()
     blk = zr.read_text(encoding='utf-8')
     chk('%s: md 首两行含 scope= 与 codes=' % trig,
