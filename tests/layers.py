@@ -84,6 +84,7 @@ LAYERS: dict[str, str] = {
     "test_lofo_evidence.py": SLOW,
     "test_market_context.py": SLOW,
     "test_netutil.py": SLOW,
+    "test_netutil_breaker.py": FAST,   # 面 8 D8-02/06/09：v6 熔断器/prime 退避/wire 计数，全 mock 零网络零 DNS 零建连
     "test_path_and_store.py": SLOW,
     "test_pit.py": SLOW,
     "test_provenance_binding.py": SLOW,

@@ -29,6 +29,10 @@ _TRANSPORT_TYPE_NAMES = frozenset({
     "LineTooLong", "CurlError", "SSLError", "gaierror", "timeout",
     "TimeoutError", "ConnectionError", "ConnectionResetError",
     "ConnectionRefusedError", "ConnectionAbortedError", "JSONDecodeError",
+    # netutil v6 熔断异常（面 8 D8-02）：RuntimeError 子类、不在 OSError 树下，
+    # 按类名归 network: —— 熔断即频控征兆，必须计入健康度连续失败降级。
+    # 本模块仍不 import netutil（零网络依赖硬约束），只登记类名字符串。
+    "ThrottleSuspected",
 })
 
 
