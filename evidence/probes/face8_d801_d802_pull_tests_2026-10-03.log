@@ -1,4 +1,4 @@
-﻿.\.venv\Scripts\python.exe : test_imports_shared_implementation (tests.test_pull_sector_klines.TestEveningSingleSource.
+.\.venv\Scripts\python.exe : test_imports_shared_implementation (tests.test_pull_sector_klines.TestEveningSingleSource.
 test_imports_shared_implementation) ... ok
 所在位置 行:11 字符: 4
 + }; .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_pull_sec ...

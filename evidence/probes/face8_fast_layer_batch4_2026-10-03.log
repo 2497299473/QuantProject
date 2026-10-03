@@ -1,9 +1,9 @@
 .\.venv\Scripts\python.exe : ..........................................................................................
-................[append] ERROR: 鍐呭鏂囦欢涓虹┖锛欳:\Users\Turn-\AppData\Local\Temp\tmpnv4aexmp\body.md
-所在位置 行:11 字符: 4
-+ }; .\.venv\Scripts\python.exe -X utf8 run_tests.py --layer fast 2>&1  ...
-+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (..................v4aexmp\body.md:String) [], RemoteException
+................[append] ERROR: 鍐呭鏂囦欢涓虹┖锛欳:\Users\Turn-\AppData\Local\Temp\tmps8lbpk37\body.md
+所在位置 行:1 字符: 1
++ .\.venv\Scripts\python.exe -X utf8 run_tests.py --layer fast 2>&1 | O ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (..................8lbpk37\body.md:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
 .......................................................................................................................
@@ -11,17 +11,17 @@
 PythonProject\QuantV1\backtest_forecast.py:125: ConstantInputWarning: An input array is constant; the correlation coeff
 icient is not defined.
   r, _ = spearmanr(xs, ys)
-[run_tests] 49 涓祴璇曟枃浠讹紙layer=fast锛?
-[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpl08lcj9n\daily_runs\2099-01-01.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
-[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpl08lcj9n\daily_runs\2099-01-01.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
-[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpjgko0b0y\daily_runs\2099-01-02.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
+[run_tests] 51 涓祴璇曟枃浠讹紙layer=fast锛?
+[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpuzjhyxii\daily_runs\2099-01-01.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
+[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpuzjhyxii\daily_runs\2099-01-01.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
+[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpc_r0mfdw\daily_runs\2099-01-02.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
 [append] SKIP锛?099-01-02.md 宸插瓨鍦ㄥ皬鑺傘€孾23:00 鏃ユ眹鎬籡銆嶏紝鎷掔粷閲嶅杩藉姞锛堢‘瑕佸啀鍔犵敤 --force锛?
-[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpjgko0b0y\daily_runs\2099-01-02.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
+[append] OK 鈫?C:\Users\Turn-\AppData\Local\Temp\tmpc_r0mfdw\daily_runs\2099-01-02.md锛堜粎杩藉姞锛屾湭瑙︾鏃㈡湁鍐呭锛?
 [fail] report鈫攅vidence 閰嶅閿氱偣涓嶆垚绔嬶細evidence_anchor_mismatch锛堥敋鐐规柟鍚?= report PROVENANCE_JSON 澹版槑 evidence 鍐呭鍝堝笇锛涙棤閿氱偣鐨勬棫鏍煎紡璇佹嵁涓嶅緱缁戝畾锛孌3-01锛?
 [fail] report鈫攅vidence 閰嶅閿氱偣涓嶆垚绔嬶細evidence_anchor_missing锛堥敋鐐规柟鍚?= report PROVENANCE_JSON 澹版槑 evidence 鍐呭鍝堝笇锛涙棤閿氱偣鐨勬棫鏍煎紡璇佹嵁涓嶅緱缁戝畾锛孌3-01锛?
 [fail] evidence JSON 涓嶅彲璇绘垨涓嶆槸 object
 [fail] --fresh 鏄椿鎷夎矾寰勶紙load_samples 鍏ㄩ摼鎷変笢璐?鑵捐锛夆€斺€旈搧寰?8锛氬啋鐑燂紳鐪熻窇缃戠粶璺緞锛屽繀椤诲厛鑾蜂汉宸ユ巿鏉冦€傝幏鎵瑰悗鍔犲弻鏃楁爣锛?-fresh --i-know-this-hits-network
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpgzk__mds\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpz1k9aur9\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -32,9 +32,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpgzk__mds\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpz1k9aur9\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8jkb_aqu\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmptnr7830g\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -44,9 +44,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp8jkb_aqu\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmptnr7830g\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp58om9t03\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpfr2q_jdh\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -57,9 +57,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp58om9t03\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpfr2q_jdh\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpm9n8n7e2\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3uznkibd\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -70,9 +70,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpm9n8n7e2\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp3uznkibd\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpkabgw_5o\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp1elwi2zg\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -83,9 +83,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpkabgw_5o\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp1elwi2zg\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp8673wd7q\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6rt6k0xw\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -96,7 +96,7 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp8673wd7q\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp6rt6k0xw\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
 
 == P1-鈶?鏍锋湰鍐荤粨缁撴灉 ==
@@ -108,17 +108,17 @@ icient is not defined.
   K绾挎寚绾?   : f5a2f60700000000000000000000000000000000000000000000000000000000锛坰tock=2 fund=2 unreadable=0锛?> kline_fingerprint_20261003.json
   KFP 鍙ｅ緞   : universe=1 鐮? cutoff=2026-10-03锛坅s-of + universe锛?
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmpry6lmf_4\forecast_outputs\samples_frozen_20261003.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpry6lmf_4\forecast_outputs\samples_frozen_20261003.meta.json
+  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmptbij40_5\forecast_outputs\samples_frozen_20261003.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmptbij40_5\forecast_outputs\samples_frozen_20261003.meta.json
   鍛婅鏁?    : 0   鐢ㄦ椂 0.0s
 
 [ABORT] 鎹曡幏闄嶇骇/棰戞帶寰佸厗 鈥斺€?绔嬪嵆鍋滄墜锛屽嬁閲嶈瘯锛坈anonical 鏈惤鐩橈級锛?
     ! SUSPECT_DEGRADED: DegradedResponse 鎸佷粨鎷夊彇澶辫触
-        鐣欒瘉鐩綍 : C:\Users\Turn-\AppData\Local\Temp\tmpl1qdut54\forecast_outputs\freeze_failed_20261003_155031
+        鐣欒瘉鐩綍 : C:\Users\Turn-\AppData\Local\Temp\tmp4cwzkipw\forecast_outputs\freeze_failed_20261003_163151
 
 [ABORT] 鎹曡幏闄嶇骇/棰戞帶寰佸厗 鈥斺€?绔嬪嵆鍋滄墜锛屽嬁閲嶈瘯锛坈anonical 鏈惤鐩橈級锛?
     ! SUSPECT_DEGRADED: DegradedResponse 鎸佷粨鎷夊彇澶辫触
-        鐣欒瘉鐩綍 : C:\Users\Turn-\AppData\Local\Temp\tmp7zyyy1_b\forecast_outputs\freeze_failed_20261003_155031
+        鐣欒瘉鐩綍 : C:\Users\Turn-\AppData\Local\Temp\tmpkc0wbb11\forecast_outputs\freeze_failed_20261003_163151
 
 == P1-鈶?鏍锋湰鍐荤粨缁撴灉 ==
   鏍锋湰鏁?    : 2  锛堥鏈?~3343锛?
@@ -129,8 +129,8 @@ icient is not defined.
   K绾挎寚绾?   : f5a2f60700000000000000000000000000000000000000000000000000000000锛坰tock=2 fund=2 unreadable=0锛?> kline_fingerprint_20261003.json
   KFP 鍙ｅ緞   : universe=1 鐮? cutoff=2026-10-03锛坅s-of + universe锛?
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmp7zyyy1_b\forecast_outputs\samples_frozen_20261003.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp7zyyy1_b\forecast_outputs\samples_frozen_20261003.meta.json
+  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmpkc0wbb11\forecast_outputs\samples_frozen_20261003.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpkc0wbb11\forecast_outputs\samples_frozen_20261003.meta.json
   鍛婅鏁?    : 0   鐢ㄦ椂 0.0s
 
 [ABORT] 褰撴棩鍐荤粨浠跺凡瀛樺湪锛屾嫆缁濋噸閲囷細samples_frozen_20261003.jsonl
@@ -146,12 +146,12 @@ icient is not defined.
   K绾挎寚绾?   : f5a2f60700000000000000000000000000000000000000000000000000000000锛坰tock=1 fund=1 unreadable=0锛?> kline_fingerprint_20261003.json
   KFP 鍙ｅ緞   : universe=1 鐮? cutoff=2026-10-03锛坅s-of + universe锛?
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmprrdh4g60\forecast_outputs\samples_frozen_20261003.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmprrdh4g60\forecast_outputs\samples_frozen_20261003.meta.json
+  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmp7llh7xrm\forecast_outputs\samples_frozen_20261003.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmp7llh7xrm\forecast_outputs\samples_frozen_20261003.meta.json
   鍛婅鏁?    : 0   鐢ㄦ椂 0.0s
 
 [ABORT] SNAPSHOT_INVALID 鈥斺€?code commit 鍙栦笉鍒帮紙涓変欢濂椻憼缂哄け锛?
-        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmpqkc_7grk\forecast_outputs\freeze_failed_20261003_155031_commit
+        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmpb4svo5x3\forecast_outputs\freeze_failed_20261003_163151_commit
 
 == P1-鈶?鏍锋湰鍐荤粨缁撴灉 ==
   鏍锋湰鏁?    : 1  锛堥鏈?~3343锛?
@@ -162,17 +162,17 @@ icient is not defined.
   K绾挎寚绾?   : f5a2f60700000000000000000000000000000000000000000000000000000000锛坰tock=1 fund=1 unreadable=0锛?> kline_fingerprint_20261003.json
   KFP 鍙ｅ緞   : universe=1 鐮? cutoff=2026-10-03锛坅s-of + universe锛?
   commit     : deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmpyz8uwe0t\forecast_outputs\samples_frozen_20261003.jsonl
-  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpyz8uwe0t\forecast_outputs\samples_frozen_20261003.meta.json
+  鏂囦欢       : C:\Users\Turn-\AppData\Local\Temp\tmpl1_81mvz\forecast_outputs\samples_frozen_20261003.jsonl
+  meta       : C:\Users\Turn-\AppData\Local\Temp\tmpl1_81mvz\forecast_outputs\samples_frozen_20261003.meta.json
   鍛婅鏁?    : 0   鐢ㄦ椂 0.0s
 
 [ABORT] SNAPSHOT_INVALID 鈥斺€?KFP unreadable 闈炵┖: ['999999.json(stock:requested-missing)']
-        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmpuiht8iq3\forecast_outputs\freeze_failed_20261003_155031_kfp
+        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmps72qb8_j\forecast_outputs\freeze_failed_20261003_163151_kfp
 
 [ABORT] SNAPSHOT_INVALID 鈥斺€?涓偂K绾挎媺鍙栧け璐ワ紙鏁版嵁璐ㄩ噺闂ㄧ锛夛細
     ! 000001 (0): ValueError: 鍏ㄩ儴鏁版嵁婧愬け璐?
-        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmp9ylbo0cc\forecast_outputs\freeze_failed_20261003_155031_stockfail
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpqvgg8t36\samples_frozen_20260910.jsonl
+        鐣欒瘉鐩綍: C:\Users\Turn-\AppData\Local\Temp\tmpvidmd1e5\forecast_outputs\freeze_failed_20261003_163151_stockfail
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmppkor4uvk\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -184,39 +184,39 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmphc5g_3wb\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp28qyx1oy\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
 [freeze] meta     : 涓嶅彲瑙ｆ瀽锛圝SONDecodeError锛夆€斺€?鏃犳硶鍋?G-A 鍒ゅ畾
 [freeze] VERDICT  : MISSING锛堟寜 fail-closed 澶勭悊锛屽繀椤讳腑姝級
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbz0id3qb\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaxwt80fl\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
 [freeze] meta     : 椤跺眰闈?object锛坙ist锛夆€斺€?鏃犳硶鍋?G-A 鍒ゅ畾
 [freeze] VERDICT  : MISSING锛堟寜 fail-closed 澶勭悊锛屽繀椤讳腑姝級
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbz0id3qb\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaxwt80fl\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
 [freeze] meta     : 椤跺眰闈?object锛坰tr锛夆€斺€?鏃犳硶鍋?G-A 鍒ゅ畾
 [freeze] VERDICT  : MISSING锛堟寜 fail-closed 澶勭悊锛屽繀椤讳腑姝級
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbz0id3qb\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpaxwt80fl\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
 [freeze] meta     : 椤跺眰闈?object锛坕nt锛夆€斺€?鏃犳硶鍋?G-A 鍒ゅ畾
 [freeze] VERDICT  : MISSING锛堟寜 fail-closed 澶勭悊锛屽繀椤讳腑姝級
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3fymm80a\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp_p5dhb4\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
 [freeze] meta     : 缂哄け 鈥斺€?鏃犳硶鍋?G-A 鍐呴儴瀹屾暣鎬у垽瀹?
 [freeze] VERDICT  : MISSING锛堟寜 fail-closed 澶勭悊锛屽繀椤讳腑姝級
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpiyy4yzqr\samples_frozen_20260910.jsonl
-[freeze] VERDICT  : MISSING 鈥斺€?鏍锋湰鏂囦欢涓嶅瓨鍦紙鎷掔粷鍥為€€鍒板悓鍚嶆枃浠讹級锛欳:\Users\Turn-\AppData\Local\Temp\tmpiyy4yzqr\samples_frozen_20260910.jsonl
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpv7bgtxul\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp7k2jgftn\samples_frozen_20260910.jsonl
+[freeze] VERDICT  : MISSING 鈥斺€?鏍锋湰鏂囦欢涓嶅瓨鍦紙鎷掔粷鍥為€€鍒板悓鍚嶆枃浠讹級锛欳:\Users\Turn-\AppData\Local\Temp\tmp7k2jgftn\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpil8_mw1x\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -227,7 +227,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpiwrg7xw2\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmprgu660ow\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -239,7 +239,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpb88td9wh\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpe_u54d01\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -251,7 +251,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpqsw9qbua\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp85abpfy8\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -263,7 +263,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpl71_ufwy\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6na0yby5\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -275,7 +275,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpzdqc3o7f\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp6lrujacp\samples_frozen_20260910.jsonl
 [freeze] rows     : 3
 [freeze] sha256   : d77a97e52338973197efacce9cc59801eb431c3ef0fafc284f3fc98a3ebadae2  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: f2f78372ac59d89e3f3d72dc54963dd1a036cef44b6df9e14e355e1b95a186dd  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -287,7 +287,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=d77a97e52338鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : MISMATCH 鈥斺€?G-A 澶辫触锛屽繀椤讳腑姝紝涓嶅緱缁х画澶嶇畻
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpbpb1g5te\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpcizfjkot\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -298,7 +298,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=cccc00000000鈥?
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmptpu37f81\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpvrjh1wao\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -309,7 +309,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: DRIFTED锛堜笉涓€鑷?鈬?鏈疆鏁板瓧涓庨敋瀹氬巻鍙茶疆娆?*涓嶅彲姣?*锛屾姤鍛婂繀椤诲師鏍疯褰曚笖涓嶅緱寮曠敤鍘嗗彶缁濆鍊间綔闂ㄦ锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= DRIFTED锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp3aap8u1_\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpy1nm3zis\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -320,7 +320,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpoarp4i_i\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp_eyfyo5s\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -330,9 +330,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpoarp4i_i\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp_eyfyo5s\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpr4ydf_1t\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpp5alyxhv\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -343,9 +343,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : (鏈彇鍒?
 [freeze] G-B K绾挎寚绾?: UNKNOWN锛堢己鐣欐。鎴栭噸绠楄仛鍚?sha锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=n/a鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpr4ydf_1t\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpp5alyxhv\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= UNKNOWN锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmparfa9ol_\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp2glyiv6s\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -355,9 +355,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : b5b25cd311111111111111111111111111111111111111111111111111111111
 [freeze] G-B K绾挎寚绾?: DRIFTED锛堜笉涓€鑷?鈬?鏈疆鏁板瓧涓庨敋瀹氬巻鍙茶疆娆?*涓嶅彲姣?*锛屾姤鍛婂繀椤诲師鏍疯褰曚笖涓嶅緱寮曠敤鍘嗗彶缁濆鍊间綔闂ㄦ锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmparfa9ol_\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp2glyiv6s\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= DRIFTED锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpnoy5a8am\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpx9_d93f9\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -367,9 +367,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K绾挎寚绾?: INCOMPLETE锛堝綋鍓嶇紦瀛樼己/鍧忕爜 1 椤癸紝鑱氬悎鎸囩汗鏈夌┖娲烇紝姣斿涓嶆垚绔? ['000001.json(stock:requested-missing)']锛夛紙涓嶄竴鑷?鈬?鏈疆鏁板瓧涓庨敋瀹氬巻鍙茶疆娆?*涓嶅彲姣?*锛屾姤鍛婂繀椤诲師鏍疯褰曚笖涓嶅緱寮曠敤鍘嗗彶缁濆鍊间綔闂ㄦ锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpnoy5a8am\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpx9_d93f9\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= INCOMPLETE锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp4uxf7ndp\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp38fx47mj\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -380,7 +380,7 @@ icient is not defined.
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmp0e68g3su\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpupg856fs\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -390,9 +390,9 @@ icient is not defined.
 [freeze] kfp 褰撳墠 : f5a2f60700000000000000000000000000000000000000000000000000000000
 [freeze] G-B K绾挎寚绾?: SAME
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=f5a2f6070000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmp0e68g3su\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpupg856fs\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= SAME锛?
-[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpcmgqxdbf\samples_frozen_20260910.jsonl
+[freeze] samples  : C:\Users\Turn-\AppData\Local\Temp\tmpj14anabn\samples_frozen_20260910.jsonl
 [freeze] rows     : 2
 [freeze] sha256   : 89fca06abec0921e7a0a8fb91406db044db7e0ffd7fdc4c33371a6d1fe985106  (LF 褰掍竴锛屽垽瀹氬彛寰?
 [freeze] raw-bytes: 0f46a47910690de70ad855ca2151071e5158598095fd3fd5d684f5946b109de1  (浠呰褰曪紱CRLF 宸紓涓嶅垽澶辫触)
@@ -406,7 +406,7 @@ ng: An input array is constant; the correlation coefficient is not defined.
 [freeze] kfp 褰撳墠 : aaaa000000000000000000000000000000000000000000000000000000000000
 [freeze] G-B K绾挎寚绾?: DRIFTED锛堜笉涓€鑷?鈬?鏈疆鏁板瓧涓庨敋瀹氬巻鍙茶疆娆?*涓嶅彲姣?*锛屾姤鍛婂繀椤诲師鏍疯褰曚笖涓嶅緱寮曠敤鍘嗗彶缁濆鍊间綔闂ㄦ锛?
 [freeze] triple   : code=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef samples_sha=89fca06abec0鈥?kfp=cccc00000000鈥?
-[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpcmgqxdbf\triple.json
+[freeze] 涓変欢濂楀凡钀界洏 : C:\Users\Turn-\AppData\Local\Temp\tmpj14anabn\triple.json
 [freeze] VERDICT  : PASS锛圙-A 杩囷紱鍙瘮鎬?= DRIFTED锛?
 [frozen] 娑堣垂鍐荤粨浠? samples_frozen_20260910.jsonl
 [frozen] G-A 鍐呴儴瀹屾暣鎬?: INVALID锛堝喕缁撴椂甯﹂檷绾?棰戞帶寰佸厗: ['DegradedResponse']锛?
@@ -492,16 +492,132 @@ ng: An input array is constant; the correlation coefficient is not defined.
 [ok] 闂?B 鐙珛澶嶇畻锛歱ooled 鎸囨爣锛堝惈 CI锛変笌鍐荤粨浠?+ artifact 瀛楄妭閲嶇畻鍊奸€愪綅鐩哥瓑
 [ok] validation.evidence 宸茬粦瀹氾細_explicit_entry_model.pkl
 [promotion] status=approved reason=schema v2 璇佹嵁浜旈棬鍏ㄨ繃锛坧ower/performance/baseline_edge/calibration/provenance锛夆€斺€旇瘉鎹悎鏍硷紱config.forecast.model_ready 浠嶉渶浜哄伐澶嶆牳鎺緸绾㈢嚎鍚庣疆 true
+[evening] trigger=scheduler scope=prod codes=4
+written C:\Users\Turn-\AppData\Local\Temp\tmppuxijbzt\evening.md
+appended daily_runs report (trigger=scheduler)
+[evening] trigger=manual scope=prod codes=4
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛?
+written C:\Users\Turn-\AppData\Local\Temp\tmpnvojmp19\evening.md
+appended daily_runs report (trigger=manual)
+[浼戝競璺宠繃] 2026-10-05 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmp0pk0ap8p\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmp2rvlsirh\pull_main.md
+[浼戝競璺宠繃] 2026-10-03 闈炰氦鏄撴棩锛? 璇锋眰锛涙姤鍛?C:\Users\Turn-\AppData\Local\Temp\tmpli6j3yqp\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 RuntimeError:empty_payload
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpgnv2ztqj\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[FAIL] BK0428 鐢靛姏 ThrottleSuspected:杩炵画 8 娆?
+!! BK0428 瑙﹀彂鐔旀柇锛堢枒浼奸鎺э級锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙級
+written C:\Users\Turn-\AppData\Local\Temp\tmp0qbycbu2\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpbjnluhj7\pull_main.md
+scope: prod codes: 4 force_full: False monday_full: False
+[ok 1/4] BK0428 鐢靛姏 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 2/4] BK0457 鐢电綉璁惧 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 3/4] BK0669 鐢熸€佸啘涓?incremental 20261008 appended=1 2015-01-05 2026-10-08 
+[ok 4/4] BK1173 閿傜熆姒傚康 incremental 20261008 appended=1 2015-01-05 2026-10-08 
+written C:\Users\Turn-\AppData\Local\Temp\tmpz4tcql21\pull_main.md
+target: 2026-09-04 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmpj5yer9fp\output\pull_sector_klines_pw_20260904.md
+.......................................................................................................................
+.............................................................................................usage: run_tests.py [-h] [
+--date DATE]
+run_tests.py: error: unrecognized arguments: 2026-09-04
+..usage: run_tests.py [-h] [--date DATE]
+run_tests.py: error: unrecognized arguments: --force-full
+usage: run_tests.py [-h] [--date DATE]
+
+Playwright 椤甸潰鍐?fetch 鎷夊彇涓滆储鏉垮潡 K 绾匡紙鎸囩汗鎷︽埅鏈熷厬搴曢€氶亾锛?
+
+options:
+  -h, --help   show this help message and exit
+  --date DATE  鐩爣鏃ユ湡 YYYY-MM-DD锛堣ˉ鍘嗗彶缂哄彛锛夛紱缂虹渷=浠婂ぉ(宸ヤ綔鏃?鎴栦笂涓€浜ゆ槗鏃ャ€侱8-05锛氭棫瑁镐綅缃弬鏁板凡姝讳骸锛?-help
+               鏇捐褰撴棩鏈熻Е鍙戝叏閲忔媺鍙栵級
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 FAIL stub: throttled
+[2/20] BK0002 FAIL stub: throttled
+[3/20] BK0003 FAIL stub: throttled
+[4/20] BK0004 FAIL stub: throttled
+[5/20] BK0005 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[6/20] BK0006 FAIL stub: throttled
+[7/20] BK0007 FAIL stub: throttled
+[8/20] BK0008 FAIL stub: throttled
+[9/20] BK0009 FAIL stub: throttled
+[10/20] BK0010 FAIL stub: throttled
+[warn] THROTTLE 瀚岀枒锛氳繛缁け璐?>=5锛岄噸鍚祻瑙堝櫒锛?/2锛夆€斺€旈噸鍚悗浠嶈繛璐ュ皢鎸夐搧寰?1 涓鏁磋疆
+[11/20] BK0011 FAIL stub: throttled
+[12/20] BK0012 FAIL stub: throttled
+[13/20] BK0013 FAIL stub: throttled
+[14/20] BK0014 FAIL stub: throttled
+[15/20] BK0015 FAIL stub: throttled
+!! 杩炶触 >=5 涓旈噸鍚凡鐢ㄥ敖锛?/2 娆★級锛屽垽瀹?IP 琚帎锛屾暣杞腑姝紙閾佸緥 1锛氫笉鍐嶆挒澧欙紝绛?21:30 鏅氶棿琛ユ媺鎴栦笅涓€浜ゆ槗鏃ワ級
+written C:\Users\Turn-\AppData\Local\Temp\tmp5fy0ty9b\output\pull_sector_klines_pw_20261002.md
+target: 2026-10-02 | todo: 20 of 20
+[1/20] BK0001 ok bars=2 last=2026-09-04
+[2/20] BK0002 ok bars=2 last=2026-09-04
+[3/20] BK0003 ok bars=2 last=2026-09-04
+[4/20] BK0004 ok bars=2 last=2026-09-04
+[5/20] BK0005 ok bars=2 last=2026-09-04
+[6/20] BK0006 ok bars=2 last=2026-09-04
+[7/20] BK0007 ok bars=2 last=2026-09-04
+[8/20] BK0008 ok bars=2 last=2026-09-04
+[9/20] BK0009 ok bars=2 last=2026-09-04
+[10/20] BK0010 ok bars=2 last=2026-09-04
+[11/20] BK0011 ok bars=2 last=2026-09-04
+[12/20] BK0012 ok bars=2 last=2026-09-04
+[13/20] BK0013 ok bars=2 last=2026-09-04
+[14/20] BK0014 ok bars=2 last=2026-09-04
+[15/20] BK0015 ok bars=2 last=2026-09-04
+[16/20] BK0016 ok bars=2 last=2026-09-04
+[17/20] BK0017 ok bars=2 last=2026-09-04
+[18/20] BK0018 ok bars=2 last=2026-09-04
+[19/20] BK0019 ok bars=2 last=2026-09-04
+[20/20] BK0020 ok bars=2 last=2026-09-04
+written C:\Users\Turn-\AppData\Local\Temp\tmpymsi4muc\output\pull_sector_klines_pw_20261002.md
+target: 2026-10-02 | todo: 0 of 20
+nothing to do, written C:\Users\Turn-\AppData\Local\Temp\tmpbjdsr71v\output\pull_sector_klines_pw_20261002.md
+.......................................................................................................................
+................................................
+----------------------------------------------------------------------
+Ran 891 tests in 84.121s
+
+OK
 [exit] FAILED锛坱est_crash_reason锛夆€斺€旀湰娆″凡鏈夋竻鍗曞湪妗ｏ紝涓嶉噸澶嶈惤鐩?
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20261001_153000_mid.json锛坰tatus=FAILED锛?
 [exit] FAILED锛坆oom锛夆€斺€斿厹搴曟竻鍗曞凡钀界洏锛屽紓甯稿師鏂囪 output/logs/
-.......................................................................................................................
-.......................................................................................................................
-.....................................................................................................................
-----------------------------------------------------------------------
-Ran 865 tests in 89.318s
-
-OK
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20261001_153000_post.json锛坰tatus=FAILED锛?
 [exit] FAILED锛坱est_crash_reason锛夆€斺€斿厹搴曟竻鍗曞凡钀界洏锛屽紓甯稿師鏂囪 output/logs/
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260923_145504_post.json锛坰tatus=FAILED锛?
@@ -510,13 +626,13 @@ OK
 [exit] FAILED锛坋xception:TypeError锛夆€斺€斿厹搴曟竻鍗曞凡钀界洏锛屽紓甯稿師鏂囪 output/logs/
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260923_145504_post.json锛坰tatus=FAILED锛?
 [exit] FAILED锛坋xception:TypeError锛夆€斺€斿厹搴曟竻鍗曞凡钀界洏锛屽紓甯稿師鏂囪 output/logs/
-[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpno7oa72j\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpmoeq168g\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [exit] FAILED锛坋xception:TypeError锛夆€斺€斿厹搴曟竻鍗曚害鏈惤鐩橈紝鐩戞帶渚т互銆宔xit=1 涓旀湰娆?run_id 鏃犲搴旀竻鍗曘€嶈瘑鍒?
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260923_145504_post.json锛坰tatus=SUCCESS锛?
 [exit] FAILED锛坋xception:TypeError锛夆€斺€旀湰娆″凡鏈夋竻鍗曞湪妗ｏ紝涓嶉噸澶嶈惤鐩?
-[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp022a0wk9\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpy1u21ux3\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260917_113003_mid.json锛坰tatus=SUCCESS锛?
-[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpkx1nevcd\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmp_ryxpdpp\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [exit] DEGRADED锛? 椤归檷绾э細run_manifest_write_failed锛?
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260917_113003_mid.json锛坰tatus=SUCCESS锛?
 [warn] 510300 瀹炴椂琛屾儏涓嶅彲鐢細network down
@@ -527,7 +643,7 @@ OK
 [rt  ] 159915 褰撴棩浼扮畻 -0.40%锛堝墠鍗佸ぇ瑕嗙洊 80%锛屾寔浠撴埅鑷?2026-06-30锛?
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260916_145500_post.json锛坰tatus=DEGRADED锛?
 [mani] 杩愯娓呭崟 鈫?output/run_manifest/run_manifest_20260916_183000_post.json锛坰tatus=SUCCESS锛?
-[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpgdvlc4eb\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+[warn] 杩愯娓呭崟鍐欏叆澶辫触锛堟湰娆¤繍琛屽垽涓?DEGRADED锛夛細FileNotFoundError [WinError 3] 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆? 'C:\\Users\\Turn-\\AppData\\Local\\Temp\\tmpum54r8mo\\nul\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 [obs ] 鏈厤缃?Obsidian 淇″彿娴佹按璺緞锛坣otify.obsidian_signal_log 鐣欑┖锛夆啋 璺宠繃杩藉姞
 [obs ] 褰撴棩娴佹按琛屽凡灏卞湴鏇存柊锛堝箓绛夛細涓嶈拷鍔犵浜岃锛屽綊骞?2 琛岄噸澶嶏級
 [obs ] 褰撴棩娴佹按琛屽凡灏卞湴鏇存柊锛堝箓绛夛細涓嶈拷鍔犵浜岃锛?
