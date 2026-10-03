@@ -8,7 +8,8 @@
 1. 腾讯：单页/分页拼接、跨页去重升序、页间节流被调用、**中途失败 fail-closed（P0-2）**、
    普通错误 → network: 前缀、空数据 → data: 前缀
 2. 东财：解析 + 明文 HTTP URL 契约（TLS 指纹过滤的绕行前提）+ 失败分类
-3. Tushare：无 token → skip:（不计降级）、上游 code!=0 → data:、复权合成数值正确
+3. Tushare：无 token → skip:（不计降级）、上游 code!=0 → data:、复权合成数值正确、
+   D8-07：满页后空页/页数耗尽 → 截断 fail-closed（data:，MAX_PAGES=10 兜底）
 4. classify_exc：OSError 家族 / 类名兜底（curl_cffi 不在 OSError 树下）/ 未知归 data:
 """
 import sys
@@ -224,6 +225,80 @@ class TestTushareProvider(unittest.TestCase):
         self.assertAlmostEqual(k0[2], 10.5 * 2.0 / latest)
         self.assertAlmostEqual(k0[3], 11.0 * 2.0 / latest)
         self.assertAlmostEqual(k0[4], 9.0 * 2.0 / latest)
+
+    # ---- D8-07（面 8，2026-10-03）：分页截断 fail-closed + MAX_PAGES 兜底 ----
+
+    @staticmethod
+    def _full_page(offset: int) -> list[dict]:
+        """造满页（PAGE_LIMIT 行）；trade_date 唯一且可排序。"""
+        return [{"trade_date": f"20{offset + i:06d}", "open": 1.0, "high": 1.0,
+                 "low": 1.0, "close": 1.0}
+                for i in range(stock_tushare.PAGE_LIMIT)]
+
+    def test_empty_page_after_full_page_is_truncation_not_success(self):
+        """验收口径：stub 第 2 页空且首页满页 → ok=False 且 error 含截断信息。
+
+        旧版把「满页后空页」当正常终止，截断的 daily 照常合成 ok=True；
+        现 fail-closed 归 data:（不计健康度降级，由链上下一环接手）。
+        """
+        calls = []
+
+        def fake_post(api_name, token, params, fields, *, timeout):
+            calls.append(api_name)
+            if api_name == "daily":
+                return self._full_page(params["offset"]) if params["offset"] == 0 else []
+            return [{"trade_date": "20000000", "adj_factor": 1.0}]
+
+        with mock.patch.object(stock_tushare, "_tushare_token", return_value="tk"), \
+                mock.patch.object(stock_tushare, "_post", side_effect=fake_post):
+            r = self.p.fetch(code="000001", market="0")
+        self.assertFalse(r.ok, "满页后空页不得出 ok=True（截断历史污染缓存）")
+        self.assertTrue(r.error.startswith(DATA), r.error)
+        self.assertIn("截断", r.error)
+        self.assertIn("got=3000", r.error)
+        self.assertNotIn("adj_factor", calls, "截断判定应在 adj_factor 请求之前")
+
+    def test_max_pages_exhaustion_is_truncation(self):
+        """页数耗尽（每页都满）→ TushareTruncatedError → data: 失败，不无界循环。"""
+        calls = []
+
+        def fake_post(api_name, token, params, fields, *, timeout):
+            calls.append(api_name)
+            if api_name == "daily":
+                return self._full_page(params["offset"])
+            return []
+
+        with mock.patch.object(stock_tushare, "_tushare_token", return_value="tk"), \
+                mock.patch.object(stock_tushare, "_post", side_effect=fake_post):
+            r = self.p.fetch(code="000001", market="0")
+        self.assertFalse(r.ok)
+        self.assertTrue(r.error.startswith(DATA), r.error)
+        self.assertIn("页数耗尽", r.error)
+        self.assertEqual(calls.count("daily"), stock_tushare.MAX_PAGES,
+                         "MAX_PAGES=10 兜底：不得无界循环")
+
+    def test_normal_partial_last_page_unaffected(self):
+        """正常分页（末页不满）行为不变：两页拼接后照常合成 ok=True。"""
+        page1 = self._full_page(0)                        # 满页 → 翻页
+        page2 = [{"trade_date": "20260105", "open": 10.0, "high": 11.0,
+                  "low": 9.0, "close": 10.5}]
+        adj = [{"trade_date": "20260105", "adj_factor": 2.0}]
+        calls = []
+
+        def fake_post(api_name, token, params, fields, *, timeout):
+            calls.append(api_name)
+            if api_name == "daily":
+                return page1 if params["offset"] == 0 else page2
+            return adj
+
+        with mock.patch.object(stock_tushare, "_tushare_token", return_value="tk"), \
+                mock.patch.object(stock_tushare, "_post", side_effect=fake_post):
+            r = self.p.fetch(code="000001", market="0")
+        self.assertTrue(r.ok, r.error)
+        self.assertEqual(calls.count("daily"), 2)
+        # adj_map 只含 20260105 → 合成 1 行（旧语义不变：按 trade_date 在 adj_map 过滤）
+        self.assertEqual(len(r.payload["klines"]), 1)
+        self.assertEqual(r.payload["klines"][0][0], "2026-01-05")
 
 
 class TestClassifyExc(unittest.TestCase):

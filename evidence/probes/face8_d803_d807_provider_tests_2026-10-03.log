@@ -1,0 +1,99 @@
+﻿.\.venv\Scripts\python.exe : test_empty_series_is_data_failure (tests.test_fund_datasource.TestEastmoneyFundProvider.te
+st_empty_series_is_data_failure) ... ok
+所在位置 行:11 字符: 4
++ }; .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_fund_dat ...
++    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_empty_seri...failure) ... ok:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+test_missing_trend_is_data_failure (tests.test_fund_datasource.TestEastmoneyFundProvider.test_missing_trend_is_data_fai
+lure) ... ok
+test_network_error_prefixed_network (tests.test_fund_datasource.TestEastmoneyFundProvider.test_network_error_prefixed_n
+etwork) ... ok
+test_no_url_is_data_failure (tests.test_fund_datasource.TestEastmoneyFundProvider.test_no_url_is_data_failure) ... ok
+test_parses_name_and_navs (tests.test_fund_datasource.TestEastmoneyFundProvider.test_parses_name_and_navs) ... ok
+test_all_fail_no_cache_raises (tests.test_fund_datasource.TestLoadFundChain.test_all_fail_no_cache_raises) ... ok
+test_all_fail_with_cache_is_fallback (tests.test_fund_datasource.TestLoadFundChain.test_all_fail_with_cache_is_fallback
+) ... ok
+test_eastmoney_fail_falls_back_to_sina (tests.test_fund_datasource.TestLoadFundChain.test_eastmoney_fail_falls_back_to_
+sina) ... ok
+test_eastmoney_success_marks_source (tests.test_fund_datasource.TestLoadFundChain.test_eastmoney_success_marks_source) 
+... ok
+test_ttl_cache_hit_short_circuits (tests.test_fund_datasource.TestLoadFundChain.test_ttl_cache_hit_short_circuits) ... 
+ok
+test_priority_and_category (tests.test_fund_datasource.TestProviderContract.test_priority_and_category) ... ok
+test_fetch_pingzhongdata_raises_on_failure (tests.test_fund_datasource.TestPublicSingleSource.test_fetch_pingzhongdata_
+raises_on_failure) ... ok
+test_boundary_dedup_tolerance_not_false_red (tests.test_fund_datasource.TestSinaFundProvider.test_boundary_dedup_tolera
+nce_not_false_red)
+鍘婚噸鍚庢瘮 total_num 灏?1鈥? 琛岋紙杈圭晫閲嶅彔/鏂版暟鎹Щ浣嶏級鍦ㄥ宸唴 鈫?ok銆?... ok
+test_missing_total_num_degrades_to_min_rows (tests.test_fund_datasource.TestSinaFundProvider.test_missing_total_num_deg
+rades_to_min_rows)
+total_num 瑙ｆ瀽涓嶅埌锛堜笂娓告敼鐗堬級鈫?閫€鍖?MIN_ROWS 涓嬮檺闃茬嚎锛屼笉寮曞叆鏂板亣绾€?... ok
+test_network_error_prefixed_network (tests.test_fund_datasource.TestSinaFundProvider.test_network_error_prefixed_networ
+k) ... ok
+test_parses_sorted_navs (tests.test_fund_datasource.TestSinaFundProvider.test_parses_sorted_navs) ... ok
+test_suspiciously_few_rows_is_data_failure (tests.test_fund_datasource.TestSinaFundProvider.test_suspiciously_few_rows_
+is_data_failure) ... ok
+test_total_num_satisfied_is_ok (tests.test_fund_datasource.TestSinaFundProvider.test_total_num_satisfied_is_ok)
+琛屾暟涓?total_num 涓€鑷?鈫?鐓у父 ok锛堟柊鏍￠獙涓嶈浼ゅ畬鏁村垎椤碉級銆?... ok
+test_truncated_pagination_is_data_failure_with_got_total (tests.test_fund_datasource.TestSinaFundProvider.test_truncate
+d_pagination_is_data_failure_with_got_total)
+楠屾敹鍙ｅ緞锛歴tub 棣栭〉 total_num=200銆佹椤电┖ 鈫?ok=False 涓?error 鍚?got/total銆?... ok
+test_json_decode_is_network_not_data (tests.test_datasource_providers.TestClassifyExc.test_json_decode_is_network_not_d
+ata) ... ok
+test_non_oserror_transport_is_matched_by_class_name (tests.test_datasource_providers.TestClassifyExc.test_non_oserror_t
+ransport_is_matched_by_class_name) ... ok
+test_oserror_family_is_network (tests.test_datasource_providers.TestClassifyExc.test_oserror_family_is_network) ... ok
+test_unknown_exception_is_data (tests.test_datasource_providers.TestClassifyExc.test_unknown_exception_is_data) ... ok
+test_urllib_and_http_client_errors_are_network (tests.test_datasource_providers.TestClassifyExc.test_urllib_and_http_cl
+ient_errors_are_network) ... ok
+test_parses_csv_rows (tests.test_datasource_providers.TestEastmoneyProvider.test_parses_csv_rows) ... ok
+test_short_rows_skipped_and_empty_is_data_fail (tests.test_datasource_providers.TestEastmoneyProvider.test_short_rows_s
+kipped_and_empty_is_data_fail) ... ok
+test_transport_error_is_network_prefixed (tests.test_datasource_providers.TestEastmoneyProvider.test_transport_error_is
+_network_prefixed) ... ok
+test_all_fail_raises_with_per_source_reasons (tests.test_datasource_providers.TestFetchStockKlineDelegation.test_all_fa
+il_raises_with_per_source_reasons) ... ok
+test_fallback_uses_backup_and_writes_cache (tests.test_datasource_providers.TestFetchStockKlineDelegation.test_fallback
+_uses_backup_and_writes_cache) ... ok
+test_fresh_cache_short_circuits_chain (tests.test_datasource_providers.TestFetchStockKlineDelegation.test_fresh_cache_s
+hort_circuits_chain) ... ok
+test_real_registry_order_matches_migration (tests.test_datasource_providers.TestFetchStockKlineDelegation.test_real_reg
+istry_order_matches_migration) ... ok
+test_empty_payload_is_data_prefixed (tests.test_datasource_providers.TestTencentProvider.test_empty_payload_is_data_pre
+fixed) ... ok
+test_pagination_merges_dedupes_and_sorts_ascending (tests.test_datasource_providers.TestTencentProvider.test_pagination
+_merges_dedupes_and_sorts_ascending) ... ok
+test_partial_page_data_class_failure_still_not_success (tests.test_datasource_providers.TestTencentProvider.test_partia
+l_page_data_class_failure_still_not_success)
+涓€斿け璐ヤ笖寮傚父闈炰紶杈撶被锛堝 ValueError锛夛細鍚屾牱 fail-closed锛?... ok
+test_partial_page_failure_is_not_success (tests.test_datasource_providers.TestTencentProvider.test_partial_page_failure
+_is_not_success)
+P0-2锛?026-09-23 鎺堟潈锛夛細鏌愰〉涓€斿け璐?鈬?鏁存簮鍒よ触锛屼笉杩斿洖鍗婃埅鏁版嵁銆?... ok
+test_single_page_parses_ohlc_order (tests.test_datasource_providers.TestTencentProvider.test_single_page_parses_ohlc_or
+der) ... ok
+test_transport_error_is_network_prefixed (tests.test_datasource_providers.TestTencentProvider.test_transport_error_is_n
+etwork_prefixed) ... ok
+test_api_error_is_data_prefixed (tests.test_datasource_providers.TestTushareProvider.test_api_error_is_data_prefixed) .
+.. ok
+test_empty_page_after_full_page_is_truncation_not_success (tests.test_datasource_providers.TestTushareProvider.test_emp
+ty_page_after_full_page_is_truncation_not_success)
+楠屾敹鍙ｅ緞锛歴tub 绗?2 椤电┖涓旈椤垫弧椤?鈫?ok=False 涓?error 鍚埅鏂俊鎭€?... ok
+test_forward_adjust_matches_old_formula (tests.test_datasource_providers.TestTushareProvider.test_forward_adjust_matche
+s_old_formula) ... ok
+test_max_pages_exhaustion_is_truncation (tests.test_datasource_providers.TestTushareProvider.test_max_pages_exhaustion_
+is_truncation)
+椤垫暟鑰楀敖锛堟瘡椤甸兘婊★級鈫?TushareTruncatedError 鈫?data: 澶辫触锛屼笉鏃犵晫寰幆銆?... ok
+test_missing_token_is_skip_not_failure (tests.test_datasource_providers.TestTushareProvider.test_missing_token_is_skip_
+not_failure) ... ok
+test_normal_partial_last_page_unaffected (tests.test_datasource_providers.TestTushareProvider.test_normal_partial_last_
+page_unaffected)
+姝ｅ父鍒嗛〉锛堟湯椤典笉婊★級琛屼负涓嶅彉锛氫袱椤垫嫾鎺ュ悗鐓у父鍚堟垚 ok=True銆?... ok
+test_transport_error_is_network_prefixed (tests.test_datasource_providers.TestTushareProvider.test_transport_error_is_n
+etwork_prefixed) ... ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 0.232s
+
+OK

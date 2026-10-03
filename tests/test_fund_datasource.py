@@ -7,7 +7,8 @@
 覆盖：
 1. EastmoneyFundNavProvider：正常解析 / 无 netWorthTrend → data: / 空序列 → data: /
    未注入 pz_url → data: / 网络异常 → network:
-2. SinaFundNavProvider：正常解析升序去重 / 行数可疑 → data: / 网络异常 → network:
+2. SinaFundNavProvider：正常解析升序去重 / 行数可疑 → data: / 网络异常 → network: /
+   D8-03：total_num 截断 fail-closed（got/total 入 error）/ 容差不假红 / 缺失退化
 3. 契约属性：eastmoney priority 0、sina priority 1、category=fund_nav
 4. 装配点 load_fund：东财成功→fresh+source=eastmoney；东财失败→回落→fresh+source=sina；
    全链失败+有缓存→cache:fallback；TTL 内命中→cache；fresh 不覆盖 cache 缓存三态口径
@@ -91,10 +92,13 @@ class TestSinaFundProvider(unittest.TestCase):
     def setUp(self):
         self.p = fund_sina.SinaFundNavProvider()
 
-    def _js(self, n: int):
+    def _js(self, n: int, total_num: int | None = None):
         rows = [{"fbrq": f"2026-01-{i:02d}T00:00:00", "jjjz": str(1.0 + i * 0.01)}
                 for i in range(n)]
-        return {"result": {"data": {"data": rows}}}
+        data = {"data": rows}
+        if total_num is not None:
+            data["total_num"] = total_num
+        return {"result": {"data": data}}
 
     def test_parses_sorted_navs(self):
         with mock.patch.object(fund_sina.netutil, "http_get_json",
@@ -120,6 +124,70 @@ class TestSinaFundProvider(unittest.TestCase):
             r = self.p.fetch(code="002112")
         self.assertFalse(r.ok)
         self.assertTrue(r.error.startswith(NETWORK))
+
+    # ---- D8-03（面 8，2026-10-03）：total_num fail-closed ----
+
+    def test_truncated_pagination_is_data_failure_with_got_total(self):
+        """验收口径：stub 首页 total_num=200、次页空 → ok=False 且 error 含 got/total。
+
+        P0-2 同形态：旧版把分页中途空页当正常终止，截断净值以 fresh 名义
+        静默写缓存；现 fail-closed 归 data:（不计健康度，由链上下一环接手）。
+        """
+        page1 = self._js(fund_sina.PAGE_NUM, total_num=200)   # 满页 → 翻页
+        page2 = {"result": {"data": {"data": []}}}            # 次页空 = 截断签名
+        calls = []
+
+        def fake_get(url, **kw):
+            calls.append(url)
+            return page1 if len(calls) == 1 else page2
+
+        with mock.patch.object(fund_sina.netutil, "http_get_json",
+                               side_effect=fake_get), \
+                mock.patch.object(fund_sina.time, "sleep"):
+            r = self.p.fetch(code="002112")
+        self.assertFalse(r.ok, "截断分页不得出 ok=True")
+        self.assertTrue(r.error.startswith(DATA), r.error)
+        self.assertIn("got=100", r.error)
+        self.assertIn("total=200", r.error)
+        self.assertEqual(len(calls), 2)
+
+    def test_total_num_satisfied_is_ok(self):
+        """行数与 total_num 一致 → 照常 ok（新校验不误伤完整分页）。"""
+        page1 = self._js(60, total_num=60)                    # 末页不满 → 正常终止
+        with mock.patch.object(fund_sina.netutil, "http_get_json",
+                               return_value=page1):
+            r = self.p.fetch(code="002112")
+        self.assertTrue(r.ok, r.error)
+        self.assertEqual(len(r.payload["navs"]), 60)
+
+    def test_boundary_dedup_tolerance_not_false_red(self):
+        """去重后比 total_num 少 1–2 行（边界重叠/新数据移位）在容差内 → ok。"""
+        rows = [{"fbrq": f"2026-01-{i:02d}T00:00:00", "jjjz": "1.0"}
+                for i in range(1, 61)]
+        rows.append(rows[0])                                  # 重复行 → 去重后 60
+        js = {"result": {"data": {"data": rows, "total_num": 62}}}
+        with mock.patch.object(fund_sina.netutil, "http_get_json",
+                               return_value=js):
+            r = self.p.fetch(code="002112")
+        self.assertTrue(r.ok, f"容差 max(2,0.5%) 内不得假红：{r.error}")
+
+    def test_missing_total_num_degrades_to_min_rows(self):
+        """total_num 解析不到（上游改版）→ 退化 MIN_ROWS 下限防线，不引入新假红。"""
+        self.assertEqual(fund_sina._extract_total_num({"result": {}}), 0)
+        self.assertEqual(fund_sina._extract_total_num({}), 0)
+        # 多候选路径都能读到
+        self.assertEqual(fund_sina._extract_total_num(
+            {"result": {"data": {"total_num": "2637"}}}), 2637)
+        self.assertEqual(fund_sina._extract_total_num(
+            {"result": {"total_num": 2637}}), 2637)
+        # 非法值 → 0（退化）
+        self.assertEqual(fund_sina._extract_total_num(
+            {"result": {"data": {"total_num": "abc"}}}), 0)
+        # 无 total_num 的完整分页（既有行为）仍 ok
+        with mock.patch.object(fund_sina.netutil, "http_get_json",
+                               return_value=self._js(60)):
+            r = self.p.fetch(code="002112")
+        self.assertTrue(r.ok, r.error)
 
 
 class TestProviderContract(unittest.TestCase):
