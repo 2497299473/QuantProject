@@ -315,8 +315,10 @@ def _selftest() -> int:
     #    D-06：收敛到 core.no_net_guard 的审计轨（block_construction=True，
     #    即原「构造即拒绝」语义；异常类型由 AssertionError 变为 NoNetViolation
     #    ——同为 Exception 子类，下面的 except 与判定逻辑不变）。
+    #    D8-08（面 8，2026-10-03）：加 block_curl=True 封 curl_cffi 的 libcurl
+    #    C 层旁路（prime_eastmoney_session 静默降级）——审计轨应堵全部出网通道。
     _restore_g = no_net_guard.install("面板生成本路径不得发起网络连接",
-                                      block_construction=True)
+                                      block_construction=True, block_curl=True)
     try:
         loaded = _load_series()
     except Exception as e:                       # noqa: BLE001
@@ -360,9 +362,11 @@ def main(argv=None) -> int:
     # _load_series 未装——防「生产性联网」的那道缺失。当前 _load_series 纯读缓存
     # json（零网络路径），守卫用审计轨（block_construction=True）零成本；未来若有人
     # 给缓存缺失加「自动拉取」便利分支，当场 NoNetViolation 报错退出，而非静默触网。
+    # D8-08（面 8，2026-10-03）：加 block_curl=True 封 curl_cffi C 层旁路——
+    # prime 的主页 GET 发生在任何 socket 尝试之前，socket 守卫看不见它。
     _restore_main = no_net_guard.install(
         "[build_panel_dlite] 主流程零网络作业（只读已刷新缓存；缓存缺失=报错退出，"
-        "不得回退拉取）", block_construction=True)
+        "不得回退拉取）", block_construction=True, block_curl=True)
 
     started = datetime.now()
     tag = args.date or started.strftime("%Y%m%d")

@@ -14,6 +14,16 @@
   （有的只拦 connect、有的拦构造、有的还拦 create_connection），
   UDP sendto 全部漏拦。单一实现后行为一致、缺口统一补上。
 
+已知缺口与 block_curl 档（D8-08，面 8 审计 2026-10-03）：
+- 本守卫只封 Python socket 层；**curl_cffi 走 libcurl C 层完全不受拦**。
+  接线时序：东财请求的 prime 主页调用发生在任何被守卫可见的 socket 尝试
+  **之前**（netutil._open_with_retry 先 prime 后 _request_once）⇒ 守卫进程若误调
+  netutil 的东财 GET，native 路径会被拦（NoNetViolation 非 retryable → 不进
+  curl 兑底），但 prime 的 curl_cffi 主页包已先发出。
+- block_curl=True：install 时一并把 `netutil._load_curl_cffi` 替换为返回 None
+  的桩 → prime 静默降级（返回 bool(_em_cookie)，0 次真实 GET）、curl 兑底路径
+  失效；restore 还原。审计轨（block_construction=True 的装载点）应同时启用。
+
 用法：
     from core import no_net_guard
     restore = no_net_guard.install("[脚本名] 零网络作业")
@@ -22,8 +32,8 @@
     finally:
         no_net_guard.restore(restore)      # 长驻脚本可不 restore（进程级纪律）
 
-    # 审计轨（更严：连构造都拒绝，装载路径实测用）：
-    restore = no_net_guard.install(msg, block_construction=True)
+    # 审计轨（更严：连构造都拒绝 + 封 curl_cffi C 层旁路，装载路径实测用）：
+    restore = no_net_guard.install(msg, block_construction=True, block_curl=True)
 """
 from __future__ import annotations
 
@@ -56,7 +66,8 @@ def _make_guard(msg: str, block_construction: bool):
     return _NoNet
 
 
-def install(msg: str | None = None, block_construction: bool = False) -> Callable[[], None]:
+def install(msg: str | None = None, block_construction: bool = False,
+            block_curl: bool = False) -> Callable[[], None]:
     """装上守卫，返回 restore 可调用（幂等：restore 可重复调用）。
 
     block_construction=False（缺省）：socket.socket(...) 可构造但一切出网
@@ -64,6 +75,13 @@ def install(msg: str | None = None, block_construction: bool = False) -> Callabl
     block_construction=True（审计轨）：构造即抛——「装载路径不得出现任何
     socket 意图」的最严口径（原 build_panel_dlite 语义）。
     同时封锁 socket.create_connection（requests/urllib3 连接池入口）。
+
+    block_curl=True（D8-08，面 8）：一并封 curl_cffi 的 libcurl C 层旁路——
+    把 `netutil._load_curl_cffi` 替换为返回 None 的桩，prime_eastmoney_session
+    静默降级（返回 bool(_em_cookie)，0 次真实主页 GET）、http_get* 的浏览器
+    指纹兑底失效。不碰 socket 层行为；restore 时还原原函数（幂等）。
+    惰性 import netutil（core/__init__ 已加载它，无循环依赖；未用过 netutil
+    的进程也不会因守卫而多拉一个重模块）。
     """
     text = msg or DEFAULT_MSG
     guard = _make_guard(text, block_construction)
@@ -76,20 +94,37 @@ def install(msg: str | None = None, block_construction: bool = False) -> Callabl
     socket.socket = guard                    # type: ignore[misc]
     socket.create_connection = _deny_cc      # type: ignore[assignment]
 
+    orig_load_curl_cffi = None
+    if block_curl:
+        from . import netutil                # 惰性：避免模块层 import 顺序耦合
+
+        orig_load_curl_cffi = netutil._load_curl_cffi
+        netutil._load_curl_cffi = lambda: None   # prime/兑底静默降级（桩不出网）
+
     def restore() -> None:
         socket.socket = orig_socket          # type: ignore[misc]
         socket.create_connection = orig_create_connection  # type: ignore[assignment]
+        if orig_load_curl_cffi is not None:
+            from . import netutil
+
+            netutil._load_curl_cffi = orig_load_curl_cffi
 
     return restore
 
 
-def selftest(msg: str = "selftest") -> tuple[bool, str]:
+def selftest(msg: str = "selftest", block_curl: bool = False) -> tuple[bool, str]:
     """守卫行为自检（供各脚本 --selftest 复用，取代各自手写的拦截实测）。
 
     返回 (ok, detail)：connect 与 sendto 都必须报 NoNetViolation 而非 OS 错
     （对 127.0.0.1:1 发包：无守卫时是 ConnectionRefusedError，有守卫时是我方异常）。
+
+    block_curl=True 时追加第三项检查（D8-08 验收）：netutil._load_curl_cffi
+    被桩替换（返回 None）且 prime_eastmoney_session(force=True) 返回 False、
+    0 次真实主页 GET（桩返回 None → prime 直接降级，不依赖 curl_cffi 是否安装）。
+    prime 前临时清空 netutil 的 cookie 状态、检完还原（不污染长驻进程状态）。
+    缺省 block_curl=False 时行为与旧版逐项一致（既有装载点不受影响）。
     """
-    restore = install(msg)
+    restore = install(msg, block_curl=block_curl)
     try:
         results = {}
         for probe in ("connect", "sendto"):
@@ -104,6 +139,22 @@ def selftest(msg: str = "selftest") -> tuple[bool, str]:
                 results[probe] = "blocked"
             except OSError as e:               # 守卫失效 ⇒ OS 层错误穿透
                 results[probe] = f"OS:{type(e).__name__}"
+        if block_curl:
+            from . import netutil
+
+            saved = (netutil._em_cookie, netutil._em_cookie_at,
+                     netutil._em_last_prime)
+            try:
+                netutil._em_cookie = ""
+                netutil._em_cookie_at = 0.0
+                netutil._em_last_prime = 0.0
+                primed = netutil.prime_eastmoney_session(force=True)
+                stub_ok = netutil._load_curl_cffi() is None
+                results["curl_cffi"] = ("blocked" if (primed is False and stub_ok)
+                                        else "NOT_BLOCKED")
+            finally:
+                (netutil._em_cookie, netutil._em_cookie_at,
+                 netutil._em_last_prime) = saved
         ok = all(v == "blocked" for v in results.values())
         return ok, str(results)
     finally:

@@ -76,6 +76,7 @@ LAYERS: dict[str, str] = {
     "test_data_fingerprint.py": SLOW,
     "test_dataset_snapshot_scope.py": FAST,   # V4.1 ①：环检测纯逻辑；现场只读 manifest
     "test_nav_fallback_degraded.py": FAST,    # V4.1 ③：tempdir + 内存结构，零网络
+    "test_no_net_guard.py": FAST,   # 面 8 D8-08：block_curl 档封 curl_cffi C 层旁路 + 既有装载点行为不变；守卫拦截只对 127.0.0.1:1 且被拦在 Python 层，curl 侧全桩零出网
     "test_forecast.py": SLOW,
     "test_forecast_lifecycle.py": SLOW,
     "test_forecast_split.py": SLOW,
