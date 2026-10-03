@@ -11,6 +11,13 @@ UTF-8 BOM / 行内注释），旧版解析有缺陷会让备源永远空转。
    被归为网络类；现归 DATA 类（确定性失败，不降级）。
 2. Tushare 返回 `code != 0`（token 无效 / 积分不足）→ 归 DATA 类，不再算网络抖动。
 
+**D8-07（面 8 审计，2026-10-03）**：D8-03 同形态残留修复——
+- `daily` 分页旧版 `while True` 无页数上限，且「满页后次页空」被当正常终止，
+  截断的 daily 照常合成前复权并 ok=True；
+- 现加 MAX_PAGES=10 兜底（10×3000=30000 行，覆盖 2015→今 ≈2600 行绰绰有余）；
+- 截断判据（fail-closed，归 DATA 不降级）：末页满页但循环因空页/页数耗尽而终止
+  → `data:...截断` 失败，由链上下一环接手；正常终止（末页不满页）不受影响。
+
 注：Tushare 不进入任何**决策**备选（MEMORY.md 2026-09-17：积分通道不在决策范围），
 此处仅作日 K 取数的最后兜底。
 """
@@ -28,10 +35,15 @@ from ... import netutil
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]   # .../QuantV1
 START_DATE = "20150101"
 PAGE_LIMIT = 3000
+MAX_PAGES = 10       # D8-07：分页兜底上限（10×3000=30000 行，远超 2015→今实际量）
 
 
 class TushareApiError(ValueError):
     """Tushare 返回 code != 0：确定性失败（token / 积分 / 参数），非网络抖动。"""
+
+
+class TushareTruncatedError(ValueError):
+    """D8-07：daily 分页截断（满页后空页/页数耗尽）——确定性失败，不得合成半截历史。"""
 
 
 def _tushare_token() -> str:
@@ -82,19 +94,34 @@ def _fmt(trade_date: str) -> str:
 
 
 def _fetch_klines(code: str, market: str, token: str, *, timeout: int) -> list[tuple]:
-    """daily + adj_factor 合成前复权；空结果返回 []（由调用方转 DATA 类失败）。"""
+    """daily + adj_factor 合成前复权；空结果返回 []（由调用方转 DATA 类失败）。
+
+    D8-07：分页截断 fail-closed——末页满页但次页空（或页数耗尽）抛
+    TushareTruncatedError（调用方归 DATA），不把截断历史当成功合成。
+    """
     ts_code = tushare_code(code, market)
     daily: list[dict] = []
     offset = 0
-    while True:
+    truncated = False
+    for _ in range(MAX_PAGES):
         page = _post("daily", token,
                      {"ts_code": ts_code, "start_date": START_DATE,
                       "offset": offset, "limit": PAGE_LIMIT},
                      "trade_date,open,high,low,close", timeout=timeout)
+        if not page:
+            # 满页之后紧跟空页 = 截断签名（D8-07）；首页即空 = 无数据（旧语义）
+            truncated = bool(daily)
+            break
         daily += page
         if len(page) < PAGE_LIMIT:
-            break
+            break                       # 末页不满 → 正常终止
         offset += PAGE_LIMIT
+    else:
+        truncated = True                # 页数耗尽且末页仍满 → 截断（MAX_PAGES 兜底）
+    if truncated:
+        raise TushareTruncatedError(
+            f"daily 分页截断 got={len(daily)}（满页后空页/页数耗尽，"
+            f"MAX_PAGES={MAX_PAGES}）")
     adj = _post("adj_factor", token,
                 {"ts_code": ts_code, "start_date": START_DATE},
                 "trade_date,adj_factor", timeout=timeout)
@@ -126,7 +153,7 @@ class TushareKlineProvider:
                                latency_ms=int((time.monotonic() - started) * 1000))
         try:
             klines = _fetch_klines(code, market, token, timeout=int(self.timeout_s))
-        except TushareApiError as exc:
+        except (TushareApiError, TushareTruncatedError) as exc:
             return FetchResult(ok=False, source=self.name, error=f"{DATA}{exc}",
                                latency_ms=int((time.monotonic() - started) * 1000))
         except Exception as exc:  # noqa: BLE001 —— 契约：失败转 FetchResult，不上抛
