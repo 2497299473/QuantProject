@@ -5,6 +5,7 @@
 - _is_retryable 分类（4xx/5xx 不重试、ECONNREFUSED 不重试、断连/重置/SSL/超时重试）
 - http_get 实际绕过环境变量死代理（本地 http.server + 死端口代理）
 - http_get 瞬断重试后恢复
+- wire_attempts 真实发包计数（面 8 D8-09：本地 http.server 断连，retries=2 → ≥3）
 """
 import http.client
 import http.server
@@ -125,6 +126,44 @@ class TestHttpGet(unittest.TestCase):
         try:
             with self.assertRaises(Exception):
                 netutil.http_get(url, retries=0)
+        finally:
+            srv.shutdown()
+
+
+class TestWireAttemptsLoopback(unittest.TestCase):
+    """D8-09 验收口径：本地 http.server 断连，retries=2 场景 wire_attempts ≥ 3。
+
+    真实 socket 路径（loopback，零外网）；熔断/wire 状态机级别的确定性断言
+    见 tests/test_netutil_breaker.py（fast 层，全 mock）。
+    """
+
+    def setUp(self):
+        netutil.breaker_reset()
+        netutil.reset_wire_attempts()
+
+    def tearDown(self):
+        netutil.breaker_reset()
+        netutil.reset_wire_attempts()
+
+    def test_retries2_all_disconnect_counts_at_least_three(self):
+        _FlakyHandler.fail_times = 100        # 永远断连（不发响应）
+        srv, url = _serve(_FlakyHandler)
+        try:
+            with self.assertRaises(Exception):
+                netutil.http_get(url, retries=2, backoff=0.01)
+            self.assertGreaterEqual(netutil.wire_attempts(), 3,
+                                    "retries=2 全失败 → 至少 3 次真实发包")
+        finally:
+            srv.shutdown()
+
+    def test_breaker_not_open_below_threshold(self):
+        """3 次连续失败（< K=8）不得误开熔断：上抛的仍是连接层原异常。"""
+        _FlakyHandler.fail_times = 100
+        srv, url = _serve(_FlakyHandler)
+        try:
+            with self.assertRaises(Exception) as ctx:
+                netutil.http_get(url, retries=2, backoff=0.01)
+            self.assertNotIsInstance(ctx.exception, netutil.ThrottleSuspected)
         finally:
             srv.shutdown()
 

@@ -41,9 +41,31 @@ API：
     与 IP/WSL/cookie 均无关；真实 Chromium 是目前唯一确认可通过的路径
     （Playwright/自托管 Firecrawl），换数据源（腾讯 K 线）可彻底绕开。
 
+  v6（2026-10-03，面 8 审计 D8-02/D8-06/D8-09）：
+  - **host 级熔断器（D8-02）**：频控实测签名是连接层异常（RemoteDisconnected/
+    ERR_EMPTY_RESPONSE），旧版把它们全当「瞬断」重试+逐 IP failover+curl_cffi
+    兜底 ⇒ 一次逻辑 GET(retries=2) 放大成 ~3N+1 次真实发包——09-08「五轮全灭」
+    的机制载体。现同 host 连续 K(=8) 次连接层失败即熔断：抛 ThrottleSuspected
+    （不可重试、不进 curl 兜底），后续同 host 调用 **0 建连** 快速失败；
+    TTL(=30min) 后自动半开恢复；任一次成功立即清零。HTTP 4xx/5xx 与
+    ECONNREFUSED 不计入（服务端明确响应/无人监听 ≠ 频控签名）。状态进程内、
+    不落盘（与 datasource HealthTracker 同口径）。
+    # ponytail: 熔断只覆盖原生路径；curl_cffi 兜底与 prime 主页请求不计数
+    （prime 的放大由 D8-06 的 300s 退避抑制，兜底本身每逻辑请求至多 1 次）。
+  - **prime 退避（D8-06）**：旧版 cookie 种不上时每个东财逻辑请求前都真实 GET
+    一次 quote 主页（按逻辑请求数线性重播），且「距上次种 cookie 超 300s 强制
+    重种」分支因入口无条件刷新 _em_last_prime 而永不可达（死代码+注释误导）。
+    现入口先检查距上次 prime 是否满 _REPRIME_GAP(300s)，未满直接返回——失败
+    重播被抑制，强制重种分支恢复可达，docstring 与行为一致。
+  - **wire_attempts 计数（D8-09）**：进程级真实发包计数（每次建连/curl_cffi GET/
+    prime 主页 GET 各 +1）。pull 系脚本报告的「东财请求数」是逻辑口径，不含
+    重试/failover/兜底的真实发包；预算纪律（铁律 7 第 2 闸门「当日请求数」）
+    需要 wire 口径，否则系统性低估。
+
 重试/容错边界（诚实记录）：
 - 连接层瞬断（断连/重置/SSL 层/超时）→ 先 IP failover（同请求内），
   再时间重试（retries 次，backoff 递增）；
+- 同 host 连续连接层失败达 K → 熔断（ThrottleSuspected 快速失败，见 v6）；
 - HTTP 4xx/5xx 不重试不 failover——服务端已明确响应；
 - ConnectionRefused（无人监听）不重试——立即失败；
 - 仅用于幂等调用（数据 GET / Tushare 只读查询）。推送类请勿用重试 API。
@@ -61,6 +83,80 @@ import urllib.parse
 import urllib.request
 
 _DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
+
+# ------------------------------------------------ 熔断器（v6，D8-02）
+
+class ThrottleSuspected(RuntimeError):
+    """同 host 连接层失败达阈值 → 疑似 IP 级频控（铁律 1），熔断快速失败。
+
+    刻意不继承 OSError：_is_retryable 对它返回 False（不进时间重试/curl 兜底），
+    datasource base.classify_exc 经类名注册表归 network:（计入健康度降级）。
+    """
+
+
+_BREAKER_K = 8             # 同 host 连续连接层失败阈值（面 8 审计 D8-02 建议值）
+_BREAKER_TTL = 1800.0      # 熔断保持 30 分钟，到期自动半开（下一次调用放行试探）
+_breaker_fails: dict[str, int] = {}
+_breaker_opened_at: dict[str, float] = {}
+
+
+def _breaker_check(host: str) -> None:
+    """熔断中 → 抛 ThrottleSuspected（0 建连）。TTL 过期 → 清态放行（半开）。"""
+    opened = _breaker_opened_at.get(host)
+    if opened is None:
+        return
+    if time.time() - opened > _BREAKER_TTL:
+        _breaker_fails.pop(host, None)
+        _breaker_opened_at.pop(host, None)
+        return
+    raise ThrottleSuspected(
+        f"{host}: 连续 {_BREAKER_K} 次连接层失败，疑似频控（铁律 1），"
+        f"熔断 {int(_BREAKER_TTL // 60)}min 内快速失败")
+
+
+def _breaker_fail(host: str) -> None:
+    """记一次连接层失败；达阈值即开闸。"""
+    n = _breaker_fails.get(host, 0) + 1
+    _breaker_fails[host] = n
+    if n >= _BREAKER_K and host not in _breaker_opened_at:
+        _breaker_opened_at[host] = time.time()
+
+
+def _breaker_ok(host: str) -> None:
+    """任一次成功 → 连续计数清零（恢复）。"""
+    _breaker_fails.pop(host, None)
+
+
+def breaker_reset(host: str | None = None) -> None:
+    """显式复位（测试/人工确认频控解除后恢复用）。host=None → 全部。"""
+    if host is None:
+        _breaker_fails.clear()
+        _breaker_opened_at.clear()
+    else:
+        _breaker_fails.pop(host, None)
+        _breaker_opened_at.pop(host, None)
+
+
+# ------------------------------------------------ wire 发包计数（v6，D8-09）
+
+_wire_attempts = 0
+
+
+def wire_attempts() -> int:
+    """进程级真实发包计数（建连/curl_cffi GET/prime 主页 GET 各 +1）。"""
+    return _wire_attempts
+
+
+def reset_wire_attempts() -> None:
+    global _wire_attempts
+    _wire_attempts = 0
+
+
+def _wire_bump() -> None:
+    global _wire_attempts
+    _wire_attempts += 1
+
 
 # ------------------------------------------------ 东财 cookie 会话（v5）
 _EM_SESSION_URL = "https://quote.eastmoney.com/"
@@ -81,9 +177,14 @@ def prime_eastmoney_session(force: bool = False) -> bool:
 
     成功返回 True；失败保留旧 cookie（若有）。TTL 窗口内不重复访问；
     force=True 强制重种。任何异常都只降级、不上抛（保持 v4 行为）。
+
+    D8-06（v6）：入口先过 _REPRIME_GAP(300s) 退避——cookie 种不上时不再按
+    逻辑请求数线性重播主页 GET；force=True 跳过硬退避但仍刷新 _em_last_prime。
     """
     global _em_cookie, _em_cookie_at, _em_last_prime
     now = time.time()
+    if not force and now - _em_last_prime < _REPRIME_GAP:
+        return bool(_em_cookie)   # 300s 内已试过（成功或失败）：不重播主页 GET
     _em_last_prime = now
     if not force and _em_cookie and now - _em_cookie_at < _EM_COOKIE_TTL:
         return True
@@ -91,6 +192,7 @@ def prime_eastmoney_session(force: bool = False) -> bool:
     if cc is None:
         return bool(_em_cookie)
     try:
+        _wire_bump()
         r = cc.get(_EM_SESSION_URL, impersonate="chrome", timeout=15)
         pairs: list[str] = []
         cookies = getattr(r, "cookies", None)
@@ -149,6 +251,7 @@ def _curl_cffi_get(url: str, headers: dict, timeout: int) -> bytes:
     last: Exception | None = None
     for imp in _CURL_IMPERSONATE:
         try:
+            _wire_bump()
             r = cc.get(url, headers=headers, timeout=timeout,
                        impersonate=imp)
             if r.status_code >= 400:
@@ -247,8 +350,10 @@ def _request_once(url: str, data: bytes | None, headers: dict,
 
     last: Exception | None = None
     for fam, ip in _resolve_candidates(host, port):
+        _breaker_check(host)      # 熔断中 → ThrottleSuspected 上抛（0 建连）
         conn = None
         try:
+            _wire_bump()
             conn = _conn_for(host, port, fam, ip, is_https, timeout)
             conn.request("POST" if data is not None else "GET",
                          path, body=data, headers=headers)
@@ -257,11 +362,14 @@ def _request_once(url: str, data: bytes | None, headers: dict,
             if resp.status >= 400:
                 raise urllib.error.HTTPError(
                     url, resp.status, resp.reason or "", {}, None)
+            _breaker_ok(host)     # 成功 → 连续失败清零
             return body
         except urllib.error.HTTPError:
-            raise
+            raise                 # 服务端明确响应：不计入熔断（非频控签名）
         except Exception as e:  # noqa: BLE001 —— 断连/SSL/超时/reset → failover
             last = e
+            if _is_retryable(e):
+                _breaker_fail(host)   # 连接层失败才计数；达 K 后下一次 check 抛
         finally:
             if conn is not None:
                 try:
@@ -294,6 +402,7 @@ def _open_with_retry(url: str, data: bytes | None, headers: dict,
                      timeout: int, retries: int, backoff: float) -> bytes:
     last: Exception | None = None
     host = urllib.parse.urlsplit(url).hostname or ""
+    _breaker_check(host)          # 熔断中：0 建连、0 prime，直接快速失败（D8-02）
     if _em_host_ok(host):
         prime_eastmoney_session()
     for attempt in range(retries + 1):
@@ -306,7 +415,9 @@ def _open_with_retry(url: str, data: bytes | None, headers: dict,
                 continue
             break
     assert last is not None
-    # 原生栈穷尽且属连接层错误 → cookie 超 300s 则强制重种再走一轮（v5）。
+    # 原生栈穷尽且属连接层错误 → cookie 超 300s 则强制重种再走一轮（v5；
+    # D8-06 修复后本分支真实可达：入口 prime 有 300s 退避，重试风暴中
+    # _em_last_prime 不再被每次请求刷新）。
     if (_em_host_ok(host) and data is None and retries > 0
             and _is_retryable(last)
             and time.time() - _em_last_prime > _REPRIME_GAP):
