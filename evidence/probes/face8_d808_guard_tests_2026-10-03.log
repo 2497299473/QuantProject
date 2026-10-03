@@ -1,0 +1,59 @@
+.\.venv\Scripts\python.exe : test_build_panel_dlite_both_points_enable_block_curl (tests.test_no_net_guard.TestAuditTra
+ckWiring.test_build_panel_dlite_both_points_enable_block_curl) ... ok
+所在位置 行:1 字符: 1
++ .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_no_net_guar ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_build_pane...ck_curl) ... ok:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+test_default_track_points_unchanged (tests.test_no_net_guard.TestAuditTrackWiring.test_default_track_points_unchanged)
+缂虹渷杞ㄤ笁澶勶紙drift_monitor/backtest_*脳2锛変繚鎸?block_curl 缂虹渷鈥斺€?... ok
+test_prime_cookie_state_not_polluted (tests.test_no_net_guard.TestBlockCurl.test_prime_cookie_state_not_polluted)
+selftest 鐨?prime 妫€鏌ヤ笉寰楁敼鍐欒繘绋?cookie 鐘舵€侊紙闀块┗杩涚▼绾緥锛夈€?... D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceW
+arning: unclosed <core.no_net_guard._make_guard.<locals>._NoNet fd=192, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:90: ResourceWarning: unclosed <core.no_net_guard._make_guard.<local
+s>._NoNet fd=364, family=2, type=1, proto=0>
+  ok, _ = no_net_guard.selftest(block_curl=True)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_prime_returns_false_and_zero_curl_calls (tests.test_no_net_guard.TestBlockCurl.test_prime_returns_false_and_zero_c
+url_calls) ... ok
+test_restore_returns_original_loader (tests.test_no_net_guard.TestBlockCurl.test_restore_returns_original_loader) ... o
+k
+test_selftest_extension_reports_curl_blocked (tests.test_no_net_guard.TestBlockCurl.test_selftest_extension_reports_cur
+l_blocked) ... D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceWarning: unclosed <core.no_net_guard._make_gu
+ard.<locals>._NoNet fd=364, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:70: ResourceWarning: unclosed <core.no_net_guard._make_guard.<local
+s>._NoNet fd=376, family=2, type=1, proto=0>
+  ok, detail = no_net_guard.selftest("[test] block_curl selftest",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_block_construction_still_works (tests.test_no_net_guard.TestDefaultUnaffected.test_block_construction_still_works)
+ ... ok
+test_default_selftest_shape_unchanged (tests.test_no_net_guard.TestDefaultUnaffected.test_default_selftest_shape_unchan
+ged) ... D:\PythonProject\QuantV1\core\no_net_guard.py:132: ResourceWarning: unclosed <core.no_net_guard._make_guard.<l
+ocals>._NoNet fd=376, family=2, type=1, proto=0>
+  s = socket.socket()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+D:\PythonProject\QuantV1\tests\test_no_net_guard.py:109: ResourceWarning: unclosed <core.no_net_guard._make_guard.<loca
+ls>._NoNet fd=364, family=2, type=1, proto=0>
+  ok, detail = no_net_guard.selftest("[test] 缂虹渷")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_loader_untouched_by_default_install (tests.test_no_net_guard.TestDefaultUnaffected.test_loader_untouched_by_defaul
+t_install) ... ok
+test_socket_guard_still_works_with_default (tests.test_no_net_guard.TestDefaultUnaffected.test_socket_guard_still_works
+_with_default) ... C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\case.py:589: 
+ResourceWarning: unclosed <core.no_net_guard._make_guard.<locals>._NoNet fd=364, family=2, type=1, proto=0>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.053s
+
+OK
