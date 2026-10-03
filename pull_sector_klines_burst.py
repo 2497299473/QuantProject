@@ -19,10 +19,14 @@ V3 改造（output/V3_data_layer_plan_20260908.md 第三节）
 - 限速 SLEEP=2.5s，回调内不再重试；FAIL 不写缓存（不产生半成品）。
 
 用法（全局 Python，venv 无 playwright）：
-  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py                    # prod 4 码
-  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py --scope full       # 回滚路径
-  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py --limit 15         # 小批量试水
+  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py --authorized       # 人工授权后
+  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py                  # 裸跑拒绝（码 3）
+  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py --authorized --scope full  # 回滚路径
+  D:\\Python\\python.exe -X utf8 pull_sector_klines_burst.py --authorized --limit 15    # 小批量试水
 报告：output/pull_sector_klines_burst_YYYYMMDD.md（独立文件，不覆盖 pw 报告）
+
+D8-04（面 8，选项 1）：本脚本为人工兜底通道（无计划任务入口），任何执行都须
+--authorized 显式授权（铁律 7 四闸门 + Summer 批准）；裸跑拒绝、0 网络请求。
 """
 import argparse
 import time
@@ -31,9 +35,9 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from pull_sector_klines import (OUT_DIR as _MAIN_CACHE, SCOPES,  # noqa: F401
-                                fetch_and_store, is_weekly_full_day,
-                                load_codes)
+from pull_sector_klines import (AUTH_REQUIRED_MSG, OUT_DIR as _MAIN_CACHE,  # noqa: F401
+                                SCOPES, fetch_and_store,  # noqa: F401
+                                is_weekly_full_day, load_codes)
 
 BASE = Path(__file__).resolve().parent
 CACHE = BASE / 'data' / 'sector_klines'
@@ -66,7 +70,15 @@ def main(argv=None):
     ap.add_argument('--date', default=None)
     ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--force-full', action='store_true')
+    ap.add_argument('--authorized', action='store_true',
+                    help='D8-04 授权旗标（面 8 选项 1）：burst 是人工兜底通道，'
+                         '无 scheduler 路径，一律须显式授权后使用')
     args = ap.parse_args(argv)
+
+    # D8-04 授权闸门：先于任何网络路径（load_codes/load_old/sync_playwright 均未触达）。
+    if not args.authorized:
+        print(AUTH_REQUIRED_MSG, flush=True)
+        raise SystemExit(3)
 
     target = args.date or (date.today() if date.today().weekday() < 5
                            else _last_weekday()).isoformat()

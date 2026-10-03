@@ -14,6 +14,9 @@
 3. D8-02 ThrottleSuspected → fetch_and_store detail 标 throttled=True；
    main()/evening main() 遇 throttled 整轮中止（后续码不再调用）+ 报告 aborted=THROTTLE。
 4. D8-09 报告汇总含 wire_attempts=（真实发包口径），且算术为 delta（终点-起点）。
+5. D8-04（选项 1，2026-10-03）授权闸门：主/evening 裸跑（无旗标）拒绝退出码 3、
+   0 次 fetch_and_store 调用；manual+--authorized 放行；scheduler 免 authorized；
+   闸门先于休市守卫（无授权时休市日也不进入报告路径）。
 """
 import sys
 import tempfile
@@ -120,7 +123,7 @@ class TestMainHolidayGuard(_MainHarness):
 
     def test_holiday_skips_with_zero_fetch(self):
         self._stub_store(lambda bk, today: _ok_detail(bk, today))
-        P.main(['--date', '2026-10-05'])            # 国庆休市（周一）
+        P.main(['--date', '2026-10-05', '--authorized'])            # 国庆休市（周一）
         self.assertEqual(self.calls, [], "休市日必须 0 次 fetch_and_store 调用")
         rep = self._report()
         self.assertIn('休市跳过', rep)
@@ -130,15 +133,52 @@ class TestMainHolidayGuard(_MainHarness):
 
     def test_trading_day_proceeds(self):
         self._stub_store(lambda bk, today: _ok_detail(bk, today))
-        P.main(['--date', '2026-10-08'])            # 周四，正常交易日
+        P.main(['--date', '2026-10-08', '--authorized'])          # 周四，正常交易日
         self.assertEqual(len(self.calls), 4, "prod 4 码应逐个调用")
         self.assertNotIn('休市跳过', self._report())
 
     def test_weekend_skips(self):
         self._stub_store(lambda bk, today: _ok_detail(bk, today))
-        P.main(['--date', '2026-10-03'])            # 周六
+        P.main(['--date', '2026-10-03', '--authorized'])          # 周六
         self.assertEqual(self.calls, [])
         self.assertIn('休市跳过', self._report())
+
+
+class TestAuthGate(_MainHarness):
+    """D8-04（选项 1）验收：裸跑拒绝、旗标放行、闸门先于休市守卫。"""
+
+    def test_bare_run_rejected_exit3_zero_fetch(self):
+        """裸跑（无旗标）→ 退出码 3、0 次 fetch_and_store、不写报告（网络路径未触达）。"""
+        self._stub_store(lambda bk, today: _ok_detail(bk, today))
+        with self.assertRaises(SystemExit) as ctx:
+            P.main([])
+        self.assertEqual(ctx.exception.code, 3)
+        self.assertEqual(self.calls, [], "闸门拒绝时不得触达任何拉取路径")
+        self.assertFalse(P.OUT_MD.exists(), "拒绝路径不写报告（未进入主流程）")
+
+    def test_manual_with_authorized_flag_proceeds(self):
+        """manual + --authorized → 放行（人工授权路径行为与旧版一致）。"""
+        self._stub_store(lambda bk, today: _ok_detail(bk, today))
+        P.main(['--date', '2026-10-08', '--authorized'])
+        self.assertEqual(len(self.calls), 4)
+
+    def test_scheduler_trigger_bypasses_authorized(self):
+        """scheduler 触发免 authorized（16:00 cron 传参路径，不必加第二个旗标）。"""
+        self._stub_store(lambda bk, today: _ok_detail(bk, today))
+        P.main(['--date', '2026-10-08', '--trigger', 'scheduler'])
+        self.assertEqual(len(self.calls), 4)
+
+    def test_gate_precedes_holiday_guard(self):
+        """闸门先于休市守卫：无授权时休市日也不进入「休市跳过」报告路径。
+
+        反证法：若闸门在休市守卫之后，裸跑休市日会写「休市跳过」报告（无网络但
+        有副作用）；本用例钉住闸门在最前，拒绝时零副作用。"""
+        self._stub_store(lambda bk, today: _ok_detail(bk, today))
+        with self.assertRaises(SystemExit) as ctx:
+            P.main(['--date', '2026-10-05'])            # 国庆休市 + 裸跑
+        self.assertEqual(ctx.exception.code, 3)
+        self.assertEqual(self.calls, [])
+        self.assertFalse(P.OUT_MD.exists(), "拒绝时休市守卫也不得被触达（闸门最前）")
 
 
 class TestThrottleAbort(_MainHarness):
@@ -153,7 +193,7 @@ class TestThrottleAbort(_MainHarness):
                         'throttled': True, 'requests': 1}
             return _ok_detail(bk, today)
         self._stub_store(detail)
-        P.main(['--date', '2026-10-08'])
+        P.main(['--date', '2026-10-08', '--authorized'])
         self.assertEqual(len(self.calls), 1, "熔断后必须整轮中止（不得继续下一码）")
         rep = self._report()
         self.assertIn('aborted=THROTTLE', rep)
@@ -169,7 +209,7 @@ class TestThrottleAbort(_MainHarness):
                         'requests': 1}
             return _ok_detail(bk, today)
         self._stub_store(detail)
-        P.main(['--date', '2026-10-08'])
+        P.main(['--date', '2026-10-08', '--authorized'])
         self.assertEqual(len(self.calls), 4, "普通 FAIL 不得中止整轮")
         self.assertNotIn('aborted=THROTTLE', self._report())
 
@@ -208,7 +248,7 @@ class TestWireAttemptsInReport(_MainHarness):
                 netutil._wire_bump()
             return _ok_detail(bk, today, requests=1)
         self._stub_store(detail)
-        P.main(['--date', '2026-10-08'])
+        P.main(['--date', '2026-10-08', '--authorized'])
         rep = self._report()
         self.assertIn('wire_attempts=', rep)
         self.assertIn('wire_attempts=12', rep)       # 4 码 × 3 次真实发包
@@ -223,7 +263,7 @@ class TestWireAttemptsInReport(_MainHarness):
             netutil._wire_bump()
             return _ok_detail(bk, today)
         self._stub_store(detail)
-        P.main(['--date', '2026-10-08'])
+        P.main(['--date', '2026-10-08', '--authorized'])
         self.assertIn('wire_attempts=4', self._report())
         self.assertNotIn('wire_attempts=104', self._report())
 
@@ -284,7 +324,7 @@ class TestEveningThrottleAbort(unittest.TestCase):
                     'note': '', 'error': 'ThrottleSuspected:x', 'throttled': True,
                     'requests': 1}
         self._stub_store(detail)
-        E.main(['--trigger', 'manual'])
+        E.main(['--trigger', 'manual', '--authorized'])
         self.assertEqual(len(self.calls), 1, "熔断后整轮中止")
         self.assertIn('aborted=THROTTLE', E.OUT_MD.read_text(encoding='utf-8'))
         zr = E.ZRUNS_MD.read_text(encoding='utf-8')
@@ -299,6 +339,44 @@ class TestEveningThrottleAbort(unittest.TestCase):
         self.assertNotIn('aborted=', rep)
         self.assertIn('wire_attempts=', rep)
         self.assertIn('- **执行方式**=scheduler', E.ZRUNS_MD.read_text(encoding='utf-8'))
+
+
+class TestEveningAuthGate(unittest.TestCase):
+    """D8-04（选项 1）：evening 授权闸门——manual 默认拒绝、旗标/scheduler 放行。"""
+
+    def test_manual_without_authorized_rejected(self):
+        """旧默认路径死亡：`--trigger manual`（旧合法用法）现须配 --authorized。"""
+        with self.assertRaises(SystemExit) as ctx:
+            E.main(['--trigger', 'manual'])
+        self.assertEqual(ctx.exception.code, 3)
+
+    def test_bare_run_rejected(self):
+        with self.assertRaises(SystemExit) as ctx:
+            E.main([])
+        self.assertEqual(ctx.exception.code, 3)
+
+    def test_manual_with_authorized_proceeds(self):
+        """manual+--authorized 放行（桩掉日历/落盘/快照，隔离真实环境）。"""
+        tmp = tempfile.TemporaryDirectory()
+        orig = {k: getattr(E, k) for k in
+                ('is_trading_day', 'fetch_and_store', 'OUT_MD', 'ZRUNS_MD',
+                 'CACHE', 'SLEEP', '_task_snapshot')}
+        calls = []
+        try:
+            E.is_trading_day = lambda *a, **k: True
+            E.fetch_and_store = lambda *a, **k: (
+                calls.append(a[0]), _ok_detail(a[0], 'x'))[1]
+            E.OUT_MD = Path(tmp.name) / 'e.md'
+            E.ZRUNS_MD = Path(tmp.name) / 'z.md'
+            E.CACHE = Path(tmp.name)
+            E.SLEEP = 0
+            E._task_snapshot = lambda: 'unavailable'
+            E.main(['--trigger', 'manual', '--authorized'])
+            self.assertEqual(len(calls), 4, "授权后 manual 路径照常拉取")
+        finally:
+            for k, v in orig.items():
+                setattr(E, k, v)
+            tmp.cleanup()
 
 
 if __name__ == '__main__':

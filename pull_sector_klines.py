@@ -26,6 +26,11 @@ V3 改造（依据 output/V3_data_layer_plan_20260908.md 第三节，Summer 2026
 - D8-02（面 8）：某码触发 netutil 熔断（ThrottleSuspected）→ 整轮中止（对齐 burst
   MAX_CONSEC 语义），报告记 aborted=THROTTLE，不再逐码撞被掐接口。
 - D8-09（面 8）：报告汇总行附 netutil.wire_attempts()（真实发包数，区别于逻辑请求数）。
+- D8-04（面 8，Summer 2026-10-03 裁决选项 1）：加授权闸门——裸跑（无旗标）拒绝
+  退出码 3、0 网络请求。铁律 7 四项征兆闸门/11:20 时间盒不进本脚本（生产 16:00
+  通道由 cron 任务文本传 --trigger scheduler 排除）；本闸门只回答「这次执行有没有
+  人显式授权」，把「误触发即真发请求」改成「误触发最多浪费一次进程启动」。
+  对齐 drift_monitor 双旗标与 evening --trigger 惯例。
 
 本模块同时是共享逻辑的唯一出处（load_codes / plan_beg / merge_klines /
 fetch_and_store / make_rec / is_trading_day），evening 与 burst 脚本一律 import 复用，
@@ -36,8 +41,8 @@ fetch_and_store / make_rec / is_trading_day），evening 与 burst 脚本一律 
       否则审计时无法区分「没拉」和「不需要拉」）。
 
 用法：
-  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines.py                 # prod 4 码
-  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines.py --scope full    # 回滚路径
+  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines.py --trigger scheduler   # 16:00 cron 生产通道（prod 4 码）
+  .\\.venv\\Scripts\\python.exe -X utf8 pull_sector_klines.py --authorized --scope full    # 回滚路径（人工授权）
 """
 import argparse
 import json
@@ -58,6 +63,13 @@ TODAY = date.today().isoformat()
 OOS_START = '2020-01-01'
 SLEEP = 2.0
 SOURCE_DEFAULT = 'push2his.eastmoney.com'
+
+# D8-04（面 8，选项 1）授权闸门提示文本（evening/burst 复用 import；pw 自持本地副本）
+AUTH_REQUIRED_MSG = (
+    '[拒绝] 东财拉取需显式授权（铁律 7/8，面 8 D8-04 选项 1，2026-10-03）：\n'
+    '  - 计划任务通道：--trigger scheduler（16:00 cron / 21:30 计划任务传参）\n'
+    '  - 人工执行：--authorized（须已过铁律 7 四项征兆闸门并获 Summer 批准）\n'
+    '裸跑一律拒绝：退出码 3，本次未发出任何网络请求。')
 
 # ---------------------------------------------------------------- P0-1 抓取范围
 FULL_BEG = '20150101'          # 全量窗口起点（≈12 年）
@@ -320,7 +332,19 @@ def main(argv=None):
     ap.add_argument('--force-full', action='store_true',
                     help='所有码强制全量 2015→今（回退/对照用）')
     ap.add_argument('--date', default=None, help='覆盖 today（测试/补历史用）')
+    ap.add_argument('--trigger', choices=('scheduler', 'manual'), default='manual',
+                    help='执行方式（D8-04）。scheduler=计划任务通道（免 authorized）；'
+                         'manual（默认）必须配 --authorized')
+    ap.add_argument('--authorized', action='store_true',
+                    help='D8-04 授权旗标：确认本次执行已获显式授权（人工须过铁律 7 四闸门）')
     args = ap.parse_args(argv)
+
+    # D8-04 授权闸门：先于任何网络路径（load_codes/拉取均未触达）。
+    # scheduler=计划生产通道（cron/ps1 文本传参）；manual 必须显式 --authorized。
+    # 退出码 3 对齐 drift_monitor 的「拒绝执行」语义。
+    if args.trigger != 'scheduler' and not args.authorized:
+        print(AUTH_REQUIRED_MSG, flush=True)
+        raise SystemExit(3)
 
     today = args.date or TODAY
     codes = load_codes(args.scope)

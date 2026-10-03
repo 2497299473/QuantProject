@@ -59,6 +59,16 @@
         **禁止当晚 21:30 后临场改道补刷**。
    - **禁止**：为凑结果自动重试 / 三连跑 / 盲跑 pw 兜底 / 把上述四项判断交给定时器「假装判断」。
    - 提醒类任务（`reminder` 静态文本，不调模型、不碰网络）不属本条第 2 项约束范围，可照常定时。
+   - **授权闸门已代码化（面 8 D8-04，2026-10-03 Summer 裁决选项 1）**：
+     `pull_sector_klines.py` / `pull_sector_klines_evening.py` 加
+     `--trigger scheduler|manual`（manual 默认须配 `--authorized`）；
+     `pull_sector_klines_burst.py` / `pull_sector_klines_pw.py` 一律须 `--authorized`。
+     裸跑拒绝退出码 3、0 网络请求（闸门先于任何拉取路径，先于休市守卫）。
+     生产通道：16:00 cron 传 `--trigger scheduler`（fa6d9cdd，2026-10-03 已改）；
+     21:30 计划任务传 `--trigger scheduler`（install_scheduled_tasks.ps1，原有）。
+     四闸门/时间盒判断仍归人工与 agent 纪律，不进这四个脚本（防坏传感器停摆生产）。
+     同日 16:00 cron 任务文本三合一：diag 解释器改全局 Python；
+     ③ 加 aborted=THROTTLE 例外（熔断轮次不原样重跑，防新进程清零熔断后再撞）。
 8. **含网络脚本只做零副作用自检（2026-09-18 立，源于当晚 21:50 误跑事故）**：
    凡调用链会发东财/外部 HTTP 请求的脚本（`load_samples` 系、`pull*`、`probe*`、`freeze_samples.py`
    、`drift_monitor.py --fresh`（2026-09-30 补，D5-F2：名单外等价物，经 resolve_samples→load_samples

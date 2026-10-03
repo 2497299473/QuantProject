@@ -11,6 +11,7 @@
 - python3 pull_sector_klines_pw.py                      # TARGET=今天(工作日)或上一交易日
 - python3 pull_sector_klines_pw.py --date 2026-09-04    # 显式指定目标日期（补历史缺口）
 - python3 pull_sector_klines_pw.py --help               # 安全退出（码 0，0 次 playwright 启动）
+- python3 pull_sector_klines_pw.py                      # 裸跑 → 拒绝（码 3，0 网络）
 
 纪律：限速 >=2s；FAIL 跳过不中断；缓存 last==TARGET 则 skip；
 连续 5 失败重启浏览器（D8-05：封顶 MAX_RESTARTS=2，达上限仍连败 → 判定 IP 被掐
@@ -22,6 +23,11 @@ D8-05（面 8，2026-10-03）：旧版 sys.argv[1] 直读日期 —— `--help` 
 「--help 属零副作用自检」前提；同型事故已实际发生一次（2026-10-02 01:35，
 diag 脚本 secid=90.--help 真实发请求）。argparse 化后未知参数直接报错退出，
 --help 在解析层安全退出（码 0，不触达 sync_playwright）。
+
+D8-04（面 8，Summer 2026-10-03 裁决选项 1）：授权闸门——本脚本跑在全局 Python 下
+（不能 import 项目模块），闸门消息本地自持；任何执行（含 --date 路径）都须
+--authorized 显式授权；裸跑拒绝退出码 3、0 次浏览器启动、0 网络请求。
+铁律 1 明令禁盲跑 pw（09-05/09-08 事故），本闸门把「盲跑」从纪律约束升为代码强制。
 """
 import argparse
 import json
@@ -41,6 +47,13 @@ OOS_START = '2020-01-01'
 SLEEP = 2.0
 MAX_RESTARTS = 2      # D8-05：连败重启封顶（旧版无上限，65 码理论最多 13 轮重启）
 FIELDS = ['date', 'open', 'close', 'high', 'low', 'volume']
+
+# D8-04（选项 1）授权闸门提示（本地自持：全局 Python 运行环境不能 import 项目模块）
+AUTH_REQUIRED_MSG = (
+    '[拒绝] 东财拉取需显式授权（铁律 7/8，面 8 D8-04 选项 1，2026-10-03）：\n'
+    '  pw 兑底是人工通道（铁律 1 禁盲跑）：加 --authorized 并确认已过铁律 7 四项征兆闸门\n'
+    '  （上游已跑完/无频控征兆/无并行拉取/在时间盒内）且获 Summer 批准。\n'
+    '裸跑一律拒绝：退出码 3，本次未启动浏览器、未发出任何网络请求。')
 
 
 def _last_weekday():
@@ -66,7 +79,14 @@ def main(argv=None):
     ap.add_argument('--date', default=None,
                     help='目标日期 YYYY-MM-DD（补历史缺口）；缺省=今天(工作日)或上一交易日。'
                          'D8-05：旧裸位置参数已死亡（--help 曾被当日期触发全量拉取）')
+    ap.add_argument('--authorized', action='store_true',
+                    help='D8-04 授权旗标：pw 兑底必须人工显式授权（铁律 7 四闸门 + 批准）')
     args = ap.parse_args(argv)
+
+    # D8-04 授权闸门：先于任何网络路径（load_codes/sync_playwright 均未触达）。
+    if not args.authorized:
+        print(AUTH_REQUIRED_MSG, flush=True)
+        raise SystemExit(3)
     TARGET = args.date or (date.today() if date.today().weekday() < 5
                            else _last_weekday()).isoformat()
     OUT_MD = BASE / 'output' / ('pull_sector_klines_pw_' + TARGET.replace('-', '') + '.md')
