@@ -23,6 +23,8 @@ output/*.log
 output/*.md
 # 例外：预注册文属判据证据（先写死再跑必须可被提交历史自证），不随 output/*.md 一并忽略
 !output/forecast_lab_prereg_*.md
+# 逐次运行留档：2026-10-04 裁决「一律不入库」（output/*.md 只匹配直属层，管不到本子目录）
+output/daily_runs/
 output/logs/
 output/backups/
 # 数据备份目录（本地刷新前的安全副本，可再生，绝不入库）
