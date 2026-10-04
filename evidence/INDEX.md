@@ -44,6 +44,7 @@
 | 2026-10-03 | 面 8 D8-03/07 批 2 自测（fund_sina total_num + tushare 截断 fail-closed） | `probes/face8_d803_d807_provider_tests_2026-10-03.log` + `probes/face8_fast_layer_batch2_2026-10-03.log` | FRESH | 两 provider 测试 **44/44 OK**（含 7 新用例：sina 截断 got/total、容差不假红、缺失退化 MIN_ROWS；tushare 满页后空页截断、MAX_PAGES=10 兜底、正常末页不受影响）；fast 全层 **865 OK**（858+7，零回归）；total_num 路径未核实（无落档原始响应）→ 防御式多候选读取，解析不到退化现状防线不假红 |
 | 2026-10-03 | 面 8 D8-02/06/09 批 1 自测（netutil v6 熔断器/prime 退避/wire 计数） | `probes/face8_d802_d806_d809_breaker_tests_2026-10-03.log` + `probes/face8_d809_netutil_loopback_2026-10-03.log` + `probes/face8_fast_layer_batch1_2026-10-03.log` | FRESH | 新增 test_netutil_breaker（fast，全 mock 零网络零 DNS 零建连）**14/14 OK**；test_netutil 扩 wire 用例（loopback 本地 http.server，零外网）**12/12 OK**；fast 全层 **858 OK**（844 既有+14 新增，零回归）；熔断验收：K=8 后同 host 0 建连快速失败、4xx/ECONNREFUSED 不计数、TTL 半开、成功清零 |
 | 2026-10-03 | 面 8（网络数据域）Phase 1 基线指纹（Agent B，commit `baab86c`） | `probes/face8_baseline_fingerprint_2026-10-03.log` | FRESH | 在审 13 文件 + providers 7 文件 sha256 基线；纯只读采集（未运行任何 pull*/probe* 脚本，含 --help），供 Phase 2 期间自证与 A 核验「无基线漂移」；git status 确认工作区改动全部位于 data//output/，在审代码零未提交改动 |
+| 2026-10-03 | 面 8 slow 层 `tests/test_netutil` 单独复跑（时点 16:47:55，HEAD=`c87bd3c`） | `probes/face8_final_slow_netutil_2026-10-03.log` | FRESH | **Ran 12 tests in 3.619s — OK**（D8-02/06/09 的 v6 熔断器 / prime 退避 / wire_attempts loopback 用例全覆盖，零外网）；⚠️ 时点在 `66cc0c0`（netutil 行尾 LF 还原，16:58:06）**之前**，故本件**不构成「交付版字节」权威终态**，仅作面 8 收口前 slow 子集复跑留档——全量权威在上一行 `face8_all_final_lf`（1131）；log 首段 stderr 为 PowerShell 包装层 NativeCommandError + 控制台 mojibake，非测试失败 |
 | 2026-10-01 | 面 6 测试语义修复 · 终态自测（commit `13dbfca`） | `probes/face6_fast_final_2026-10-01.log` + `probes/face6_all_final_2026-10-01.log` + `probes/face6_selftest_summary_2026-10-01.meta.json` | FRESH | fast **844 OK (skipped=0)**；--all **1072 FAILED (failures=1, skipped=3)**——唯一失败 test_no_heavy_import_side_effect 为基线固有（下方 stash 同环境对照证明，归跨域 backlog）；summary meta 含七组注入验证归因与产品码零改动证明 |
 | 2026-10-01 | 面 6 · 终态自测的中间态留档（after_fix） | `probes/face6_fast_after_fix_2026-10-01.log` + `probes/face6_all_after_fix_2026-10-01.log` | SUPERSEDED（被上行 final 取代；字节数相同 46856/268560，sha 仅差计时串，已复核） | fast 844 OK / --all 1072 FAILED(failures=1, skipped=3)，结论与 final 一致 |
 | 2026-10-01 | 面 6 · --all 失败归因对照（stash 同环境基线） | `probes/face6_all_stash_baseline_2026-10-01.log` | FRESH | stash 本轮改动后 **1064 tests 同样 failures=1** 且失败点相同 ⇒ 该失败为基线固有、非本轮引入（+8 用例零新增失败） |
@@ -63,9 +64,11 @@
 | 2026-09-29 | 面 2 · D-01 malformed 探针前后对照 | `probes/d01_malformed_probe.py` + `probes/d01_probe_prefix_589dc22.log` + `probes/d01_probe_postfix.log` | FRESH | prefix=修复前 `589dc22`：类型污染（'abc'/'1'/True）被放行；postfix=修复后全部 REJECTED（malformed_registry_protocol_version 等）——旧路径死亡证明 |
 | 2026-09-28 | 审计 D 批修复自测（D-01/02/03/05/06/07/09） | `probes/audit_d_batch_selftest_20260928.log` + `probes/audit_d_batch_selftest_20260928.meta.json` | FRESH | fast 692 OK / slow 188 OK / audit 零 stderr；P1-2 FAIL 为既有预留项非本批引入 |
 
-> 落档核对（2026-10-01，D7-04）：`git ls-files evidence/probes` 的 **40/40** 个文件已全部在上表登记；
-> 探针输出**已全部迁入**（40 文件入库）。原「探针输出仍在 output/（gitignored），后续按需迁入」占位行
-> 已被面 2-6 批次的实际入库证伪，按审计裁定删除。
+> 落档核对（2026-10-04，面 8 收口后补记）：`evidence/probes` 共 **56** 个文件已全部在上表登记。
+> `face8_final_slow_netutil_2026-10-03.log` 是面 8 收口时漏登记的一份（有文件、未入库、未登记），
+> 2026-10-04 按协议 v1.4 R-3「问题单与证据必须落档」补入并登记（见上表 10-03 行）；
+> 此前 D7-04（2026-10-01）的 40/40 记录随面 8 批次扩张至此更新。
+> 原「探针输出仍在 output/（gitignored），后续按需迁入」占位行已被实际入库证伪，按审计裁定删除。
 
 ## incidents/ · 事故取证
 

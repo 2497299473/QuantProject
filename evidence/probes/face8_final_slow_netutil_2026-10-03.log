@@ -1,0 +1,41 @@
+.\.venv\Scripts\python.exe : test_bypasses_dead_env_proxy (tests.test_netutil.TestHttpGet.test_bypasses_dead_env_proxy)
+所在位置 行:1 字符: 1
++ .\.venv\Scripts\python.exe -X utf8 -m unittest tests.test_netutil -v  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_bypasses_d...dead_env_proxy):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+鐜鍙橀噺鎸囧悜姝讳唬鐞嗙鍙ｏ紙127.0.0.1:9 鏃犵洃鍚級鏃朵粛蹇呴』鐩磋繛鎴愬姛銆?... C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86
+_64-none\Lib\unittest\case.py:589: ResourceWarning: unclosed <socket.socket fd=372, family=2, type=1, proto=0, laddr=('
+127.0.0.1', 7358)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_no_retry_on_hard_failure (tests.test_netutil.TestHttpGet.test_no_retry_on_hard_failure)
+retries=0 鏃剁灛鏂洿鎺ヤ笂鎶涳紙涓嶅悶閿欙級銆?... C:\Users\Turn-\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittes
+t\case.py:589: ResourceWarning: unclosed <socket.socket fd=736, family=2, type=1, proto=0, laddr=('127.0.0.1', 7360)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_retry_recovers_from_remote_disconnect (tests.test_netutil.TestHttpGet.test_retry_recovers_from_remote_disconnect) 
+... ok
+test_conn_refused_not_retryable (tests.test_netutil.TestIsRetryable.test_conn_refused_not_retryable) ... ok
+test_http_error_not_retryable (tests.test_netutil.TestIsRetryable.test_http_error_not_retryable) ... ok
+test_transient_errors_retryable (tests.test_netutil.TestIsRetryable.test_transient_errors_retryable) ... ok
+test_installed_on_socket (tests.test_netutil.TestSortV4First.test_installed_on_socket) ... ok
+test_mixed_v6_first_input (tests.test_netutil.TestSortV4First.test_mixed_v6_first_input) ... ok
+test_single_entry_unchanged (tests.test_netutil.TestSortV4First.test_single_entry_unchanged) ... ok
+test_v4_only_unchanged (tests.test_netutil.TestSortV4First.test_v4_only_unchanged) ... ok
+test_breaker_not_open_below_threshold (tests.test_netutil.TestWireAttemptsLoopback.test_breaker_not_open_below_threshol
+d)
+3 娆¤繛缁け璐ワ紙< K=8锛変笉寰楄寮€鐔旀柇锛氫笂鎶涚殑浠嶆槸杩炴帴灞傚師寮傚父銆?... <frozen importlib._bootstrap>:162: ResourceWarning: unclosed <socket
+.socket fd=372, family=2, type=1, proto=0, laddr=('127.0.0.1', 7362)>
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_retries2_all_disconnect_counts_at_least_three (tests.test_netutil.TestWireAttemptsLoopback.test_retries2_all_disco
+nnect_counts_at_least_three) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 3.619s
+
+OK
