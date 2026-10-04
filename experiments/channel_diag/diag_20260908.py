@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""单码通道诊断：区分「东财 IP 频控」与「CORS 跨域拦截」。
+r"""单码通道诊断：区分「东财 IP 频控」与「CORS 跨域拦截」。
 
 背景（2026-09-08 16:00 事件）：
 - 原生 HTTP：64/65 RemoteDisconnected（连接层被掐）
@@ -18,8 +18,12 @@ D JSONP（cb= 回调，script 标签注入，无 CORS）—— 备选修复路�
 - B 成功 → 不是 IP 频控，是 CORS/指纹问题，兜底脚本改「导航取数」即可救活
 - B 失败且报 net::ERR_* → 确实 IP/连接层被掐，本地脚本换姿势无用
 用法：D:\Python\python.exe -X utf8 experiments\channel_diag\diag_20260908.py [BK0428]
+      （2026-10-04 argparse 化，D8-05 同型：--help 只打印用法、退出码 0、0 请求；
+       未知旗标与非「BK+4 位数字」位置参数退出码 2 拒绝，先于任何网络路径）
 """
+import argparse
 import json
+import re
 import sys
 import time
 import urllib.error
@@ -27,7 +31,26 @@ import urllib.request
 
 from playwright.sync_api import sync_playwright
 
-BK = sys.argv[1] if len(sys.argv) > 1 else 'BK0428'
+
+def _parse_args(argv=None):
+    """解析命令行（2026-10-04 拆雷，D8-05 同型）：--help 安全退出，非法参数 fail-closed。
+
+    旧版在此直读命令行第 1 个参数，`--help` 会被当 BK 码拼成 secid=90.--help
+    真实发请求（2026-10-02 01:35 事故本体）。本函数先于任何网络路径执行：
+    --help → 打印用法退出码 0；未知旗标 / 非「BK+4 位数字」→ 退出码 2。
+    """
+    ap = argparse.ArgumentParser(
+        prog='diag_20260908.py',
+        description='单码通道诊断（会真实发东财请求并启动无头浏览器）：区分 IP 频控与 CORS 跨域')
+    ap.add_argument('bk', nargs='?', default='BK0428',
+                    help='BK 板块码，形如 BK0428（缺省 BK0428）')
+    args = ap.parse_args(argv)
+    if not re.fullmatch(r'BK\d{4}', args.bk):
+        ap.error('非法 BK 码：%r（期望形如 BK0428）' % args.bk)
+    return args
+
+
+BK = _parse_args().bk
 API = ('https://push2his.eastmoney.com/api/qt/stock/kline/get'
        '?secid=90.' + BK +
        '&klt=101&fqt=1&beg=20150101&end=20500101'
