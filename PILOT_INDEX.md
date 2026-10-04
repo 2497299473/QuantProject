@@ -97,10 +97,11 @@ G-A·G-B 原样记录）。
 - `tests/layers.py:77` 注释与 tempdir 实现不符 —— 面 6 域
 - `test_shadow_policy` 模块级 import 污染 `sys.modules`（`--all` 顺序耦合假红根因）—— 面 6 登记
 - `output/daily_runs/` 入库口径 —— ✅ **2026-10-04 已裁决：一律不入库**（`.gitignore` + 16 份撤跟踪，见 §3）
-- **两处 `--help` 地雷仍在库中（2026-10-04 实查，代码侧未修）**：
-  `experiments/channel_diag/diag_20260908.py:30`（无 argparse，`BK = sys.argv[1]`，即 2026-10-02 01:35
-  事故本体）与 `probe_t1_pool.py`（无 argparse、不解析参数，任何参数被忽略后**直接跑全量探测**）。
-  面 8 `D8-05` 只修了 `pull_sector_klines_pw.py`；规则侧已由协议 v1.4 `R-4` 与 `AGENTS.md`
-  铁律 8 兜底，**代码侧建议 argparse 化，或从 16:00 cron ④ 移除 diag 入口**。
+- **两处 `--help` 地雷——✅ 2026-10-04 代码侧已拆（收口复盘裁决落地）**：
+  `probe_t1_pool.py` 退役至 `experiments/retired/`（git mv 保留历史；一次性探测，
+  输出写死 20260902 文件名，定时任务零引用）；`experiments/channel_diag/diag_20260908.py`
+  argparse 化（D8-05 同型：`--help` 退出码 0 零请求、未知旗标/非法 BK 码退出码 2
+  先于网络路径；cron ④ 的位置参数用法不变；新增 `tests/test_diag_channel.py` 并登记 fast 层）。
+  10-02 01:35 事故载体至此清零；协议 v1.4 `R-4` 与 `AGENTS.md` 铁律 8 规则侧继续有效。
 - 面 7 违规触网事件（2026-10-02 01:35，`experiments/channel_diag/diag_20260908.py`
   把 `--help` 当业务参数真实发出请求）：Summer 裁定**记入报告即可，不另立 incidents 条目、不建 incidents/ 目录**

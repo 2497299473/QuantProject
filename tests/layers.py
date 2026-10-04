@@ -89,6 +89,7 @@ LAYERS: dict[str, str] = {
     "test_pull_sector_klines.py": FAST,   # 面 8 D8-01/02/04/09：休市守卫/熔断中止/授权闸门/wire 报告；打桩 fetch_and_store + tempdir，绝不运行脚本本体（铁律 8）
     "test_pull_sector_klines_pw.py": FAST,   # 面 8 D8-05/04：--help 安全退出/裸位置参数死亡/重启封顶/授权闸门；假 playwright 注入，0 真实浏览器 0 网络
     "test_pull_sector_klines_burst.py": FAST,   # 面 8 D8-04：burst 授权闸门/旗标放行语义不变；假 playwright 注入，0 真实浏览器 0 网络
+    "test_diag_channel.py": FAST,   # 2026-10-04 拆雷：diag_20260908 argparse 化（--help 0 请求/未知旗标与非法 BK 码退出码 2）；假 playwright 注入，0 真实浏览器 0 网络
     "test_path_and_store.py": SLOW,
     "test_pit.py": SLOW,
     "test_provenance_binding.py": SLOW,
