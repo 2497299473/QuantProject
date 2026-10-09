@@ -22,9 +22,20 @@
         "3": {"rank_ic": 0.002, "ric_ci": [-0.061, 0.066], "decision": "rejected"},
         "5": {"rank_ic": 0.08, "ric_ci": [0.017, 0.142], "decision": "approved"}
       },
-      "expiry": "2026-10-12",
+      "expiry": "2026-12-31",
       "granted_at": "2026-09-13",
-      "review_nodes": ["2026-09-26 季度证据重估", "2026-10-12 expiry（到期未复核=自动阻断）"]
+      "review_nodes": ["2026-09-26 季度证据重估", "2026-10-12 expiry（到期未复核=自动阻断）", "2026-12-31 expiry（第二次到期复核）；候选 D 面板落地即提前重估，先到先审"],
+      "renewals": [
+        {
+          "renewed_at": "2026-10-09",
+          "previous_expiry": "2026-10-12",
+          "new_expiry": "2026-12-31",
+          "authorized_by": "Summer（2026-10-09 21:14 feishu 拍板「续期」）",
+          "review_report": "output/forecast_lab_prereg_renewal_20261009.md",
+          "review_report_sha256": "2949169b6a3134f4548bf34c9c3f780573726d37a6df1375ed6d8536615e5a5f",
+          "note": "PR-20260913-01 触发动作1；20交易日门槛未达标(15/20)，依据=结构性不可达论证未推翻+链连续性价值，非『证据已可用』"
+        }
+      ]
     }
   }
 }
