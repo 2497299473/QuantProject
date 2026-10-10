@@ -58,7 +58,7 @@
 - AB 对抗审计 面 1-7 修复批次: **面 1-6 已完成（2026-09-28 ~ 10-01，625af6a..72f8fbc）、面 7 文档域已完成（baab86c，2026-10-02）**（面1 审计状态机 D 批 `625af6a`+`a2c19dd` / 面2 registry malformed fail-closed `25d3817` / 面3 证据与血缘 D3 批 `09b52fe`+`cf6a9c8`（P1-2 FAIL→WARN 档案化）/ 面4 PIT/时间一致性 `d8ca111` / 面5 生产接线 `2089d54` / 面6 测试语义 `1312bd3..13dbfca`+基线留档 `72f8fbc` / 面7 文档域 `baab86c`（问题单 D7-01~D7-15，目标漂移专项结论=无漂移）；落档实跑数：面5 fast 838 OK / slow 226 OK(skipped=3)，面6 fast 844 OK(skipped=0) / --all 1072（failures=1 系基线固有已归因，skipped=3）——原始输出见 evidence/probes/ 的 d5_*_20260930.log 与 face6_*_2026-10-01.log；**试点总索引见 `PILOT_INDEX.md`**）
 - Forecast/Policy 整合: **LOCKED**（Market Context 仅描述性标签，不进 Forecast、不进 Policy、不改任何门禁）
 - Intraday delta: **DATA ACCUMULATION**（配对日 < 15 门槛，不产 verdict）
-- 重估记录: **2026-09-26 阶段性复核——阶段 1 停手，未产出新结论**（样本冻结 SNAPSHOT_INVALID：688 段个股数据缺失触发硬闸门 exit 1，canonical 三件套未发布，详见 output/daily_runs/2026-09-30.md 待拍板节。原复核范围 = 数据源稳定性 + Market Context 首批样本质量 + Forecast 既有证据重估，**≠ 晋升评估**；Market Context 晋升仍在满 60 有效交易日后）。**下一次节点待 Summer 拍板**（调度层该 job 下次触发 2026-10-26，不会自动补跑）
+- 重估记录: **2026-09-26 阶段性复核——阶段 1 停手，未产出新结论**（样本冻结 SNAPSHOT_INVALID：688 段个股数据缺失触发硬闸门 exit 1，canonical 三件套未发布，详见 output/daily_runs/2026-09-30.md 待拍板节。原复核范围 = 数据源稳定性 + Market Context 首批样本质量 + Forecast 既有证据重估，**≠ 晋升评估**；Market Context 晋升仍在满 60 有效交易日后）。**下一次节点待 Summer 拍板**（调度层该 job 下次触发 2026-10-26，不会自动补跑）；缺失处置已定版：**方案 A（2026-10-10 拍板）——09-26 canonical 三件套按永久缺失收口，不补拉、不接付费数据源，留证目录保留**，权威记录见 `deploy/quarterly_review_task.md`「附：2026-09-26 执行结果处置记录」
 
 ## 快速开始
 

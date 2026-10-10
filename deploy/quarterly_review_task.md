@@ -171,3 +171,11 @@ drift、shadow 的 ADD/REDUCE/HOLD 计数）、样本 sha256 与 K 线指纹、*
 - 提交时只 `git add` 自己新建/改动的具体路径，**严禁 `git add -A`**（仓内有并行会话 WIP）。
 - 不新建周期性任务、不重注册 Windows 计划任务。
 - 输出不构成投资建议。
+
+## 附：2026-09-26 执行结果处置记录（2026-10-10 拍板 · 选 A）
+
+- **拍板**：Summer 2026-10-10 11:50（webchat 通道），对「09-26 canonical 三件套缺失如何处置」选择 **方案 A：承认缺口、登记收口**——不补拉、不接入付费数据源（含 Tushare）。同日重跑、配置 `TUSHARE_TOKEN`、顺延窗口等一切「补跑变体」均未采纳。
+- **事实定版**：2026-09-26 10:07 阶段 1 硬闸门 exit 1（`SNAPSHOT_INVALID` / stock_data_failures：28 只 688xxx 全部失败，其中 4 只东财 `RemoteDisconnected`、全部 28 只可见 `tushare:skip:TUSHARE_TOKEN 未配置`）；canonical 三件套 `samples_frozen_20260926.jsonl` / `.meta.json` / `kline_fingerprint_20260926.json` 从未发布，**本点亦永不补发**；留证目录 `forecast_outputs/freeze_failed_20260926_100743_stockfail/` 保留（不入库，本地留档）。
+- **引用规则**：此后任何分析、报告、回测引用 2026-09-26 冻结口径时，一律如实标注「09-26 canonical 三件套永久缺失（2026-10-10 拍板选 A）」；禁止以其他时点冻结件冒充本点。
+- **下一次节点**：本文件第零步日期守卫仍锁定 2026-09-26，10-26 起每次触发只会被守卫拒绝（零写操作）；若 Summer 决定设立下一个季度重估点（如 12-26），须另行拍板登记（含数据源与闸门方案），届时再修订本文件。
+- **日汇总联动**：本记录与 `output/daily_runs/2026-09-28.md` [09-26 季度重估] 小节的拍板续写同步落笔；「09-26 canonical 三件套仍缺」一项自本日起闭环，日汇总不再逐日提请。
