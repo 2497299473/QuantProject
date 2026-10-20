@@ -19,7 +19,14 @@
        RankIC cluster bootstrap CI）。
        ΔIC > +0.01 且 delta 侧 IC 正 → delta_stable（盘中变化量有增量）
        ΔIC ∈ [−0.01, +0.01] → delta_partial（无系统性增量，不加）
-       ΔIC < −0.01 → delta_fail（有损，禁止接入）
+       ΔIC < −0.01 且 CI 上界 < 0 → delta_fail（有损，禁止接入）
+       ΔIC < −0.01 但 CI 上界 ≥ 0 → delta_insufficient（点估计触线、方向未定，
+       证据不足，继续积累；v2 起不再直接判 fail）
+
+    修订记录（v2，2026-10-20，Summer 拍板）：fail 判据增加「CI 上界 < 0」同向条件。
+    起因：28 个交易日 / 88 条可评分样本上 ΔIC=−0.286、CI [−0.634, +0.119]，
+    按 v1 点估计规则被判 fail；样本不足时点估计容易误杀，故改为 CI 同向才定论，
+    否则记 delta_insufficient 继续积累。阈值（±0.01）与 delta_stable 判据未动。
     R4 防泄漏：标签统一用 backtest_spread.load_samples 的 fwd5（PIT 口径）；
        delta 只用当日已发生的历史快照（11:30/14:55 均早于 T+5 标签窗口）；
        训练切分沿用 split_date_oos 冻结口径，delta 特征只进 OOS 对照实验，
@@ -42,7 +49,7 @@ from core import forecast_engine                  # noqa: E402
 MIN_PAIRED_DAYS = 15          # 数据门槛：配对交易日数（≈3 周，对齐「2~4 周数据」口径）
 DELTA_IC_STABLE = 0.01        # ΔIC 上界：> +0.01 且 delta 侧 IC 正 → stable
 DELTA_IC_FAIL = -0.01         # ΔIC 下界：< −0.01 → fail
-VERDICT_VERSION = 1
+VERDICT_VERSION = 2          # v2（2026-10-20）：fail 需 CI 上界 < 0，否则 insufficient
 FEATURE_KEYS = list(forecast_engine.FEATURE_KEYS)
 
 
@@ -121,13 +128,20 @@ def verdict_for(delta_ic: float | None, delta_ic_ci: tuple[float, float] | None,
         return {"verdict": "pending", "rule_version": VERDICT_VERSION,
                 "reason": "数据门槛已过但 delta IC 未计算（回测未填充）"}
     lo = delta_ic_ci[0] if delta_ic_ci else delta_ic
+    hi = delta_ic_ci[1] if delta_ic_ci else None
     if delta_ic > DELTA_IC_STABLE and lo > 0:
         return {"verdict": "delta_stable", "rule_version": VERDICT_VERSION,
                 "reason": f"ΔIC={delta_ic:+.3f} CI[{lo:+.3f},...] 下界>0 且>+0.01："
                           f"盘中变化量有增量信息，可讨论接入"}
     if delta_ic < DELTA_IC_FAIL:
-        return {"verdict": "delta_fail", "rule_version": VERDICT_VERSION,
-                "reason": f"ΔIC={delta_ic:+.3f} < −0.01：加 delta 有损，禁止接入"}
+        hi_txt = "n/a" if hi is None else f"{hi:+.3f}"
+        if hi is not None and hi < 0:
+            return {"verdict": "delta_fail", "rule_version": VERDICT_VERSION,
+                    "reason": f"ΔIC={delta_ic:+.3f} < −0.01 且 CI 上界 {hi:+.3f} < 0："
+                              f"加 delta 有损，禁止接入"}
+        return {"verdict": "delta_insufficient", "rule_version": VERDICT_VERSION,
+                "reason": f"ΔIC={delta_ic:+.3f} < −0.01 但 CI 上界 {hi_txt} ≥ 0："
+                          f"点估计触线、方向未定，判证据不足，继续积累（v2 起不直接 fail）"}
     return {"verdict": "delta_partial", "rule_version": VERDICT_VERSION,
             "reason": f"ΔIC={delta_ic:+.3f} ∈ [−0.01, +0.01]：无系统性增量，不加"}
 

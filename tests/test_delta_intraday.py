@@ -110,8 +110,12 @@ class TestVerdict(unittest.TestCase):
         v = verdict_for(0.03, (-0.005, 0.06), MIN_PAIRED_DAYS)
         self.assertEqual(v["verdict"], "delta_partial")
 
-    def test_fail_when_negative(self):
+    def test_insufficient_when_point_negative_but_ci_crosses_zero(self):
         v = verdict_for(-0.02, (-0.04, 0.0), MIN_PAIRED_DAYS)
+        self.assertEqual(v["verdict"], "delta_insufficient")
+
+    def test_fail_when_point_and_ci_upper_both_negative(self):
+        v = verdict_for(-0.30, (-0.55, -0.05), MIN_PAIRED_DAYS)
         self.assertEqual(v["verdict"], "delta_fail")
 
     def test_partial_in_band(self):
