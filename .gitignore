@@ -39,3 +39,6 @@ output/sina_nav/
 forecast_outputs/
 
 .venv-lab/
+
+# graphify 知识图谱构建产物（graphify extract 生成，可再生，不入库）
+graphify-out/
