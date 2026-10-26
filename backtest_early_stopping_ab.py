@@ -102,9 +102,31 @@ def _xy(samples: list[dict], horizon: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _ranks(vals: np.ndarray) -> np.ndarray:
+    """平均秩（显式处理平局）——与 scipy.stats.spearmanr / pandas 同口径。
+
+    2026-10-26 修复（口径污染）：原实现给排序后的每一行顺序赋 0..n-1
+    （ordinal ranks），即用 `mergesort` 的稳定顺序**人为**破平局。本任务的
+    标签 y 是三分类（down/flat/up），flat 占比高 ⇒ 大量并列；ordinal 破平局
+    把「行在 (date, fund) 稳定排序中的位置」当成序信息，使 RankIC 掺入
+    位置伪相关，且该伪相关与模型无关（A/B/C 三轨同受污染）。
+
+    实测（同 OOS 段、同特征，2023-09-21）：
+      T+1 Δ(C−A) 由 ordinal 的 −0.0727 → 平均秩 −0.0018；
+      2025-03-21 T+5 甚至符号翻转（−0.0734 → +0.0927）。
+    ⇒ 修前「C 系统性更差」的强负读数是秩口径伪影，非早停策略效应。
+    """
+    vals = np.asarray(vals, dtype=float)
+    n = len(vals)
+    if n == 0:
+        return np.zeros(0, dtype=float)
     order = np.argsort(vals, kind="mergesort")
-    r = np.empty(len(vals), dtype=float)
-    r[order] = np.arange(len(vals), dtype=float)
+    s = vals[order]
+    # 并列区间取平均秩：np.unique 给出去重值与逆映射，按组求位置均值
+    _, inv, counts = np.unique(s, return_inverse=True, return_counts=True)
+    inv = np.ravel(inv)
+    avg = np.bincount(inv, weights=np.arange(n, dtype=float)) / counts
+    r = np.empty(n, dtype=float)
+    r[order] = avg[inv]
     return r
 
 
